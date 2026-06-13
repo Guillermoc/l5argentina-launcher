@@ -1,0 +1,63 @@
+name: release
+
+# Publica el .exe a GitHub Releases al pushear un tag vX.Y.Z (spec §9).
+# El bucket R2 NUNCA aloja el exe; sólo GitHub Releases.
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build single-exe (Release)
+        run: dotnet build src/L5ArgentinaLauncher.csproj -c Release --nologo
+
+      - name: Stage artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item src/bin/Release/net48/L5ArgentinaLauncher.exe dist/
+
+      # ----------------------------------------------------------------------------
+      # TODO(SignPath): firma de código gratuita para open source (spec §9).
+      # Configurar org/proyecto en https://signpath.io y los secrets SIGNPATH_*.
+      # Debe ir ACÁ — ANTES de calcular el SHA-256 — para que el hash publicado sea
+      # el del exe FIRMADO.
+      #
+      # - name: Sign with SignPath
+      #   uses: signpath/github-action-submit-signing-request@v1
+      #   with:
+      #     api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+      #     organization-id: ${{ secrets.SIGNPATH_ORG_ID }}
+      #     project-slug: l5argentina-launcher
+      #     signing-policy-slug: release-signing
+      #     artifact-configuration-slug: exe
+      #     wait-for-completion: true
+      #     output-artifact-directory: dist
+      # ----------------------------------------------------------------------------
+
+      - name: Compute SHA-256 (segundo canal de integridad)
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash dist/L5ArgentinaLauncher.exe -Algorithm SHA256).Hash.ToLower()
+          $h | Out-File -Encoding ascii -NoNewline dist/L5ArgentinaLauncher.exe.sha256.txt
+          Write-Host "SHA-256: $h"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/L5ArgentinaLauncher.exe
+            dist/L5ArgentinaLauncher.exe.sha256.txt
+          generate_release_notes: true

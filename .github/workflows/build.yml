@@ -1,0 +1,32 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build (Release)
+        run: dotnet build src/L5ArgentinaLauncher.csproj -c Release --nologo
+
+      # El self-test (manifest/hash/zip-slip/backups) sólo existe en Debug.
+      - name: Self-test (Debug)
+        shell: pwsh
+        run: |
+          dotnet build src/L5ArgentinaLauncher.csproj -c Debug --nologo
+          $exe = "src/bin/Debug/net48/L5ArgentinaLauncher.exe"
+          $report = "$env:RUNNER_TEMP/selftest.txt"
+          & $exe --selftest $report | Out-Null
+          $code = $LASTEXITCODE
+          Get-Content $report
+          if ($code -ne 0) { throw "Self-test falló" }

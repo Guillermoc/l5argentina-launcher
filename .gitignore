@@ -1,0 +1,31 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Pp]ublish/
+*.user
+*.suo
+
+# .NET / NuGet
+project.lock.json
+project.fragment.lock.json
+artifacts/
+.nuget/
+*.nupkg
+
+# VS / VS Code
+.vs/
+*.vsidx
+
+# OS
+Thumbs.db
+desktop.ini
+
+# Fody auto-generated schema (regenerated on build)
+**/FodyWeavers.xsd
+
+# Tooling artifacts dropped during setup
+dotnet-install.ps1
