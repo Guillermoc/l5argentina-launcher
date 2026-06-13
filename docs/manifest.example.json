@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "launcher": {
+    "latest_version": "1.0.0",
+    "notes": ""
+  },
+  "databases": [
+    {
+      "id": "community",
+      "label": "Base Comunidad — Samurai Extended",
+      "version": "2.0.1",
+      "file": "database-2.0.1.zip",
+      "sha256": "ea01fb5b3739520863172ff43ca90c7f7cbb4c453d21da667a4068e058dd6c80",
+      "size": 786191
+    }
+  ],
+  "images": {
+    "version": "1.0",
+    "file": "samuraiEx-1.0.zip",
+    "sha256": "cb3fa99a117f63e9723a90ab40296bded5c72fbf4b9b18f79926454355813b21",
+    "size": 346574
+  }
+}

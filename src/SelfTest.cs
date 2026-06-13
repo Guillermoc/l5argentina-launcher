@@ -156,6 +156,56 @@ namespace L5ArgentinaLauncher
             Assert(File.ReadAllText(dbXml).Contains("s_extended"), "Database: database.xml pisado con la base comunidad");
             Assert(CountFiles(AppConstants.BackupsDir) > backupsBefore, "Database: dejó backup timestamped antes de pisar");
             Assert(dbs.LooksLikeCommunityBase(install), "Database: ahora sí parece comunidad (s_extended)");
+
+            // ---------- ZipUtil: base comunidad comprimida (.zip con database.xml adentro) ----------
+            var dbZip = Path.Combine(tempRoot, "db.zip");
+            CreateZip(dbZip, new Dictionary<string, string> { { "database.xml", "<cards><card><legal>s_extended</legal></card></cards>" } });
+            var outXml = Path.Combine(tempRoot, "out.xml");
+            ZipUtil.ExtractSingleXml(dbZip, outXml);
+            Assert(File.Exists(outXml) && File.ReadAllText(outXml).Contains("s_extended"), "ZipUtil: extrae database.xml del zip");
+
+            // ---------- Opcional: e2e con archivos REALES del bucket ----------
+            // Se activa pasando L5A_SELFTEST_BUCKET=<carpeta con manifest.json + zips reales>.
+            var realBucket = Environment.GetEnvironmentVariable("L5A_SELFTEST_BUCKET");
+            if (!string.IsNullOrEmpty(realBucket) && File.Exists(Path.Combine(realBucket, "manifest.json")))
+                RunRealBucket(tempRoot, realBucket);
+        }
+
+        /// <summary>
+        /// e2e contra una copia local del bucket real (archivos de verdad): parsea el manifest,
+        /// descarga+verifica+extrae la base comunidad zippeada y sincroniza el pack de imágenes
+        /// sobre una instalación falsa.
+        /// </summary>
+        private static void RunRealBucket(string tempRoot, string bucketDir)
+        {
+            Line("");
+            Line("=== e2e con archivos REALES del bucket ===");
+            var manifestUrl = new Uri(Path.Combine(bucketDir, "manifest.json")).AbsoluteUri;
+
+            var install = Path.Combine(tempRoot, "realinstall");
+            var dbDir = Path.Combine(install, "Sun and Moon_Data", "StreamingAssets", "Database");
+            Directory.CreateDirectory(dbDir);
+            Directory.CreateDirectory(Path.Combine(install, "images"));
+            File.WriteAllText(Path.Combine(install, "Sun and Moon.exe"), "dummy");
+            File.WriteAllText(Path.Combine(dbDir, "database.xml"), "ORIGINAL-VANILLA");
+
+            var config = new UserConfig { ManifestUrl = manifestUrl, SunAndMoonPath = install };
+            var engine = new LauncherEngine(config);
+            engine.LoadManifestAsync().GetAwaiter().GetResult();
+
+            Assert(engine.CommunityEntry != null && engine.CommunityEntry.Version == "2.0.1",
+                "Real: manifest parsea la base comunidad 2.0.1");
+            Assert(engine.CommunityNeedsDownload(), "Real: comunidad necesita descarga");
+
+            engine.ApplyBaseAsync(LauncherEngine.CommunityId, null).GetAwaiter().GetResult();
+            var applied = File.ReadAllText(Path.Combine(dbDir, "database.xml"));
+            Assert(applied.Length > 1000000, "Real: database.xml aplicado (>1MB, base real descomprimida)");
+            Assert(applied.Contains("s_extended"), "Real: la base aplicada contiene s_extended");
+
+            Assert(engine.ImagesNeedSync(), "Real: imágenes necesitan sync");
+            engine.SyncImagesAsync(null).GetAwaiter().GetResult();
+            Assert(File.Exists(Path.Combine(install, "images", "cards", "SExMRP", "SEx002.jpg")),
+                "Real: imagen SEx002.jpg extraída a images/cards/SExMRP/");
         }
 
         // ---------- helpers ----------

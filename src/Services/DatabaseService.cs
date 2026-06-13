@@ -74,8 +74,13 @@ namespace L5ArgentinaLauncher.Services
             if (File.Exists(dbXml))
             {
                 Directory.CreateDirectory(AppConstants.BackupsDir);
-                var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                // Timestamp con milisegundos + contador de unicidad: dos aplicaciones en el mismo
+                // instante (p. ej. cambiar de base dos veces seguidas) no deben pisarse ni crashear.
+                var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff");
                 var backup = Path.Combine(AppConstants.BackupsDir, $"database.{stamp}.xml");
+                int i = 2;
+                while (File.Exists(backup))
+                    backup = Path.Combine(AppConstants.BackupsDir, $"database.{stamp}-{i++}.xml");
                 File.Copy(dbXml, backup, overwrite: false);
             }
 

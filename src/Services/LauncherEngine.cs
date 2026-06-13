@@ -84,6 +84,15 @@ namespace L5ArgentinaLauncher.Services
                 Config.CachedDatabases[CommunityId] = new CachedFile { Version = entry.Version, Sha256 = entry.Sha256 };
                 _configService.Save(Config);
             }
+
+            // La base puede venir como .zip (con el database.xml adentro) o como .xml crudo.
+            // El SHA-256 se verificó sobre lo descargado; si es zip, extraemos el xml para aplicarlo.
+            if (cachedPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                var xmlPath = Path.Combine(AppConstants.CacheDir, "community.applied.xml");
+                ZipUtil.ExtractSingleXml(cachedPath, xmlPath);
+                return xmlPath;
+            }
             return cachedPath;
         }
 
