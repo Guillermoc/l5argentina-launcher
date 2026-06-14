@@ -1,0 +1,99 @@
+# Backlog — L5Argentina Launcher
+
+Estado al día. Leyenda: ✅ hecho · ⏳ en curso/esperando · 🔜 próximo · ⬜ pendiente.
+
+Severidades del análisis de seguridad: **Alta / Media / Baja**.
+
+---
+
+## 1. Hardening de seguridad (del análisis estático)
+
+### SEC-1 — Firmar el `manifest.json` · **Alta** · ⬜
+**Problema:** el `sha256` de cada archivo vive en el mismo manifest que los referencia y el manifest
+**no está firmado**. Si se compromete el bucket (token R2 robado) o se convence al usuario de cambiar la
+URL del manifest, el atacante cambia archivo **y** hash a la vez y el launcher lo acepta. El hash solo
+protege integridad en tránsito / compromisos parciales, no un origen comprometido.
+Refs: `src/Services/ManifestService.cs` (fetch), `src/MainWindow.xaml.cs` (acepta cualquier manifest HTTPS).
+**Nota:** era un tradeoff documentado (spec §10: "bucket comprometido = datos falsos", acotado por
+"solo datos, nunca código" + 2FA). El daño tope hoy no es ejecución en el launcher, sino datos falsos
+escritos en Sun and Moon. Aun así es el mayor salto de seguridad disponible.
+**Fix propuesto:**
+- Firma **RSA** (nativa en net48; evita dependencias — Ed25519 requeriría BouncyCastle, +~2-3 MB).
+- Clave **privada offline** (NO en el repo ni en el pipeline de R2). Clave **pública embebida** en el exe.
+- Publicar `manifest.json` + `manifest.json.sig` (firma *detached*, base64) en el bucket.
+- En el launcher: bajar manifest + `.sig` (mismo confinamiento de origen) y **verificar la firma ANTES**
+  de deserializar/usar cualquier `sha256`. Si no valida → abortar (igual que hash inválido).
+- Entregables: `SigningService`/verificación en `ManifestService`, clave pública en `AppConstants`,
+  **script de firmado** para el mantenedor, actualizar README/SECURITY y el bucket.
+- Cierra de paso a **SEC-5** (URL arbitraria): solo se aceptan manifests firmados por tu clave.
+
+### SEC-2 — TLS solo 1.2 · **Media** · 🔜
+**Problema:** el código habilita TLS 1.2 **+ 1.1 + 1.0**, contradiciendo README/SECURITY ("TLS 1.2+").
+Ref: `src/App.xaml.cs:16`.
+**Fix:** `ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;` (no agregar Tls13: el enum
+no está garantizado en net48 y Cloudflare negocia 1.2). *Quick win.*
+
+### SEC-3 — Límites al descomprimir ZIP (anti zip-bomb) · **Media** · 🔜
+**Problema:** no hay topes de tamaño/entradas/ratio al extraer. El hash no protege (un zip-bomb tiene
+hash válido); un origen comprometido o un zip legítimo malicioso puede llenar disco / colgar la app.
+Refs: `src/Services/ImagePackService.cs`, `src/Services/ZipUtil.cs`.
+**Fix:** topes **duros en código** (no confiar en el `size` del manifest): tamaño total descomprimido,
+cantidad de entradas, tamaño por entrada y ratio de compresión; abortar si se exceden. *Quick win.*
+
+### SEC-4 — Base zip: exigir exactamente un `database.xml` · **Media** · 🔜
+**Problema:** `ZipUtil` toma el primer `.xml`; conviene validar que haya **uno solo** y que sea el esperado.
+Ref: `src/Services/ZipUtil.cs`.
+**Fix:** rechazar si hay 0 o >1 `.xml`. *Quick win (junto a SEC-3).*
+
+### SEC-5 — URL de manifest configurable a cualquier HTTPS · **Media/Baja** · ⬜
+**Problema:** alcanza con convencer al usuario de pegar otra URL "de soporte" para tomar control de los
+datos. Ref: `src/MainWindow.xaml.cs` (Configuración).
+**Fix:** **lo resuelve SEC-1** (solo manifests firmados por nuestra clave). Plan B si no se hace firma:
+warning fuerte / "modo avanzado" al cambiarla.
+
+### SEC-6 — Firmar el binario (SignPath) · **Baja** · ⏳
+**Problema:** exe sin firmar → SmartScreen "aplicación no reconocida". Reconocido en README/SECURITY.
+**Estado:** pipeline ya cableado condicional en `.github/workflows/release.yml`. Falta: cuenta SignPath
+Foundation (OSS, aprobación manual), secrets `SIGNPATH_API_TOKEN`/`SIGNPATH_ORGANIZATION_ID`, y ajustar
+los 3 slugs del workflow. Ver checklist en el README / conversación.
+
+---
+
+## 2. Operación / GitHub (toggles de la web — los hace el mantenedor)
+
+- ⬜ **2FA** en GitHub **y** Cloudflare (riesgo dominante del threat model, §10). Token R2 con scope mínimo.
+- ⬜ **Secret scanning + Push protection** (Settings → Code security and analysis).
+- ⬜ **Private vulnerability reporting** (para que funcione el botón del SECURITY.md).
+- ⬜ **Dependabot alerts + security updates** (el `dependabot.yml` ya está en el repo).
+- ⬜ **Branch protection** en `main` (force-push y deletions off; opcional: required check `build` + PRs).
+- ⬜ **SHA-256 del exe en segundo canal** (web/Discord) en cada release.
+
+---
+
+## 3. Producto / v2 (futuro)
+
+- ⬜ **Noticias y torneos**: definir formato de los `.md` + sección `news` del manifest; render markdown
+  → FlowDocument con Markdig (NUNCA WebView). Placeholder ya presente en UI. Ver `docs/NOTICIAS-FORMATO.md`.
+- ⬜ **Mantenimiento del manifest**: script para regenerar `manifest.json` (hash + size, y firma cuando
+  exista SEC-1) al publicar una base/imágenes nuevas.
+- ⬜ Histórico de versiones / changelog de la base (nice-to-have).
+
+---
+
+## 4. Hecho (referencia)
+
+- ✅ v1 funcional: detección, manifest, descarga + verificación SHA-256, HTTPS-only, confinamiento al
+  origen, zip-slip, backups (original + timestamp), aplicar base (incl. `.zip`), lanzar, aviso de update.
+- ✅ Rediseño visual (pergamino, ventana fija 810×540 3:2, overlays) + i18n (`Strings.resx`).
+- ✅ Self-test (34 checks) — verde local y en CI.
+- ✅ Repo público, MIT, README, SECURITY.md, dependabot.yml.
+- ✅ Release **v0.1.0** publicado (exe + sha256) vía GitHub Actions.
+- ✅ Manifest corregido subido al bucket.
+
+---
+
+## Orden sugerido
+
+1. **Quick wins:** SEC-2 (TLS) + SEC-3 (límites ZIP) + SEC-4 (un solo xml).
+2. **Feature principal:** SEC-1 (firma del manifest, RSA) — cierra también SEC-5.
+3. **En paralelo:** SEC-6 (SignPath) + toggles de §2.
