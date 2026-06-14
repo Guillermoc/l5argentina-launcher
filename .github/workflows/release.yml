@@ -2,6 +2,7 @@ name: release
 
 # Publica el .exe a GitHub Releases al pushear un tag vX.Y.Z (spec §9).
 # El bucket R2 NUNCA aloja el exe; sólo GitHub Releases.
+# Si SignPath está configurado (secret presente), el exe se firma; si no, sale sin firma.
 
 on:
   push:
@@ -13,6 +14,8 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    env:
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -29,23 +32,30 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item src/bin/Release/net48/L5ArgentinaLauncher.exe dist/
 
-      # ----------------------------------------------------------------------------
-      # TODO(SignPath): firma de código gratuita para open source (spec §9).
-      # Configurar org/proyecto en https://signpath.io y los secrets SIGNPATH_*.
-      # Debe ir ACÁ — ANTES de calcular el SHA-256 — para que el hash publicado sea
-      # el del exe FIRMADO.
-      #
-      # - name: Sign with SignPath
-      #   uses: signpath/github-action-submit-signing-request@v1
-      #   with:
-      #     api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-      #     organization-id: ${{ secrets.SIGNPATH_ORG_ID }}
-      #     project-slug: l5argentina-launcher
-      #     signing-policy-slug: release-signing
-      #     artifact-configuration-slug: exe
-      #     wait-for-completion: true
-      #     output-artifact-directory: dist
-      # ----------------------------------------------------------------------------
+      # ───────── Firma con SignPath (solo si el secret está cargado) ─────────
+      # Hasta configurar SignPath, estos pasos se saltan y el release sale sin firma.
+      - name: Upload unsigned artifact (para SignPath)
+        if: env.SIGNPATH_API_TOKEN != ''
+        id: unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-exe
+          path: dist/L5ArgentinaLauncher.exe
+
+      - name: Sign with SignPath
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          # TODO(SignPath): ajustar estos slugs a los que crees en tu proyecto de SignPath.
+          project-slug: l5argentina-launcher
+          signing-policy-slug: release-signing
+          artifact-configuration-slug: exe
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          # El artefacto firmado reemplaza al de dist/ antes de calcular el hash y publicar.
+          output-artifact-directory: dist
 
       - name: Compute SHA-256 (segundo canal de integridad)
         shell: pwsh
