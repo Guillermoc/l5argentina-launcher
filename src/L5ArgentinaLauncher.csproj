@@ -37,7 +37,7 @@
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
 
     <!-- Manifest/config parsing (Microsoft's current standard, chosen over Newtonsoft). -->
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="System.Text.Json" Version="10.0.9" />
 
     <!-- Single-exe packaging: embeds dependency DLLs as resources. -->
     <PackageReference Include="Costura.Fody" Version="5.7.0" PrivateAssets="all" />
