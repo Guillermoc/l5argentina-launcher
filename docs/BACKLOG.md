@@ -1,14 +1,24 @@
 # Backlog — L5Argentina Launcher
 
-Estado al día. Leyenda: ✅ hecho · ⏳ en curso/esperando · 🔜 próximo · ⬜ pendiente.
+Estado al día. Leyenda: ✅ hecho · ⏳ en curso/esperando · 🔜 próximo · ⬜ pendiente · ⏸️ diferido.
 
 Severidades del análisis de seguridad: **Alta / Media / Baja**.
+
+> **Decisión de priorización (modelo de amenaza del mantenedor):** lo crítico es que el launcher **no
+> comprometa la PC** del usuario — nada de ejecución de código, troyanos ni borrado de archivos — y eso
+> **ya está cubierto** (no descarga/ejecuta código, lanza el `.exe` del usuario, zip-slip, escrituras
+> acotadas con backups). El hardening que solo protege la **integridad de los datos** ante un bucket
+> comprometido (SEC-1/3/5) se **difiere**: el peor caso ahí es "datos falsos" (cartas/imágenes/que se
+> rompa), no compromiso de la máquina. Foco real: firmar el **exe** (SEC-6) + 2FA en las credenciales.
 
 ---
 
 ## 1. Hardening de seguridad (del análisis estático)
 
-### SEC-1 — Firmar el `manifest.json` · **Alta** · ⬜
+### SEC-1 — Firmar el `manifest.json` · **Alta (técnica)** · ⏸️ DIFERIDO
+**Decisión:** diferido. No es necesario para el modelo de amenaza (no habilita compromiso de la PC;
+el peor caso es datos falsos). Revisar si el bucket/pack se vuelve crítico o si lo opera más gente.
+
 **Problema:** el `sha256` de cada archivo vive en el mismo manifest que los referencia y el manifest
 **no está firmado**. Si se compromete el bucket (token R2 robado) o se convence al usuario de cambiar la
 URL del manifest, el atacante cambia archivo **y** hash a la vez y el launcher lo acepta. El hash solo
@@ -27,25 +37,26 @@ escritos en Sun and Moon. Aun así es el mayor salto de seguridad disponible.
   **script de firmado** para el mantenedor, actualizar README/SECURITY y el bucket.
 - Cierra de paso a **SEC-5** (URL arbitraria): solo se aceptan manifests firmados por tu clave.
 
-### SEC-2 — TLS solo 1.2 · **Media** · 🔜
-**Problema:** el código habilita TLS 1.2 **+ 1.1 + 1.0**, contradiciendo README/SECURITY ("TLS 1.2+").
-Ref: `src/App.xaml.cs:16`.
-**Fix:** `ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;` (no agregar Tls13: el enum
-no está garantizado en net48 y Cloudflare negocia 1.2). *Quick win.*
+### SEC-2 — TLS solo 1.2 · **Media** · ✅ HECHO
+`src/App.xaml.cs` ahora fija `SecurityProtocolType.Tls12` (antes habilitaba 1.1/1.0, contra los docs).
 
-### SEC-3 — Límites al descomprimir ZIP (anti zip-bomb) · **Media** · 🔜
+### SEC-3 — Límites al descomprimir ZIP (anti zip-bomb) · **Media** · ⏸️ DIFERIDO
+**Decisión:** diferido (baja prioridad). Solo previene DoS por zip-bomb (llenar disco/colgar) — molesto,
+no un compromiso. Barato de agregar si alguna vez molesta.
+
 **Problema:** no hay topes de tamaño/entradas/ratio al extraer. El hash no protege (un zip-bomb tiene
 hash válido); un origen comprometido o un zip legítimo malicioso puede llenar disco / colgar la app.
 Refs: `src/Services/ImagePackService.cs`, `src/Services/ZipUtil.cs`.
 **Fix:** topes **duros en código** (no confiar en el `size` del manifest): tamaño total descomprimido,
 cantidad de entradas, tamaño por entrada y ratio de compresión; abortar si se exceden. *Quick win.*
 
-### SEC-4 — Base zip: exigir exactamente un `database.xml` · **Media** · 🔜
-**Problema:** `ZipUtil` toma el primer `.xml`; conviene validar que haya **uno solo** y que sea el esperado.
-Ref: `src/Services/ZipUtil.cs`.
-**Fix:** rechazar si hay 0 o >1 `.xml`. *Quick win (junto a SEC-3).*
+### SEC-4 — Base zip: exigir exactamente un `database.xml` · **Media** · ✅ HECHO
+`src/Services/ZipUtil.cs` ahora rechaza si hay 0 o >1 `.xml` en la base.
 
-### SEC-5 — URL de manifest configurable a cualquier HTTPS · **Media/Baja** · ⬜
+### SEC-5 — URL de manifest configurable a cualquier HTTPS · **Media/Baja** · ⏸️ DIFERIDO
+**Decisión:** diferido. Queda con el warning actual; lo cerraría SEC-1 (también diferido). Riesgo real
+acotado: aun apuntando a otro origen, el peor caso es datos falsos, no compromiso de la PC.
+
 **Problema:** alcanza con convencer al usuario de pegar otra URL "de soporte" para tomar control de los
 datos. Ref: `src/MainWindow.xaml.cs` (Configuración).
 **Fix:** **lo resuelve SEC-1** (solo manifests firmados por nuestra clave). Plan B si no se hace firma:
@@ -94,6 +105,6 @@ los 3 slugs del workflow. Ver checklist en el README / conversación.
 
 ## Orden sugerido
 
-1. **Quick wins:** SEC-2 (TLS) + SEC-3 (límites ZIP) + SEC-4 (un solo xml).
-2. **Feature principal:** SEC-1 (firma del manifest, RSA) — cierra también SEC-5.
-3. **En paralelo:** SEC-6 (SignPath) + toggles de §2.
+1. ✅ **Quick wins hechos:** SEC-2 (TLS 1.2) + SEC-4 (un solo `database.xml`).
+2. **Foco actual:** SEC-6 (SignPath, esperando aprobación OSS) + toggles de §2 (2FA, secret scanning, etc.).
+3. **Diferidos** (revisar si cambia el modelo de amenaza): SEC-1, SEC-3, SEC-5.

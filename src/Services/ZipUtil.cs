@@ -17,15 +17,18 @@ namespace L5ArgentinaLauncher.Services
         {
             using (var archive = ZipFile.OpenRead(zipPath))
             {
-                var xml = archive.Entries.FirstOrDefault(e =>
+                var xmls = archive.Entries.Where(e =>
                     !string.IsNullOrEmpty(e.Name) &&
-                    e.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase));
+                    e.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)).ToList();
 
-                if (xml == null)
-                    throw new InvalidOperationException("El zip de la base no contiene ningún .xml.");
+                // La base debe traer exactamente UN .xml: ni cero (no es una base) ni varios
+                // (ambiguo / posible contenido inesperado). Se rechaza cualquier otro caso.
+                if (xmls.Count != 1)
+                    throw new InvalidOperationException(
+                        $"La base debe contener exactamente un .xml (encontrados: {xmls.Count}).");
 
                 Directory.CreateDirectory(Path.GetDirectoryName(destPath));
-                xml.ExtractToFile(destPath, overwrite: true);
+                xmls[0].ExtractToFile(destPath, overwrite: true);
             }
         }
     }

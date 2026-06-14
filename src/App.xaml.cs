@@ -11,10 +11,11 @@ namespace L5ArgentinaLauncher
     {
         protected override void OnStartup(StartupEventArgs e)
         {
-            // Seguridad (spec §8 regla 3): forzar TLS 1.2+ explícitamente. En .NET Framework
-            // el default histórico puede no negociar TLS 1.2 contra Cloudflare R2/Pages.
-            ServicePointManager.SecurityProtocol =
-                SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+            // Seguridad (spec §8 regla 3): forzar TLS 1.2 explícitamente y NADA por debajo.
+            // En .NET Framework el default histórico puede no negociar TLS 1.2 contra Cloudflare;
+            // se fija solo 1.2 (no 1.1/1.0) para coincidir con lo que documentamos. Cloudflare
+            // negocia 1.2 sin problema. (Tls13 no se usa: el enum no está garantizado en net48.)
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
             base.OnStartup(e);
 

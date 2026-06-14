@@ -1,0 +1,24 @@
+Consideraciones de seguridad del launcher
+Principio rector: el launcher solo descarga datos (XML/JSON/ZIP), nunca código. Sin auto-update del exe, sin plugins, sin navegador embebido. El peor caso de un bucket comprometido es "datos falsos", jamás ejecución de código.
+
+Integridad por SHA-256. Cada archivo descargado (la base .zip, el pack de imágenes) se verifica contra el hash del manifest después de bajar y antes de usarlo. Si no coincide, aborta y no deja el archivo final (se baja a un .part y recién se promueve si el hash da).
+
+HTTPS + TLS 1.2+. Se fuerza TLS 1.2+ al arranque y se rechaza http://. El escape para file:///localhost existe solo en build DEBUG (testing); en Release es estricto.
+
+Confinamiento al origen del manifest. Los file del manifest se resuelven como relativos a la URL del manifest, validando mismo esquema+host+puerto y que queden dentro de su directorio. Se rechazan URLs absolutas a otros dominios y los escapes con ../. Apuntar el manifest a otro origen cambia todo el origen de datos de forma coherente y visible, no permite mezclar.
+
+Protección zip-slip. Al extraer el pack de imágenes, por cada entrada se resuelve la ruta destino final y se verifica que caiga dentro de images\ antes de escribir; se rechazan ..\, rutas absolutas o cualquier escape.
+
+Link de actualización hardcodeado. El aviso "hay versión nueva" lleva a una URL embebida en el exe, nunca tomada del manifest. Así, un manifest comprometido no puede convertirse en vector de phishing hacia un exe malicioso.
+
+Escrituras acotadas + backups reversibles. Solo escribe en (a) la carpeta de Sun and Moon que el usuario configuró y (b) su %APPDATA%/%LOCALAPPDATA%. Antes de pisar el database.xml respalda la Original (primer arranque) y una copia con timestamp en cada cambio → siempre se puede revertir.
+
+URL del manifest configurable, pero con red de seguridad. Default hardcodeado a nuestro bucket; cambiarla es una acción explícita y visible; sigue exigiendo HTTPS y el confinamiento al origen. (Mitiga el riesgo de ingeniería social ampliado por hacerla editable.)
+
+XML tratado como blob opaco. El launcher no parsea la base para nada crítico (solo la copia/verifica). La heurística de "base ya modificada" del primer arranque es un escaneo de texto simple, no un parser.
+
+Escrituras atómicas de config (.tmp + replace) y descargas (.part + replace) para no dejar estados a medias.
+
+Canal de distribución endurecido. El exe va por GitHub Releases (requiere 2FA, deja historial/notificación), no por el bucket R2 (que se sobrescribe con un token sin rastro). Además se publica el SHA-256 del exe en un segundo canal → falsificarlo exige comprometer dos canales independientes.
+
+Verificación automatizada. El self-test (34 checks, corre en CI) cubre justamente lo crítico: hash correcto / mismatch que aborta / sin archivo residual, rechazo de origen ajeno y de ../, zip-slip rechazado, y los backups.
