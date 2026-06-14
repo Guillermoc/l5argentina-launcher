@@ -37,7 +37,7 @@ jobs:
       - name: Upload unsigned artifact (para SignPath)
         if: env.SIGNPATH_API_TOKEN != ''
         id: unsigned
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unsigned-exe
           path: dist/L5ArgentinaLauncher.exe
