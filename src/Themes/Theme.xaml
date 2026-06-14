@@ -1,138 +1,180 @@
+<!--
+  Theme.xaml — L5Argentina Launcher (WPF / .NET)
+  Rediseño visual: pergamino cálido (naranja), rojo lacado para acción/selección,
+  oro decorativo, tipografía de marca (L5RTitles). Sin modo claro.
+  Tokens y plantillas según docs/design/Theme.xaml + PROMPT.md.
+-->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- ====================================================================
-         Paleta — Guía de estilos L5Argentina (pergamino oscuro / Rokugán).
-         Estética: marrón casi negro, marfil cálido, rojo lacado, oro decorativo.
-         ==================================================================== -->
+    <!-- ══ COLORES (tokens) ══════════════════════════════════════════ -->
+    <!-- Pergamino: rampa de fondo -->
+    <Color x:Key="ParchHiColor">#FFCF9243</Color>
+    <Color x:Key="ParchMidColor">#FFA85F2B</Color>
+    <Color x:Key="ParchDarkColor">#FF6B391B</Color>
+    <Color x:Key="ParchDeepColor">#FF3F2210</Color>
 
-    <!-- Base -->
-    <Color x:Key="BackgroundDarkColor">#1B0A04</Color>
-    <Color x:Key="TextPrimaryColor">#F8E6C1</Color>
-    <Color x:Key="TextSecondaryColor">#BFA98A</Color>
-    <Color x:Key="AccentRedColor">#7B1C1C</Color>
-    <Color x:Key="AccentRedLightColor">#9E2E2E</Color>
-    <Color x:Key="AccentRedDarkColor">#5A1414</Color>
+    <!-- Superficies (paneles marrón oscuro sobre el pergamino) -->
+    <SolidColorBrush x:Key="Surface" Color="#FF2A1710" />
+    <SolidColorBrush x:Key="SurfaceGlass" Color="#DB22130B" />
+    <SolidColorBrush x:Key="SurfaceGlassSoft" Color="#BD28170D" />
 
-    <!-- Superficies -->
-    <Color x:Key="SurfaceDarkColor">#2A1008</Color>
-    <Color x:Key="SurfaceVariantColor">#3A1A0C</Color>
-    <Color x:Key="OutlineColorColor">#5A3020</Color>
+    <!-- Rojo lacado (selección + primario) -->
+    <SolidColorBrush x:Key="Red" Color="#FF7D1F1C" />
+    <SolidColorBrush x:Key="RedHi" Color="#FF9A2A26" />
+    <SolidColorBrush x:Key="RedLo" Color="#FF5C1412" />
+    <SolidColorBrush x:Key="RedAccent" Color="#FFC8161C" />
 
-    <!-- Inputs (invertidos: pergamino claro) -->
-    <Color x:Key="InputBackgroundColor">#F8E6C1</Color>
-    <Color x:Key="InputPlaceholderColor">#8A6A4A</Color>
+    <!-- Oro (decorativo + estado + bordes) -->
+    <SolidColorBrush x:Key="Gold" Color="#FFC9A961" />
+    <SolidColorBrush x:Key="GoldSoft" Color="#FFB1924F" />
+    <SolidColorBrush x:Key="GoldDim" Color="#FF7D6638" />
 
-    <!-- Oro decorativo -->
-    <Color x:Key="GoldAccentColor">#C9A961</Color>
-    <Color x:Key="GoldDimColor">#7A6432</Color>
-    <Color x:Key="HighlightGoldColor">#FFD700</Color>
+    <!-- Texto -->
+    <SolidColorBrush x:Key="Text" Color="#FFF5E6C8" />
+    <SolidColorBrush x:Key="TextDim" Color="#FFCDAE84" />
+    <SolidColorBrush x:Key="TextFaint" Color="#FF9A7C58" />
+    <SolidColorBrush x:Key="ErrorText" Color="#FFEC6A5E" />
 
-    <!-- Estado / utilidad -->
-    <Color x:Key="DisabledTextColor">#7A6A5A</Color>
-    <Color x:Key="BannedRedColor">#FF0000</Color>
-    <Color x:Key="DangerRedColor">#E57373</Color>
+    <!-- Líneas -->
+    <SolidColorBrush x:Key="Outline" Color="#FF5A3A22" />
+    <SolidColorBrush x:Key="OutlineSoft" Color="#3AC9A961" />
 
-    <!-- ===== Brushes ===== -->
-    <SolidColorBrush x:Key="BackgroundDark" Color="{StaticResource BackgroundDarkColor}" />
-    <SolidColorBrush x:Key="TextPrimary" Color="{StaticResource TextPrimaryColor}" />
-    <SolidColorBrush x:Key="TextSecondary" Color="{StaticResource TextSecondaryColor}" />
-    <SolidColorBrush x:Key="AccentRed" Color="{StaticResource AccentRedColor}" />
-    <SolidColorBrush x:Key="AccentRedLight" Color="{StaticResource AccentRedLightColor}" />
-    <SolidColorBrush x:Key="AccentRedDark" Color="{StaticResource AccentRedDarkColor}" />
-    <SolidColorBrush x:Key="SurfaceDark" Color="{StaticResource SurfaceDarkColor}" />
-    <SolidColorBrush x:Key="SurfaceVariant" Color="{StaticResource SurfaceVariantColor}" />
-    <SolidColorBrush x:Key="OutlineColor" Color="{StaticResource OutlineColorColor}" />
-    <SolidColorBrush x:Key="InputBackground" Color="{StaticResource InputBackgroundColor}" />
-    <SolidColorBrush x:Key="InputPlaceholder" Color="{StaticResource InputPlaceholderColor}" />
-    <SolidColorBrush x:Key="GoldAccent" Color="{StaticResource GoldAccentColor}" />
-    <SolidColorBrush x:Key="GoldDim" Color="{StaticResource GoldDimColor}" />
-    <SolidColorBrush x:Key="HighlightGold" Color="{StaticResource HighlightGoldColor}" />
-    <SolidColorBrush x:Key="DisabledText" Color="{StaticResource DisabledTextColor}" />
-    <SolidColorBrush x:Key="BannedRed" Color="{StaticResource BannedRedColor}" />
-    <SolidColorBrush x:Key="DangerRed" Color="{StaticResource DangerRedColor}" />
+    <!-- Input invertido (pergamino claro, texto oscuro) -->
+    <SolidColorBrush x:Key="InputText" Color="#FF2C1810" />
+    <SolidColorBrush x:Key="InputPlace" Color="#FF937A52" />
+    <SolidColorBrush x:Key="InputBorder" Color="#FFB89A63" />
 
-    <!-- ===== Tipografía ===== -->
-    <!-- L5RTitles: chrome de UI, títulos, labels de botón. Cuerpo: sans del sistema. -->
-    <FontFamily x:Key="BrandFont">pack://application:,,,/Assets/Fonts/#L5RTitles</FontFamily>
+    <!-- ══ FONDO PERGAMINO (rampa radial + textura + viñeta) ═════════ -->
+    <RadialGradientBrush x:Key="ParchmentBackground"
+        GradientOrigin="0.32,0.08" Center="0.32,0.08" RadiusX="1.2" RadiusY="0.95">
+        <GradientStop Color="{StaticResource ParchHiColor}" Offset="0.0" />
+        <GradientStop Color="{StaticResource ParchMidColor}" Offset="0.34" />
+        <GradientStop Color="{StaticResource ParchDarkColor}" Offset="0.72" />
+        <GradientStop Color="{StaticResource ParchDeepColor}" Offset="1.0" />
+    </RadialGradientBrush>
+
+    <!-- Nuestro background (pergamino con follaje) sobre la rampa. Alineado arriba para que
+         el follaje superior-derecho se vea; opacidad media para que se note sin tapar la UI. -->
+    <ImageBrush x:Key="PaperOverlayBrush"
+                ImageSource="pack://application:,,,/Assets/background.png"
+                Stretch="UniformToFill" AlignmentY="Top" Opacity="0.45">
+        <!-- Espejado horizontal: el follaje de la derecha pasa a la izquierda. -->
+        <ImageBrush.RelativeTransform>
+            <ScaleTransform CenterX="0.5" CenterY="0.5" ScaleX="-1" ScaleY="1" />
+        </ImageBrush.RelativeTransform>
+    </ImageBrush>
+
+    <!-- Scrim: capa de oscurecimiento uniforme sobre el fondo (rampa+textura) para que el texto
+         claro lea bien. Subí/bajá el alfa (los 2 primeros dígitos del color) para más/menos oscuro. -->
+    <SolidColorBrush x:Key="BackgroundScrim" Color="#66140A05" />
+
+    <!-- Viñeteado: oscurece los bordes con negro cálido. -->
+    <RadialGradientBrush x:Key="VignetteBrush"
+        GradientOrigin="0.5,0.42" Center="0.5,0.42" RadiusX="0.78" RadiusY="0.85">
+        <GradientStop Color="#00140A05" Offset="0.45" />
+        <GradientStop Color="#00140A05" Offset="0.68" />
+        <GradientStop Color="#66140A05" Offset="1.0" />
+    </RadialGradientBrush>
+
+    <!-- ══ TIPOGRAFÍA ════════════════════════════════════════════════ -->
+    <FontFamily x:Key="BrushFont">pack://application:,,,/Assets/Fonts/#L5RTitles</FontFamily>
     <FontFamily x:Key="BodyFont">Segoe UI</FontFamily>
 
-    <!-- ===== Texturas de fondo ===== -->
-    <ImageBrush x:Key="ParchmentBackground"
-                ImageSource="pack://application:,,,/Assets/background.png"
-                Stretch="UniformToFill" />
-
-    <!-- ====================================================================
-         Estilos de TextBlock (mapeo de la escala tipográfica de la guía)
-         ==================================================================== -->
-    <Style x:Key="HeadlineMedium" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource BrandFont}" />
-        <Setter Property="FontSize" Value="30" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
-        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
+    <!-- Estilos de texto reutilizables -->
+    <Style x:Key="AppTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BrushFont}" />
+        <Setter Property="FontSize" Value="36" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
     </Style>
-
-    <Style x:Key="TitleMedium" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource BrandFont}" />
-        <Setter Property="FontSize" Value="18" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
-    </Style>
-
     <Style x:Key="SectionHeader" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource BrandFont}" />
-        <Setter Property="FontSize" Value="16" />
-        <Setter Property="Foreground" Value="{StaticResource GoldAccent}" />
+        <Setter Property="FontFamily" Value="{StaticResource BrushFont}" />
+        <Setter Property="FontSize" Value="19" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource GoldSoft}" />
     </Style>
-
-    <Style x:Key="BodyMedium" TargetType="TextBlock">
+    <Style x:Key="CardTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BrushFont}" />
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+    </Style>
+    <Style x:Key="Body" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="Foreground" Value="{StaticResource TextDim}" />
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
-
     <Style x:Key="BodySmall" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
-        <Setter Property="FontSize" Value="13" />
-        <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
-    <!-- ====================================================================
-         Botón primario (rojo lacado) — acción/selección
-         ==================================================================== -->
+    <!-- ══ BOTÓN PRIMARIO (rojo lacado) ══════════════════════════════ -->
     <Style x:Key="PrimaryButton" TargetType="Button">
-        <Setter Property="FontFamily" Value="{StaticResource BrandFont}" />
-        <Setter Property="FontSize" Value="18" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
-        <Setter Property="Background" Value="{StaticResource AccentRed}" />
-        <Setter Property="Padding" Value="20,10" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="FontFamily" Value="{StaticResource BrushFont}" />
+        <Setter Property="FontSize" Value="19" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Height" Value="42" />
+        <Setter Property="Padding" Value="26,0" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="SnapsToDevicePixels" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="bd"
-                            Background="{TemplateBinding Background}"
-                            CornerRadius="8"
-                            BorderBrush="{StaticResource OutlineColor}"
-                            BorderThickness="1"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
+                    <!-- La sombra va en un borde detrás; el texto va encima sin Effect (mantiene ClearType). -->
+                    <Grid>
+                        <Border x:Name="bd" CornerRadius="8" BorderThickness="1" BorderBrush="{StaticResource Gold}">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#FF9A2A26" Offset="0" />
+                                    <GradientStop Color="#FF7D1F1C" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="18" ShadowDepth="6" Opacity="0.45" Color="Black" />
+                            </Border.Effect>
+                        </Border>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Margin="{TemplateBinding Padding}" />
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentRedLight}" />
+                            <Setter TargetName="bd" Property="BorderBrush" Value="#FFE6C878" />
+                            <Setter TargetName="bd" Property="Background">
+                                <Setter.Value>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#FFAB322D" Offset="0" />
+                                        <GradientStop Color="#FF9A2A26" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Setter.Value>
+                            </Setter>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentRedDark}" />
+                            <Setter TargetName="bd" Property="Background">
+                                <Setter.Value>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#FF5C1412" Offset="0" />
+                                        <GradientStop Color="#FF4A1110" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="Foreground" Value="{StaticResource TextDim}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource SurfaceVariant}" />
-                            <Setter Property="Foreground" Value="{StaticResource DisabledText}" />
-                            <Setter Property="Cursor" Value="Arrow" />
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Outline}" />
+                            <Setter TargetName="bd" Property="Effect" Value="{x:Null}" />
+                            <Setter TargetName="bd" Property="Background">
+                                <Setter.Value>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#FF41271D" Offset="0" />
+                                        <GradientStop Color="#FF341D14" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="Foreground" Value="#52F5E6C8" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -140,19 +182,87 @@
         </Setter>
     </Style>
 
-    <!-- Tarjeta de selección de base (RadioButton con apariencia de chip/card).
-         Seleccionada = rojo lacado + borde oro; no seleccionada = SurfaceVariant + outline. -->
-    <Style x:Key="BaseCard" TargetType="RadioButton">
-        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+    <Style x:Key="PrimaryButtonLarge" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+        <Setter Property="Height" Value="64" />
+        <Setter Property="Padding" Value="54,0" />
+        <Setter Property="FontSize" Value="36" />
+    </Style>
+
+    <!-- ══ BOTÓN SECUNDARIO "GHOST" ══════════════════════════════════ -->
+    <Style x:Key="GhostButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="FontFamily" Value="{StaticResource BrushFont}" />
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="Padding" Value="20,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Background" Value="{StaticResource SurfaceGlassSoft}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" CornerRadius="7" Background="{TemplateBinding Background}"
+                            BorderThickness="1" BorderBrush="#47C9A961" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+                            <Setter TargetName="bd" Property="Background" Value="#E536200F" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Outline}" />
+                            <Setter Property="Foreground" Value="#4DF5E6C8" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ══ INPUT INVERTIDO (pergamino claro) ═════════════════════════ -->
+    <Style x:Key="InvertedTextBox" TargetType="TextBox">
+        <Setter Property="Foreground" Value="{StaticResource InputText}" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CaretBrush" Value="{StaticResource InputText}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="bd" CornerRadius="6" BorderThickness="1" BorderBrush="{StaticResource InputBorder}">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Color="#FFF0E2BF" Offset="0" />
+                                <GradientStop Color="#FFE8D6AD" Offset="1" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="0" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+                        </Trigger>
+                        <Trigger Property="Tag" Value="invalid">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource RedAccent}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ══ TARJETA DE BASE (RadioButton estilizado) ══════════════════ -->
+    <Style x:Key="BaseCardRadio" TargetType="RadioButton">
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="VerticalAlignment" Value="Stretch" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="bd" CornerRadius="12" BorderThickness="1"
-                            Background="{StaticResource SurfaceVariant}"
-                            BorderBrush="{StaticResource OutlineColor}"
-                            Padding="18,16">
+                    <Border x:Name="bd" CornerRadius="10" Padding="18,16,20,18" MinHeight="138"
+                            Background="{StaticResource SurfaceGlass}" BorderThickness="1" BorderBrush="#38C9A961">
                         <ContentPresenter />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -160,11 +270,24 @@
                             <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource GoldDim}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentRed}" />
-                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource GoldAccent}" />
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+                            <Setter TargetName="bd" Property="BorderThickness" Value="1.6" />
+                            <Setter TargetName="bd" Property="Background">
+                                <Setter.Value>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0.4,1">
+                                        <GradientStop Color="#EB7D1F1C" Offset="0" />
+                                        <GradientStop Color="#EB5C1412" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Setter.Value>
+                            </Setter>
+                            <!-- Sin DropShadowEffect: aplicar un Effect al contenedor rasteriza el
+                                 subtree y pierde ClearType (el texto se ve borroso). El relleno rojo
+                                 + el borde oro más grueso ya marcan la selección. -->
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="bd" Property="Opacity" Value="0.45" />
+                            <Setter TargetName="bd" Property="Opacity" Value="0.62" />
+                            <Setter TargetName="bd" Property="Background" Value="#992A1710" />
+                            <Setter TargetName="bd" Property="BorderBrush" Value="#805A3A22" />
                             <Setter Property="Cursor" Value="Arrow" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -173,38 +296,86 @@
         </Setter>
     </Style>
 
-    <!-- Botón secundario (ghost): borde, sin relleno fuerte -->
-    <Style x:Key="GhostButton" TargetType="Button">
-        <Setter Property="FontFamily" Value="{StaticResource BrandFont}" />
-        <Setter Property="FontSize" Value="15" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
-        <Setter Property="Background" Value="{StaticResource SurfaceVariant}" />
-        <Setter Property="Padding" Value="14,8" />
+    <!-- ══ BARRA DE PROGRESO ═════════════════════════════════════════ -->
+    <Style x:Key="LProgressBar" TargetType="ProgressBar">
+        <Setter Property="Height" Value="6" />
+        <Setter Property="Foreground" Value="{StaticResource RedHi}" />
+        <Setter Property="Background" Value="#99140A05" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Border CornerRadius="3" Background="#99140A05" ClipToBounds="True">
+                        <Grid>
+                            <Border x:Name="PART_Track" />
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="3">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#FF7D1F1C" Offset="0" />
+                                        <GradientStop Color="#FF9A2A26" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ══ BOTÓN DE TITLE BAR (minimizar / cerrar) ═══════════════════ -->
+    <Style x:Key="CaptionButton" TargetType="Button">
+        <Setter Property="Width" Value="44" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+        <Setter Property="FontSize" Value="16" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="bd"
-                            Background="{TemplateBinding Background}"
-                            CornerRadius="6"
-                            BorderBrush="{StaticResource OutlineColor}"
-                            BorderThickness="1"
-                            Padding="{TemplateBinding Padding}">
+                    <Border x:Name="bd" Background="Transparent">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource SurfaceDark}" />
-                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource GoldDim}" />
-                        </Trigger>
-                        <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Foreground" Value="{StaticResource DisabledText}" />
-                            <Setter Property="Cursor" Value="Arrow" />
+                            <Setter TargetName="bd" Property="Background" Value="#33C9A961" />
+                            <Setter Property="Foreground" Value="{StaticResource Text}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <Style x:Key="CaptionCloseButton" TargetType="Button" BasedOn="{StaticResource CaptionButton}">
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="{StaticResource Text}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Link de texto (oro subrayado) -->
+    <Style x:Key="GoldLink" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource Gold}" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <TextBlock Text="{TemplateBinding Content}" TextDecorations="Underline"
+                               Foreground="{TemplateBinding Foreground}" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="#FFE6C878" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
 </ResourceDictionary>

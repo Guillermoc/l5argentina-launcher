@@ -2,56 +2,105 @@
     x:Class="L5ArgentinaLauncher.Views.FirstRunWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="Configuración inicial — L5Argentina Launcher"
-    Width="600" Height="460"
+    xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+    xmlns:loc="clr-namespace:L5ArgentinaLauncher.Resources"
+    Title="{loc:Loc FirstRun_Title}"
+    Width="720" Height="574"
+    ResizeMode="NoResize" WindowStyle="None"
     WindowStartupLocation="CenterScreen"
-    ResizeMode="NoResize"
-    Background="{StaticResource ParchmentBackground}">
+    Background="{StaticResource ParchmentBackground}"
+    Icon="pack://application:,,,/Assets/icon.png">
 
-    <Grid Margin="28">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="44" CornerRadius="0" GlassFrameThickness="0"
+                            ResizeBorderThickness="0" UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
-            <Image Source="pack://application:,,,/Assets/logo_icon.png" Width="48" Height="48" Margin="0,0,14,0" />
-            <TextBlock Text="Primer arranque" Style="{StaticResource HeadlineMedium}" VerticalAlignment="Center" />
-        </StackPanel>
+    <Grid>
+        <Rectangle Fill="{StaticResource PaperOverlayBrush}" IsHitTestVisible="False" />
+        <Rectangle Fill="{StaticResource VignetteBrush}" IsHitTestVisible="False" />
+        <Rectangle Fill="{StaticResource BackgroundScrim}" IsHitTestVisible="False" />
+        <Border BorderBrush="#552A1710" BorderThickness="1" IsHitTestVisible="False" />
 
-        <TextBlock Grid.Row="1" Style="{StaticResource BodyMedium}" Margin="0,0,0,18">
-            Indicá dónde está instalado <Run FontWeight="Bold">Sun and Moon</Run>. Elegí el archivo
-            <Run FontWeight="Bold">Sun and Moon.exe</Run> dentro de su carpeta de instalación.
-            El launcher guardará una copia de seguridad de tu base actual como tu base
-            <Run FontWeight="Bold">Original</Run>.
-        </TextBlock>
+        <Grid Margin="36,30,36,28">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-        <Border Grid.Row="2" VerticalAlignment="Top"
-                Background="{StaticResource SurfaceDark}" CornerRadius="12"
-                BorderBrush="{StaticResource OutlineColor}" BorderThickness="1" Padding="18">
-            <StackPanel>
-                <TextBlock Text="Carpeta de Sun and Moon" Style="{StaticResource SectionHeader}" Margin="0,0,0,8" />
-                <Border Background="{StaticResource InputBackground}" CornerRadius="6" Padding="10,8" Margin="0,0,0,12">
-                    <TextBlock x:Name="PathText" Text="(sin seleccionar)"
-                               Foreground="{StaticResource InputPlaceholder}" FontFamily="Segoe UI"
-                               TextTrimming="CharacterEllipsis" />
-                </Border>
-                <Button x:Name="BrowseButton" Content="Elegir Sun and Moon.exe…"
-                        Style="{StaticResource GhostButton}" HorizontalAlignment="Left"
-                        Click="BrowseButton_Click" />
-                <TextBlock x:Name="ValidationText" Style="{StaticResource BodySmall}"
-                           Foreground="{StaticResource DangerRed}" Margin="0,12,0,0"
-                           Visibility="Collapsed" TextWrapping="Wrap" />
+            <!-- Header -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,18">
+                <Image Source="pack://application:,,,/Assets/icon.png" Width="46" Height="46" Margin="0,0,16,0" />
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{loc:Loc FirstRun_Title}" Style="{StaticResource AppTitle}" />
+                    <TextBlock Text="{loc:Loc FirstRun_Subtitle}" Style="{StaticResource Body}" Margin="2,1,0,0" />
+                </StackPanel>
             </StackPanel>
-        </Border>
 
-        <Grid Grid.Row="3" Margin="0,18,0,0">
-            <Button x:Name="CancelButton" Content="Cancelar" Style="{StaticResource GhostButton}"
-                    HorizontalAlignment="Left" MinWidth="110" Click="CancelButton_Click" />
-            <Button x:Name="ContinueButton" Content="CONTINUAR" Style="{StaticResource PrimaryButton}"
-                    HorizontalAlignment="Right" MinWidth="160" IsEnabled="False" Click="ContinueButton_Click" />
+            <!-- Texto -->
+            <TextBlock Grid.Row="1" Style="{StaticResource Body}" Margin="0,0,0,20" LineHeight="24"
+                       Text="{loc:Loc FirstRun_Explain}" />
+
+            <!-- Panel: carpeta -->
+            <Border Grid.Row="2" Background="{StaticResource SurfaceGlass}" CornerRadius="11"
+                    BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1" Padding="20">
+                <StackPanel>
+                    <TextBlock Text="{loc:Loc Settings_FolderLabel}" Style="{StaticResource SectionHeader}" FontSize="17" Margin="0,0,0,9" />
+                    <TextBox x:Name="PathBox" Style="{StaticResource InvertedTextBox}" IsReadOnly="True"
+                             Text="{loc:Loc FirstRun_NotSelected}" Margin="0,0,0,12" />
+                    <Button x:Name="BrowseButton" Content="{loc:Loc FirstRun_ChooseExe}" Style="{StaticResource GhostButton}"
+                            HorizontalAlignment="Left" Click="BrowseButton_Click" />
+                    <StackPanel x:Name="ValidationPanel" Orientation="Horizontal" Margin="0,14,0,0" Visibility="Collapsed">
+                        <Border Width="18" Height="18" CornerRadius="9" Background="#22C8161C"
+                                BorderBrush="{StaticResource RedAccent}" BorderThickness="1" Margin="0,1,8,0">
+                            <TextBlock Text="!" Foreground="{StaticResource ErrorText}" FontWeight="Bold" FontSize="12"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock x:Name="ValidationText" Style="{StaticResource BodySmall}" Foreground="{StaticResource ErrorText}"
+                                   MaxWidth="560" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Footer -->
+            <Grid Grid.Row="4">
+                <Button x:Name="CancelButton" Content="{loc:Loc Btn_Cancel}" Style="{StaticResource GhostButton}"
+                        HorizontalAlignment="Left" MinWidth="120" Click="CancelButton_Click" />
+                <Button x:Name="ContinueButton" Content="{loc:Loc Btn_Continue}" Style="{StaticResource PrimaryButton}"
+                        HorizontalAlignment="Right" MinWidth="170" IsEnabled="False" Click="ContinueButton_Click" />
+            </Grid>
+        </Grid>
+
+        <!-- Overlay: advertencia "base modificada" -->
+        <Grid x:Name="WarnOverlay" Visibility="Collapsed" Panel.ZIndex="100">
+            <Rectangle Fill="#990C0703" />
+            <Border Width="460" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Background="{StaticResource Surface}" CornerRadius="12"
+                    BorderBrush="{StaticResource Gold}" BorderThickness="1.4" Padding="26">
+                <Border.Effect><DropShadowEffect BlurRadius="40" ShadowDepth="0" Opacity="0.7" Color="Black" /></Border.Effect>
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <Border Width="40" Height="40" CornerRadius="20" Margin="0,0,14,0"
+                                BorderBrush="{StaticResource Gold}" BorderThickness="1.5" Background="#22C9A961">
+                            <TextBlock Text="!" FontFamily="{StaticResource BrushFont}" FontSize="22"
+                                       Foreground="{StaticResource Gold}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="{loc:Loc Warn_ModifiedBaseTitle}" Style="{StaticResource CardTitle}" FontSize="24"
+                                   VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="320" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource Body}" Foreground="{StaticResource TextDim}"
+                               Text="{loc:Loc Warn_ModifiedBaseMsg}" />
+                    <Grid Margin="0,22,0,0">
+                        <Button x:Name="WarnNoButton" Content="{loc:Loc Btn_No}" Style="{StaticResource GhostButton}"
+                                HorizontalAlignment="Left" MinWidth="110" Click="WarnNo_Click" />
+                        <Button x:Name="WarnYesButton" Content="{loc:Loc Btn_YesContinue}" Style="{StaticResource PrimaryButton}"
+                                HorizontalAlignment="Right" MinWidth="150" Click="WarnYes_Click" />
+                    </Grid>
+                </StackPanel>
+            </Border>
         </Grid>
     </Grid>
 </Window>

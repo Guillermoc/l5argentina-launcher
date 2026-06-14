@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using L5ArgentinaLauncher.Models;
+using L5ArgentinaLauncher.Resources;
 using L5ArgentinaLauncher.Services;
 
 namespace L5ArgentinaLauncher.Views
@@ -37,16 +38,17 @@ namespace L5ArgentinaLauncher.Views
             var dir = Path.GetDirectoryName(dlg.FileName);
             if (!InstallationService.IsValidInstall(dir))
             {
-                ShowValidation("Esa carpeta no parece una instalación válida de Sun and Moon " +
-                               "(falta Sun and Moon.exe o la carpeta StreamingAssets\\Database).");
+                ShowValidation(Strings.Get("FirstRun_FolderInvalid"));
                 ContinueButton.IsEnabled = false;
+                PathBox.Tag = "invalid";
                 return;
             }
 
             _selectedPath = dir;
-            PathText.Text = dir;
-            PathText.Foreground = (Brush)FindResource("TextPrimary");
-            ValidationText.Visibility = Visibility.Collapsed;
+            PathBox.Text = dir;
+            PathBox.Foreground = (Brush)FindResource("InputText");
+            PathBox.Tag = null;
+            ValidationPanel.Visibility = Visibility.Collapsed;
             ContinueButton.IsEnabled = true;
         }
 
@@ -54,19 +56,29 @@ namespace L5ArgentinaLauncher.Views
         {
             if (string.IsNullOrEmpty(_selectedPath)) return;
 
-            // Advertencia: si la base actual ya parece comunidad/modificada, el backup "original"
-            // no sería limpio (spec §7).
+            // Si la base actual ya parece comunidad/modificada, el backup "original" no sería
+            // limpio (spec §7): pedir confirmación con un overlay (no MessageBox).
             if (_databaseService.LooksLikeCommunityBase(_selectedPath))
             {
-                var r = MessageBox.Show(this,
-                    "El database.xml actual parece una base de comunidad o modificada.\n\n" +
-                    "Si continuás, esa será la copia que se guarde como tu base \"Original\", y no será " +
-                    "una base original limpia. Lo ideal es capturarla sobre una instalación recién bajada " +
-                    "de Sun and Moon.\n\n¿Querés continuar igual?",
-                    "Base posiblemente modificada", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (r != MessageBoxResult.Yes) return;
+                WarnOverlay.Visibility = Visibility.Visible;
+                return;
             }
+            DoContinue();
+        }
 
+        private void WarnYes_Click(object sender, RoutedEventArgs e)
+        {
+            WarnOverlay.Visibility = Visibility.Collapsed;
+            DoContinue();
+        }
+
+        private void WarnNo_Click(object sender, RoutedEventArgs e)
+        {
+            WarnOverlay.Visibility = Visibility.Collapsed;
+        }
+
+        private void DoContinue()
+        {
             try
             {
                 _config.SunAndMoonPath = _selectedPath;
@@ -76,7 +88,7 @@ namespace L5ArgentinaLauncher.Views
             }
             catch (Exception ex)
             {
-                ShowValidation("No se pudo guardar la configuración inicial: " + ex.Message);
+                ShowValidation(Strings.Format("Fmt_FirstRun_SaveError", ex.Message));
                 return;
             }
 
@@ -93,7 +105,7 @@ namespace L5ArgentinaLauncher.Views
         private void ShowValidation(string message)
         {
             ValidationText.Text = message;
-            ValidationText.Visibility = Visibility.Visible;
+            ValidationPanel.Visibility = Visibility.Visible;
         }
     }
 }

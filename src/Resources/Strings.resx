@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- ══════════ Comunes ══════════ -->
+  <data name="Common_NotConfigured" xml:space="preserve"><value>(sin configurar)</value></data>
+  <data name="Btn_Cancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="Btn_Save" xml:space="preserve"><value>GUARDAR</value></data>
+  <data name="Btn_Close" xml:space="preserve"><value>Cerrar</value></data>
+  <data name="Dialog_OpenExeTitle" xml:space="preserve"><value>Elegí Sun and Moon.exe</value></data>
+  <data name="Dialog_ExeFilter" xml:space="preserve"><value>Sun and Moon (Sun and Moon.exe)|Sun and Moon.exe|Ejecutables (*.exe)|*.exe</value></data>
+
+  <!-- ══════════ Ventana principal ══════════ -->
+  <data name="TitleBar_Title" xml:space="preserve"><value>L5Argentina Launcher</value></data>
+  <data name="Header_Subtitle" xml:space="preserve"><value>Legend of the Five Rings · Sun and Moon</value></data>
+  <data name="Btn_CheckUpdates" xml:space="preserve"><value>Buscar actualizaciones</value></data>
+  <data name="Btn_Settings" xml:space="preserve"><value>Configuración</value></data>
+  <data name="Banner_Default" xml:space="preserve"><value>Hay una versión nueva del launcher.</value></data>
+  <data name="Btn_GoToDownloads" xml:space="preserve"><value>Ir a descargas</value></data>
+  <data name="Section_ChooseBase" xml:space="preserve"><value>Elegí con qué base jugar</value></data>
+  <data name="Card_CommunityTitle" xml:space="preserve"><value>Comunidad L5Argentina</value></data>
+  <data name="Card_CommunityDesc" xml:space="preserve"><value>Base curada Samurai Extended</value></data>
+  <data name="Card_OriginalTitle" xml:space="preserve"><value>Original Sun and Moon</value></data>
+  <data name="Card_OriginalDesc" xml:space="preserve"><value>Base Kamisasori sin nuestras modificaciones</value></data>
+  <data name="Card_OriginalStatusDefault" xml:space="preserve"><value>Respaldo local del primer arranque</value></data>
+  <data name="Label_OwnImages" xml:space="preserve"><value>Imágenes Samurai Extended:</value></data>
+  <data name="Section_News" xml:space="preserve"><value>Noticias y torneos</value></data>
+  <data name="News_Placeholder" xml:space="preserve"><value>Próximamente: novedades de la comunidad e info de torneos.</value></data>
+  <data name="Btn_Play" xml:space="preserve"><value>JUGAR</value></data>
+  <data name="Status_Initializing" xml:space="preserve"><value>Inicializando…</value></data>
+  <data name="Value_Dash" xml:space="preserve"><value>—</value></data>
+
+  <!-- ══════════ Configuración ══════════ -->
+  <data name="Settings_Title" xml:space="preserve"><value>Configuración</value></data>
+  <data name="Settings_FolderLabel" xml:space="preserve"><value>Carpeta de Sun and Moon</value></data>
+  <data name="Settings_ChangeBtn" xml:space="preserve"><value>Cambiar…</value></data>
+  <data name="Settings_ManifestUrlLabel" xml:space="preserve"><value>URL del manifest</value></data>
+  <data name="Settings_ManifestHelp" xml:space="preserve"><value>Debe ser HTTPS. Cambiala sólo si sabés lo que hacés (testing, migración de bucket o variante de la comunidad). El default apunta a nuestro bucket.</value></data>
+  <data name="Settings_ResetUrl" xml:space="preserve"><value>Restaurar URL por defecto</value></data>
+
+  <!-- ══════════ Estados dinámicos (con {0}, {1} para string.Format) ══════════ -->
+  <data name="Fmt_LauncherVersion" xml:space="preserve"><value>Launcher v{0}</value></data>
+  <data name="Fmt_Install" xml:space="preserve"><value>Instalación: {0}</value></data>
+  <data name="Status_Checking" xml:space="preserve"><value>Buscando actualizaciones…</value></data>
+  <data name="Status_Ready" xml:space="preserve"><value>Listo para jugar.</value></data>
+  <data name="Fmt_Offline" xml:space="preserve"><value>Sin conexión al manifest — modo offline. Podés jugar con lo que ya tenés. ({0})</value></data>
+  <data name="Fmt_Version" xml:space="preserve"><value>Versión: {0}</value></data>
+  <data name="Status_UpdateAvailable" xml:space="preserve"><value>Actualización disponible</value></data>
+  <data name="Status_Downloaded" xml:space="preserve"><value>Descargada</value></data>
+  <data name="Status_NotInManifest" xml:space="preserve"><value>No está en el manifest</value></data>
+  <data name="Fmt_LauncherUpdateBanner" xml:space="preserve"><value>Hay una versión nueva del launcher (v{0}). Tenés v{1}.</value></data>
+  <data name="Fmt_LauncherUpdateBannerNotes" xml:space="preserve"><value>Hay una versión nueva del launcher (v{0}). {1}</value></data>
+  <data name="Fmt_ImagesUpdateAvailable" xml:space="preserve"><value>actualización disponible (v{0})</value></data>
+  <data name="Fmt_ImagesUpToDate" xml:space="preserve"><value>al día (v{0})</value></data>
+  <data name="Images_NoPack" xml:space="preserve"><value>sin pack en el manifest</value></data>
+  <data name="Fmt_CachedVersion" xml:space="preserve"><value>Versión en caché: {0}</value></data>
+  <data name="Status_NoConnection" xml:space="preserve"><value>sin conexión</value></data>
+  <data name="Fmt_ImagesOffline" xml:space="preserve"><value>v{0} (sin conexión)</value></data>
+  <data name="Original_Available" xml:space="preserve"><value>Respaldo local disponible</value></data>
+  <data name="Original_Unavailable" xml:space="preserve"><value>No disponible (no se capturó backup)</value></data>
+  <data name="Status_Preparing" xml:space="preserve"><value>Preparando…</value></data>
+  <data name="Status_ApplyingBase" xml:space="preserve"><value>Aplicando base…</value></data>
+  <data name="Status_SyncingImages" xml:space="preserve"><value>Sincronizando imágenes propias…</value></data>
+  <data name="Status_Launching" xml:space="preserve"><value>Iniciando Sun and Moon…</value></data>
+  <data name="Status_Launched" xml:space="preserve"><value>Sun and Moon iniciado. ¡A jugar!</value></data>
+  <data name="Status_AbortedSecurity" xml:space="preserve"><value>Operación abortada por seguridad.</value></data>
+  <data name="Fmt_ErrorStatus" xml:space="preserve"><value>Error: {0}</value></data>
+  <data name="Fmt_DownloadingWithTotal" xml:space="preserve"><value>Descargando… {0:0.0} MB de {1:0.0} MB</value></data>
+  <data name="Fmt_Downloading" xml:space="preserve"><value>Descargando… {0:0.0} MB</value></data>
+
+  <!-- ══════════ Diálogos ══════════ -->
+  <data name="Dlg_InstallNotFoundTitle" xml:space="preserve"><value>Instalación no encontrada</value></data>
+  <data name="Dlg_InstallNotFoundMsg" xml:space="preserve"><value>La carpeta de Sun and Moon no es válida. Revisala en Configuración.</value></data>
+  <data name="Err_NoManifestForCommunity" xml:space="preserve"><value>No hay conexión al manifest, así que no puedo bajar ni actualizar la base Comunidad. Reintentá con internet, o jugá con la base Original.</value></data>
+  <data name="Dlg_IntegrityTitle" xml:space="preserve"><value>Verificación fallida</value></data>
+  <data name="Dlg_IntegrityMsg" xml:space="preserve"><value>Se abortó por seguridad (verificación de integridad fallida). No se modificó tu instalación.</value></data>
+  <data name="Dlg_GenericErrorTitle" xml:space="preserve"><value>No se pudo completar</value></data>
+  <data name="Settings_UrlInvalid" xml:space="preserve"><value>La URL del manifest debe ser HTTPS y válida.</value></data>
+  <data name="Settings_FolderInvalid" xml:space="preserve"><value>Esa carpeta no parece una instalación válida de Sun and Moon.</value></data>
+
+  <!-- ══════════ Primer arranque ══════════ -->
+  <data name="FirstRun_Title" xml:space="preserve"><value>Primer arranque</value></data>
+  <data name="FirstRun_Subtitle" xml:space="preserve"><value>Configurá tu instalación de Sun and Moon</value></data>
+  <data name="FirstRun_Explain" xml:space="preserve"><value>Indicá dónde está instalado Sun and Moon: elegí el archivo Sun and Moon.exe dentro de su carpeta. El launcher guardará una copia de tu base actual como tu base Original.</value></data>
+  <data name="FirstRun_NotSelected" xml:space="preserve"><value>(sin seleccionar)</value></data>
+  <data name="FirstRun_ChooseExe" xml:space="preserve"><value>Elegir Sun and Moon.exe…</value></data>
+  <data name="Btn_Continue" xml:space="preserve"><value>CONTINUAR</value></data>
+  <data name="FirstRun_FolderInvalid" xml:space="preserve"><value>Esa carpeta no parece una instalación válida de Sun and Moon (falta Sun and Moon.exe o la carpeta StreamingAssets\Database).</value></data>
+  <data name="Fmt_FirstRun_SaveError" xml:space="preserve"><value>No se pudo guardar la configuración inicial: {0}</value></data>
+  <data name="Warn_ModifiedBaseTitle" xml:space="preserve"><value>Base posiblemente modificada</value></data>
+  <data name="Warn_ModifiedBaseMsg" xml:space="preserve"><value>El database.xml actual parece una base de comunidad o modificada. Si continuás, esa será la copia que se guarde como tu base "Original", y no será una base limpia. Lo ideal es capturarla sobre una instalación recién bajada de Sun and Moon. ¿Querés continuar igual?</value></data>
+  <data name="Btn_No" xml:space="preserve"><value>No</value></data>
+  <data name="Btn_YesContinue" xml:space="preserve"><value>Sí, continuar</value></data>
+</root>

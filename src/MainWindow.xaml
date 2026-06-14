@@ -2,127 +2,262 @@
     x:Class="L5ArgentinaLauncher.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="L5Argentina Launcher"
-    Width="900" Height="640"
-    MinWidth="780" MinHeight="560"
+    xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+    xmlns:loc="clr-namespace:L5ArgentinaLauncher.Resources"
+    Title="{loc:Loc TitleBar_Title}"
+    Width="810" Height="540"
+    ResizeMode="NoResize" WindowStyle="None"
     WindowStartupLocation="CenterScreen"
     Background="{StaticResource ParchmentBackground}"
-    Icon="pack://application:,,,/Assets/logo_icon.png"
+    Icon="pack://application:,,,/Assets/icon.png"
     Loaded="Window_Loaded">
 
-    <Grid Margin="28,24,28,20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />  <!-- header -->
-            <RowDefinition Height="Auto" />  <!-- update banner -->
-            <RowDefinition Height="*" />     <!-- contenido -->
-            <RowDefinition Height="Auto" />  <!-- footer -->
-            <RowDefinition Height="Auto" />  <!-- status -->
-        </Grid.RowDefinitions>
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="27" CornerRadius="0" GlassFrameThickness="0"
+                            ResizeBorderThickness="0" UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
 
-        <!-- ===== Header ===== -->
-        <Grid Grid.Row="0">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Image Source="pack://application:,,,/Assets/logo_icon.png" Width="52" Height="52" Margin="0,0,16,0" />
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="L5Argentina Launcher" Style="{StaticResource HeadlineMedium}" />
-                    <TextBlock Text="Legend of the Five Rings · Sun and Moon" Style="{StaticResource BodyMedium}" Margin="2,2,0,0" />
-                </StackPanel>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                <Button x:Name="RefreshButton" Content="Buscar actualizaciones" Style="{StaticResource GhostButton}"
-                        Click="RefreshButton_Click" Margin="0,0,10,0" />
-                <Button x:Name="SettingsButton" Content="Configuración" Style="{StaticResource GhostButton}"
-                        Click="SettingsButton_Click" />
-            </StackPanel>
-        </Grid>
+    <!-- Lienzo de diseño a 1080×720 escalado por Viewbox a la ventana (810×540 = 75%, 3:2). -->
+    <Viewbox Stretch="Uniform">
+    <Grid Width="1080" Height="720">
+        <!-- ══ Capas de fondo (no interactivas) ══ -->
+        <Rectangle Fill="{StaticResource PaperOverlayBrush}" IsHitTestVisible="False" />
+        <Rectangle Fill="{StaticResource VignetteBrush}" IsHitTestVisible="False" />
+        <Rectangle Fill="{StaticResource BackgroundScrim}" IsHitTestVisible="False" />
+        <!-- Borde fino general -->
+        <Border BorderBrush="#552A1710" BorderThickness="1" IsHitTestVisible="False" />
 
-        <!-- ===== Banner de actualización del launcher ===== -->
-        <Border x:Name="UpdateBanner" Grid.Row="1" Margin="0,16,0,0" Visibility="Collapsed"
-                Background="{StaticResource AccentRedDark}" CornerRadius="10"
-                BorderBrush="{StaticResource GoldAccent}" BorderThickness="1" Padding="16,12">
-            <Grid>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="●" Foreground="{StaticResource HighlightGold}" FontSize="14" VerticalAlignment="Center" Margin="0,0,10,0" />
-                    <TextBlock x:Name="UpdateBannerText" Style="{StaticResource BodyMedium}" Foreground="{StaticResource TextPrimary}"
-                               VerticalAlignment="Center" Text="Hay una versión nueva del launcher." />
+        <!-- ══ Contenido ══ -->
+        <DockPanel>
+            <!-- Title bar custom -->
+            <Grid DockPanel.Dock="Top" Height="36" Background="{StaticResource Surface}">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                    <Image Source="pack://application:,,,/Assets/icon.png" Width="20" Height="20" Margin="0,0,9,0" />
+                    <TextBlock Text="{loc:Loc TitleBar_Title}" FontFamily="{StaticResource BrushFont}"
+                               FontSize="16" Foreground="{StaticResource TextDim}" VerticalAlignment="Center" />
                 </StackPanel>
-                <Button x:Name="UpdateLinkButton" Content="Ir a descargas" Style="{StaticResource GhostButton}"
-                        HorizontalAlignment="Right" Click="UpdateLinkButton_Click" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="MinButton" Style="{StaticResource CaptionButton}" Content="—"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True" Click="MinButton_Click" />
+                    <Button x:Name="CloseButton" Style="{StaticResource CaptionCloseButton}" Content="✕"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True" Click="CloseButton_Click" />
+                </StackPanel>
             </Grid>
-        </Border>
 
-        <!-- ===== Contenido ===== -->
-        <ScrollViewer Grid.Row="2" Margin="0,20,0,0" VerticalScrollBarVisibility="Auto">
-            <StackPanel>
-                <!-- Selección de base -->
-                <TextBlock Text="Elegí con qué base jugar" Style="{StaticResource SectionHeader}" Margin="0,0,0,12" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="16" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+            <!-- Cuerpo principal -->
+            <Grid Margin="40,16,40,22">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />   <!-- header -->
+                    <RowDefinition Height="Auto" />   <!-- banner -->
+                    <RowDefinition Height="*" />      <!-- body -->
+                    <RowDefinition Height="Auto" />   <!-- footer -->
+                    <RowDefinition Height="Auto" />   <!-- status -->
+                </Grid.RowDefinitions>
 
-                    <RadioButton x:Name="CommunityCard" Grid.Column="0" GroupName="base"
-                                 Style="{StaticResource BaseCard}" Checked="BaseCard_Checked">
-                        <StackPanel>
-                            <TextBlock Text="Comunidad" Style="{StaticResource TitleMedium}" />
-                            <TextBlock Text="Base curada L5Argentina (s_extended)" Style="{StaticResource BodySmall}" Foreground="{StaticResource TextPrimary}" Margin="0,4,0,0" />
-                            <TextBlock x:Name="CommunityVersionText" Style="{StaticResource BodySmall}" Margin="0,8,0,0" Text="Versión: —" />
-                            <TextBlock x:Name="CommunityStatusText" Style="{StaticResource BodySmall}" Foreground="{StaticResource HighlightGold}" Margin="0,2,0,0" Text="" />
-                        </StackPanel>
-                    </RadioButton>
-
-                    <RadioButton x:Name="OriginalCard" Grid.Column="2" GroupName="base"
-                                 Style="{StaticResource BaseCard}" Checked="BaseCard_Checked">
-                        <StackPanel>
-                            <TextBlock Text="Original" Style="{StaticResource TitleMedium}" />
-                            <TextBlock Text="Tu base sin nuestras modificaciones" Style="{StaticResource BodySmall}" Foreground="{StaticResource TextPrimary}" Margin="0,4,0,0" />
-                            <TextBlock x:Name="OriginalStatusText" Style="{StaticResource BodySmall}" Margin="0,8,0,0" Text="Respaldo local del primer arranque" />
-                        </StackPanel>
-                    </RadioButton>
+                <!-- ===== Header ===== -->
+                <Grid Grid.Row="0">
+                    <Image Source="pack://application:,,,/Assets/logo_l5argentina.png" Height="112"
+                           HorizontalAlignment="Left" VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                        <Button x:Name="RefreshButton" Content="{loc:Loc Btn_CheckUpdates}" Style="{StaticResource GhostButton}"
+                                Click="RefreshButton_Click" Margin="0,0,10,0" />
+                        <Button x:Name="SettingsButton" Content="{loc:Loc Btn_Settings}" Style="{StaticResource GhostButton}"
+                                Click="SettingsButton_Click" />
+                    </StackPanel>
                 </Grid>
 
-                <!-- Imágenes propias -->
-                <Border Margin="0,18,0,0" Background="{StaticResource SurfaceDark}" CornerRadius="10"
-                        BorderBrush="{StaticResource OutlineColor}" BorderThickness="1" Padding="16,12">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Imágenes propias:" Style="{StaticResource BodyMedium}" Foreground="{StaticResource TextPrimary}" Margin="0,0,8,0" />
-                        <TextBlock x:Name="ImagesStatusText" Style="{StaticResource BodyMedium}" Text="—" />
+                <!-- ===== Banner de actualización ===== -->
+                <Border x:Name="UpdateBanner" Grid.Row="1" Margin="0,18,0,0" Visibility="Collapsed"
+                        CornerRadius="9" BorderBrush="{StaticResource Gold}" BorderThickness="1" Padding="16,11">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#E65C1412" Offset="0" />
+                            <GradientStop Color="#E64A1110" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Ellipse Width="9" Height="9" Fill="{StaticResource Gold}" Margin="0,0,11,0" VerticalAlignment="Center" />
+                            <TextBlock x:Name="UpdateBannerText" Style="{StaticResource Body}" Foreground="{StaticResource Text}"
+                                       VerticalAlignment="Center" Text="{loc:Loc Banner_Default}" />
+                        </StackPanel>
+                        <Button x:Name="UpdateLinkButton" Content="{loc:Loc Btn_GoToDownloads}" Style="{StaticResource GhostButton}"
+                                HorizontalAlignment="Right" Click="UpdateLinkButton_Click" />
+                    </Grid>
+                </Border>
+
+                <!-- ===== Body ===== -->
+                <StackPanel Grid.Row="2" Margin="0,22,0,0">
+                    <TextBlock Text="{loc:Loc Section_ChooseBase}" Style="{StaticResource SectionHeader}" Margin="0,0,0,12" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="18" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Comunidad -->
+                        <RadioButton x:Name="CommunityCard" Grid.Column="0" GroupName="base"
+                                     Style="{StaticResource BaseCardRadio}" Checked="BaseCard_Checked">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                    <Ellipse Width="14" Height="14" Stroke="{StaticResource Gold}" StrokeThickness="1.5"
+                                             VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="Transparent" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}}" Value="True">
+                                                        <Setter Property="Fill" Value="{StaticResource Gold}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <TextBlock Text="{loc:Loc Card_CommunityTitle}" Style="{StaticResource CardTitle}" />
+                                </StackPanel>
+                                <TextBlock Text="{loc:Loc Card_CommunityDesc}" Style="{StaticResource Body}"
+                                           Foreground="{StaticResource Text}" Margin="24,2,0,0" />
+                                <TextBlock x:Name="CommunityVersionText" Style="{StaticResource Body}" Margin="24,10,0,0" Text="{loc:Loc Value_Dash}" />
+                                <TextBlock x:Name="CommunityStatusText" Style="{StaticResource Body}" Foreground="{StaticResource Gold}" Margin="24,3,0,0" Text="" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <!-- Original -->
+                        <RadioButton x:Name="OriginalCard" Grid.Column="2" GroupName="base"
+                                     Style="{StaticResource BaseCardRadio}" Checked="BaseCard_Checked">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                    <Ellipse Width="14" Height="14" Stroke="{StaticResource Gold}" StrokeThickness="1.5"
+                                             VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="Transparent" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}}" Value="True">
+                                                        <Setter Property="Fill" Value="{StaticResource Gold}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <TextBlock Text="{loc:Loc Card_OriginalTitle}" Style="{StaticResource CardTitle}" />
+                                </StackPanel>
+                                <TextBlock Text="{loc:Loc Card_OriginalDesc}" Style="{StaticResource Body}"
+                                           Foreground="{StaticResource Text}" Margin="24,2,0,0" />
+                                <TextBlock x:Name="OriginalStatusText" Style="{StaticResource Body}" Margin="24,10,0,0" Text="{loc:Loc Card_OriginalStatusDefault}" />
+                            </StackPanel>
+                        </RadioButton>
+                    </Grid>
+
+                    <!-- Imágenes propias -->
+                    <Border Margin="0,18,0,0" Background="{StaticResource SurfaceGlassSoft}" CornerRadius="9"
+                            BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1" Padding="16,12">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{loc:Loc Label_OwnImages}" Style="{StaticResource Body}" Foreground="{StaticResource Text}" Margin="0,0,8,0" />
+                            <TextBlock x:Name="ImagesStatusText" Style="{StaticResource Body}" Text="{loc:Loc Value_Dash}" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Noticias (placeholder v2) -->
+                    <TextBlock Text="{loc:Loc Section_News}" Style="{StaticResource SectionHeader}" Margin="0,20,0,8" />
+                    <Border Background="#55241409" CornerRadius="9">
+                        <Grid>
+                            <Rectangle RadiusX="9" RadiusY="9" Fill="Transparent" Stroke="{StaticResource GoldDim}"
+                                       StrokeThickness="1.2" StrokeDashArray="5 4" />
+                            <TextBlock x:Name="NewsPlaceholder" Style="{StaticResource Body}" Margin="18,16"
+                                       Text="{loc:Loc News_Placeholder}" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!-- ===== Footer ===== -->
+                <Grid Grid.Row="3" Margin="0,18,0,0">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock x:Name="InstallPathText" Style="{StaticResource BodySmall}" Text="" TextTrimming="CharacterEllipsis" MaxWidth="640" HorizontalAlignment="Left" />
+                        <TextBlock x:Name="LauncherVersionText" Style="{StaticResource BodySmall}" Foreground="{StaticResource GoldDim}" Margin="0,2,0,0" />
                     </StackPanel>
-                </Border>
+                    <Button x:Name="PlayButton" Content="{loc:Loc Btn_Play}" Style="{StaticResource PrimaryButtonLarge}"
+                            HorizontalAlignment="Right" MinWidth="230" Click="PlayButton_Click" />
+                </Grid>
 
-                <!-- Noticias (placeholder v2) -->
-                <TextBlock Text="Noticias y torneos" Style="{StaticResource SectionHeader}" Margin="0,22,0,8" />
-                <Border Background="{StaticResource SurfaceDark}" CornerRadius="10"
-                        BorderBrush="{StaticResource OutlineColor}" BorderThickness="1" Padding="16,18">
-                    <TextBlock x:Name="NewsPlaceholder" Style="{StaticResource BodyMedium}"
-                               Text="Próximamente: novedades de la comunidad e info de torneos." />
-                </Border>
-            </StackPanel>
-        </ScrollViewer>
+                <!-- ===== Status / progreso (abajo a la derecha, bajo JUGAR) ===== -->
+                <StackPanel Grid.Row="4" Margin="0,14,0,0" HorizontalAlignment="Right" MaxWidth="520">
+                    <TextBlock x:Name="StatusText" Style="{StaticResource BodySmall}" Foreground="{StaticResource TextDim}"
+                               HorizontalAlignment="Right" TextAlignment="Right" Text="{loc:Loc Status_Initializing}" />
+                    <ProgressBar x:Name="Progress" Style="{StaticResource LProgressBar}" Width="230" Margin="0,8,0,0"
+                                 HorizontalAlignment="Right" Visibility="Collapsed" />
+                </StackPanel>
+            </Grid>
+        </DockPanel>
 
-        <!-- ===== Footer ===== -->
-        <Grid Grid.Row="3" Margin="0,18,0,0">
-            <StackPanel VerticalAlignment="Center">
-                <TextBlock x:Name="InstallPathText" Style="{StaticResource BodySmall}" Text="" TextTrimming="CharacterEllipsis" MaxWidth="520" HorizontalAlignment="Left" />
-                <TextBlock x:Name="LauncherVersionText" Style="{StaticResource BodySmall}" Foreground="{StaticResource GoldDim}" Margin="0,2,0,0" />
-            </StackPanel>
-            <Button x:Name="PlayButton" Content="JUGAR" Style="{StaticResource PrimaryButton}"
-                    HorizontalAlignment="Right" MinWidth="200" FontSize="22" Padding="24,12"
-                    Click="PlayButton_Click" />
+        <!-- ══════════════ OVERLAY: Configuración ══════════════ -->
+        <Grid x:Name="SettingsOverlay" Visibility="Collapsed" Panel.ZIndex="90">
+            <Rectangle Fill="#990C0703" />
+            <Border Width="560" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Background="{StaticResource Surface}" CornerRadius="12"
+                    BorderBrush="{StaticResource Gold}" BorderThickness="1" Padding="28">
+                <Border.Effect><DropShadowEffect BlurRadius="40" ShadowDepth="0" Opacity="0.7" Color="Black" /></Border.Effect>
+                <StackPanel>
+                    <TextBlock Text="{loc:Loc Settings_Title}" Style="{StaticResource CardTitle}" Margin="0,0,0,18" />
+
+                    <TextBlock Text="{loc:Loc Settings_FolderLabel}" Style="{StaticResource SectionHeader}" FontSize="17" Margin="0,0,0,7" />
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="SettingsPathBox" Grid.Column="0" Style="{StaticResource InvertedTextBox}" IsReadOnly="True" />
+                        <Button x:Name="SettingsBrowseButton" Grid.Column="1" Content="{loc:Loc Settings_ChangeBtn}" Style="{StaticResource GhostButton}"
+                                Margin="10,0,0,0" Click="SettingsBrowse_Click" />
+                    </Grid>
+
+                    <TextBlock Text="{loc:Loc Settings_ManifestUrlLabel}" Style="{StaticResource SectionHeader}" FontSize="17" Margin="0,16,0,7" />
+                    <TextBlock Style="{StaticResource BodySmall}" Margin="0,0,0,7" Text="{loc:Loc Settings_ManifestHelp}" />
+                    <TextBox x:Name="SettingsUrlBox" Style="{StaticResource InvertedTextBox}" />
+                    <Button x:Name="ResetUrlButton" Content="{loc:Loc Settings_ResetUrl}" Style="{StaticResource GoldLink}"
+                            Margin="2,10,0,0" Click="ResetUrl_Click" />
+
+                    <TextBlock x:Name="SettingsValidation" Style="{StaticResource BodySmall}" Foreground="{StaticResource ErrorText}"
+                               Margin="0,12,0,0" Visibility="Collapsed" />
+
+                    <Grid Margin="0,22,0,0">
+                        <Button x:Name="SettingsCancelButton" Content="{loc:Loc Btn_Cancel}" Style="{StaticResource GhostButton}"
+                                HorizontalAlignment="Left" MinWidth="110" Click="SettingsCancel_Click" />
+                        <Button x:Name="SettingsSaveButton" Content="{loc:Loc Btn_Save}" Style="{StaticResource PrimaryButton}"
+                                HorizontalAlignment="Right" MinWidth="150" Click="SettingsSave_Click" />
+                    </Grid>
+                </StackPanel>
+            </Border>
         </Grid>
 
-        <!-- ===== Status / progreso ===== -->
-        <Grid Grid.Row="4" Margin="0,14,0,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <TextBlock x:Name="StatusText" Grid.Row="0" Style="{StaticResource BodySmall}" Text="Inicializando…" />
-            <ProgressBar x:Name="Progress" Grid.Row="1" Height="6" Margin="0,8,0,0"
-                         Background="{StaticResource SurfaceVariant}" Foreground="{StaticResource AccentRed}"
-                         BorderThickness="0" Visibility="Collapsed" />
+        <!-- ══════════════ OVERLAY: Diálogo (confirmación / error) ══════════════ -->
+        <Grid x:Name="DialogOverlay" Visibility="Collapsed" Panel.ZIndex="100">
+            <Rectangle Fill="#990C0703" />
+            <Border x:Name="DialogCard" Width="460" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Background="{StaticResource Surface}" CornerRadius="12"
+                    BorderBrush="{StaticResource Gold}" BorderThickness="1.4" Padding="26">
+                <Border.Effect><DropShadowEffect BlurRadius="40" ShadowDepth="0" Opacity="0.7" Color="Black" /></Border.Effect>
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <Border x:Name="DialogIconBox" Width="40" Height="40" CornerRadius="20" Margin="0,0,14,0"
+                                BorderBrush="{StaticResource Gold}" BorderThickness="1.5" Background="#22C9A961">
+                            <TextBlock x:Name="DialogIcon" Text="!" FontFamily="{StaticResource BrushFont}" FontSize="22"
+                                       Foreground="{StaticResource Gold}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock x:Name="DialogTitle" Style="{StaticResource CardTitle}" FontSize="24" VerticalAlignment="Center"
+                                   TextWrapping="Wrap" MaxWidth="330" />
+                    </StackPanel>
+                    <TextBlock x:Name="DialogMessage" Style="{StaticResource Body}" Foreground="{StaticResource TextDim}" />
+                    <Grid Margin="0,22,0,0">
+                        <Button x:Name="DialogSecondaryBtn" Style="{StaticResource GhostButton}" HorizontalAlignment="Left"
+                                MinWidth="110" Click="DialogSecondary_Click" Visibility="Collapsed" />
+                        <Button x:Name="DialogPrimaryBtn" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right"
+                                MinWidth="130" Click="DialogPrimary_Click" />
+                    </Grid>
+                </StackPanel>
+            </Border>
         </Grid>
     </Grid>
+    </Viewbox>
 </Window>
