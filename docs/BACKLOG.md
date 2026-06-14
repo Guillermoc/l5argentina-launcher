@@ -1,6 +1,6 @@
 # Backlog — L5Argentina Launcher
 
-Estado al día. Leyenda: ✅ hecho · ⏳ en curso/esperando · 🔜 próximo · ⬜ pendiente · ⏸️ diferido.
+Estado al día. Leyenda: ✅ hecho · ⏳ en curso/esperando · 🔜 próximo · ⬜ pendiente · ⏸️ diferido · 🔁 recurrente.
 
 Severidades del análisis de seguridad: **Alta / Media / Baja**.
 
@@ -9,7 +9,8 @@ Severidades del análisis de seguridad: **Alta / Media / Baja**.
 > **ya está cubierto** (no descarga/ejecuta código, lanza el `.exe` del usuario, zip-slip, escrituras
 > acotadas con backups). El hardening que solo protege la **integridad de los datos** ante un bucket
 > comprometido (SEC-1/3/5) se **difiere**: el peor caso ahí es "datos falsos" (cartas/imágenes/que se
-> rompa), no compromiso de la máquina. Foco real: firmar el **exe** (SEC-6) + 2FA en las credenciales.
+> rompa), no compromiso de la máquina. Foco real restante: firmar el **exe** (SEC-6) — las credenciales
+> ya están con 2FA y los toggles de seguridad del repo activados.
 
 ---
 
@@ -72,12 +73,12 @@ los 3 slugs del workflow. Ver checklist en el README / conversación.
 
 ## 2. Operación / GitHub (toggles de la web — los hace el mantenedor)
 
-- ⬜ **2FA** en GitHub **y** Cloudflare (riesgo dominante del threat model, §10). Token R2 con scope mínimo.
-- ⬜ **Secret scanning + Push protection** (Settings → Code security and analysis).
-- ⬜ **Private vulnerability reporting** (para que funcione el botón del SECURITY.md).
-- ⬜ **Dependabot alerts + security updates** (el `dependabot.yml` ya está en el repo).
-- ⬜ **Branch protection** en `main` (force-push y deletions off; opcional: required check `build` + PRs).
-- ⬜ **SHA-256 del exe en segundo canal** (web/Discord) en cada release.
+- ✅ **2FA** en GitHub **y** Cloudflare (riesgo dominante del threat model, §10). Token R2 con scope mínimo.
+- ✅ **Secret scanning + Push protection** (Settings → Code security and analysis).
+- ✅ **Private vulnerability reporting** (botón del SECURITY.md activo).
+- ✅ **Dependabot alerts + security updates** (config en `dependabot.yml`).
+- ✅ **Branch protection** en `main`.
+- 🔁 **SHA-256 del exe en segundo canal** (web/Discord) — paso recurrente en cada release.
 
 ---
 
@@ -100,11 +101,16 @@ los 3 slugs del workflow. Ver checklist en el README / conversación.
 - ✅ Repo público, MIT, README, SECURITY.md, dependabot.yml.
 - ✅ Release **v0.1.0** publicado (exe + sha256) vía GitHub Actions.
 - ✅ Manifest corregido subido al bucket.
+- ✅ Endurecimiento cuenta/repo: 2FA (GitHub + Cloudflare), secret scanning + push protection,
+  private vulnerability reporting, Dependabot, branch protection en `main`.
+- ✅ Release **v0.1.1** (TLS 1.2, base de un solo `.xml`, ajustes de textos).
+- ⏳ SignPath: solicitud OSS enviada (esperando aprobación).
 
 ---
 
 ## Orden sugerido
 
 1. ✅ **Quick wins hechos:** SEC-2 (TLS 1.2) + SEC-4 (un solo `database.xml`).
-2. **Foco actual:** SEC-6 (SignPath, esperando aprobación OSS) + toggles de §2 (2FA, secret scanning, etc.).
-3. **Diferidos** (revisar si cambia el modelo de amenaza): SEC-1, SEC-3, SEC-5.
+2. ✅ **Toggles de §2 hechos** (2FA, secret scanning + push protection, private vuln reporting, dependabot, branch protection).
+3. **Foco actual:** SEC-6 (SignPath, esperando aprobación OSS).
+4. **Diferidos** (revisar si cambia el modelo de amenaza): SEC-1, SEC-3, SEC-5.
