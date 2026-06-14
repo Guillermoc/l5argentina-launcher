@@ -131,9 +131,11 @@ El formato del `manifest.json` y un ejemplo con hashes reales están en
 - El `.exe` se publica en **GitHub Releases** (no en el bucket — spec §9), vía
   [.github/workflows/release.yml](.github/workflows/release.yml) al pushear un tag `vX.Y.Z`.
 - El **SHA-256 del exe** se publica como segundo canal (web/Discord).
-- **Firma de código (SignPath):** pendiente. Sin firma, el primer arranque muestra el aviso de
-  **SmartScreen** ("aplicación no reconocida"); instrucciones para usuarios en
-  [docs/USUARIOS.md](docs/USUARIOS.md).
+- **Firma de código:** este proyecto usa firma de código gratuita para open source provista por
+  **[SignPath.io](https://signpath.io)**, con un certificado de la
+  **[SignPath Foundation](https://signpath.org)**. (En trámite de aprobación; hasta entonces el exe sale
+  sin firmar y el primer arranque muestra el aviso de **SmartScreen** "aplicación no reconocida" — ver
+  [docs/USUARIOS.md](docs/USUARIOS.md).)
 
 ---
 
