@@ -14,7 +14,7 @@ namespace L5ArgentinaLauncher
         public const string AppName = "L5Argentina Launcher";
 
         /// <summary>Versión embebida del launcher; se compara contra manifest.launcher.latest_version.</summary>
-        public const string LauncherVersion = "0.1.0";
+        public const string LauncherVersion = "0.1.1";
 
         // URL del manifest en el bucket R2 público (origen de datos por defecto).
         public const string DefaultManifestUrl = "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/sunandmoon/manifest.json";

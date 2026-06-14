@@ -31,7 +31,7 @@
   <data name="Section_ChooseBase" xml:space="preserve"><value>Elegí con qué base jugar</value></data>
   <data name="Card_CommunityTitle" xml:space="preserve"><value>Comunidad L5Argentina</value></data>
   <data name="Card_CommunityDesc" xml:space="preserve"><value>Base curada Samurai Extended</value></data>
-  <data name="Card_OriginalTitle" xml:space="preserve"><value>Original Sun and Moon</value></data>
+  <data name="Card_OriginalTitle" xml:space="preserve"><value>Sun and Moon original</value></data>
   <data name="Card_OriginalDesc" xml:space="preserve"><value>Base Kamisasori sin nuestras modificaciones</value></data>
   <data name="Card_OriginalStatusDefault" xml:space="preserve"><value>Respaldo local del primer arranque</value></data>
   <data name="Label_OwnImages" xml:space="preserve"><value>Imágenes Samurai Extended:</value></data>
