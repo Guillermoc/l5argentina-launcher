@@ -13,7 +13,11 @@ dotnet build src/L5ArgentinaLauncher.csproj -c Debug
 dotnet run  --project src/L5ArgentinaLauncher.csproj
 dotnet build src/L5ArgentinaLauncher.csproj -c Release          # exe único en bin/Release/net48
 src/bin/Debug/net48/L5ArgentinaLauncher.exe --selftest out.txt  # verificación (solo DEBUG)
+src/bin/Debug/net48/L5ArgentinaLauncher.exe --buscador          # abre el Buscador directo (solo DEBUG)
 ```
+
+Ojo: el exe es WinExe — desde PowerShell hay que esperarlo con `Start-Process -Wait` para
+leer el exit code del selftest.
 
 `nuget.config` (raíz) fija nuget.org explícitamente porque el config global estaba vacío.
 
@@ -28,7 +32,8 @@ src/bin/Debug/net48/L5ArgentinaLauncher.exe --selftest out.txt  # verificación 
 5. **Zip-slip** obligatorio al extraer imágenes (`ImagePackService`).
 6. **Link de update hardcodeado** (`AppConstants.ReleasesPageUrl`), nunca del manifest.
 
-Si tocás red/descarga/extracción, corré `--selftest` y mantené los 27 checks en verde.
+Si tocás red/descarga/extracción o el motor del Buscador, corré `--selftest` y mantené
+**todos** los checks en verde (107 hoy: pipeline + catálogo + pool + 53 golden).
 
 ## Cosas a saber
 
@@ -38,3 +43,16 @@ Si tocás red/descarga/extracción, corré `--selftest` y mantené los 27 checks
 - `L5A_DATA_ROOT` (env var) redirige config/caché/backups a otra carpeta — hook de testing/portab.
 - Empaquetado: Costura.Fody embebe los DLLs → exe único. Se distribuye solo el `.exe`.
 - Noticias = placeholder (v2). El formato de los `.md` y su sección en el manifest está sin definir.
+
+## Buscador de cartas (ver docs/BUSCADOR.md)
+
+- **Fuente de datos: cards.json/rules.json/filters.json** (los mismos artefactos que la app
+  Android), NO el `database.xml` — el Buscador usa campos que no existen en el XML (keywords
+  editoriales, legalidades por printing). El `database.xml` sigue siendo blob opaco.
+- Motor en memoria (`CardSearchEngine`): port 1:1 del SQL de la app Android, con semánticas
+  SQLite replicadas (LIKE = contains ASCII-CI, IN = Ordinal). **No cambiar semántica sin
+  regenerar los golden** (`docs/handoff/buscador-launcher/fixtures/golden-tests.json`).
+- Los bugs documentados con ⚠️ en las specs del handoff se portan a propósito (paridad);
+  los arreglos de UX van en la capa UI (ej.: rareza manda 'P' y 'p').
+- El catálogo se sincroniza desde la sección opcional `catalog` del manifest a
+  `cache/catalog/`; sin ella, el Buscador usa lo que haya cacheado/copiado a mano ahí.

@@ -59,6 +59,8 @@
                     <Image Source="pack://application:,,,/Assets/logo_l5argentina.png" Height="112"
                            HorizontalAlignment="Left" VerticalAlignment="Center" />
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                        <Button x:Name="SearchButton" Content="{loc:Loc Btn_Search}" Style="{StaticResource GhostButton}"
+                                Click="SearchButton_Click" Margin="0,0,10,0" />
                         <Button x:Name="RefreshButton" Content="{loc:Loc Btn_CheckUpdates}" Style="{StaticResource GhostButton}"
                                 Click="RefreshButton_Click" Margin="0,0,10,0" />
                         <Button x:Name="SettingsButton" Content="{loc:Loc Btn_Settings}" Style="{StaticResource GhostButton}"
@@ -150,13 +152,18 @@
                         </RadioButton>
                     </Grid>
 
-                    <!-- Imágenes propias -->
+                    <!-- Imágenes propias + packs oficiales -->
                     <Border Margin="0,18,0,0" Background="{StaticResource SurfaceGlassSoft}" CornerRadius="9"
-                            BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1" Padding="16,12">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{loc:Loc Label_OwnImages}" Style="{StaticResource Body}" Foreground="{StaticResource Text}" Margin="0,0,8,0" />
-                            <TextBlock x:Name="ImagesStatusText" Style="{StaticResource Body}" Text="{loc:Loc Value_Dash}" />
-                        </StackPanel>
+                            BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1" Padding="16,8">
+                        <Grid>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{loc:Loc Label_OwnImages}" Style="{StaticResource Body}" Foreground="{StaticResource Text}" Margin="0,0,8,0" />
+                                <TextBlock x:Name="ImagesStatusText" Style="{StaticResource Body}" Text="{loc:Loc Value_Dash}" />
+                            </StackPanel>
+                            <Button x:Name="PacksButton" Content="{loc:Loc Btn_Packs}" Style="{StaticResource GhostButton}"
+                                    Height="32" FontSize="15" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Click="PacksButton_Click" />
+                        </Grid>
                     </Border>
 
                     <!-- Noticias (placeholder v2) -->
@@ -226,6 +233,32 @@
                                 HorizontalAlignment="Left" MinWidth="110" Click="SettingsCancel_Click" />
                         <Button x:Name="SettingsSaveButton" Content="{loc:Loc Btn_Save}" Style="{StaticResource PrimaryButton}"
                                 HorizontalAlignment="Right" MinWidth="150" Click="SettingsSave_Click" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ══════════════ OVERLAY: Packs de imágenes ══════════════ -->
+        <Grid x:Name="PacksOverlay" Visibility="Collapsed" Panel.ZIndex="95">
+            <Rectangle Fill="#990C0703" />
+            <Border Width="640" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Background="{StaticResource Surface}" CornerRadius="12"
+                    BorderBrush="{StaticResource Gold}" BorderThickness="1" Padding="28">
+                <Border.Effect><DropShadowEffect BlurRadius="40" ShadowDepth="0" Opacity="0.7" Color="Black" /></Border.Effect>
+                <StackPanel>
+                    <TextBlock Text="{loc:Loc Packs_Title}" Style="{StaticResource CardTitle}" Margin="0,0,0,6" />
+                    <TextBlock Text="{loc:Loc Packs_Help}" Style="{StaticResource BodySmall}" Margin="0,0,0,14" />
+
+                    <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="PacksList" />
+                    </ScrollViewer>
+
+                    <TextBlock x:Name="PacksStatus" Style="{StaticResource BodySmall}"
+                               Foreground="{StaticResource Gold}" Margin="0,12,0,0" Text="" />
+
+                    <Grid Margin="0,16,0,0">
+                        <Button x:Name="PacksCloseButton" Content="{loc:Loc Btn_Close}" Style="{StaticResource GhostButton}"
+                                HorizontalAlignment="Right" MinWidth="110" Click="PacksClose_Click" />
                     </Grid>
                 </StackPanel>
             </Border>

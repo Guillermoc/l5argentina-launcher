@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -170,6 +171,202 @@ namespace L5ArgentinaLauncher.Services
             Config.AppliedImagePackVersion = img.Version;
             Config.AppliedImagePackSha256 = img.Sha256;
             _configService.Save(Config);
+        }
+
+        // ---------------- Catálogo del Buscador ----------------
+
+        /// <summary>True si el manifest trae catálogo y algún archivo falta o cambió de hash.</summary>
+        public bool CatalogNeedsSync()
+        {
+            var cat = Manifest?.Catalog;
+            if (cat == null) return false;
+            return CatalogFileNeedsSync("cards", cat.Cards)
+                || CatalogFileNeedsSync("rules", cat.Rules)
+                || CatalogFileNeedsSync("filters", cat.Filters);
+        }
+
+        private bool CatalogFileNeedsSync(string key, CatalogFileEntry entry)
+        {
+            if (entry == null || string.IsNullOrWhiteSpace(entry.File)) return false;
+            var path = Path.Combine(AppConstants.CatalogDir, Path.GetFileName(entry.File));
+            if (!File.Exists(path)) return true;
+            return !Config.CachedCatalogFiles.TryGetValue(key, out var cached)
+                   || !HashUtil.HashesEqual(cached.Sha256, entry.Sha256);
+        }
+
+        /// <summary>
+        /// Descarga (con verificación SHA-256 y confinamiento al origen del manifest, igual que
+        /// bases/imágenes) los archivos del catálogo que falten o hayan cambiado, a
+        /// cache/catalog/. Devuelve true si descargó algo (la UI invalida el catálogo cargado).
+        /// </summary>
+        public async Task<bool> SyncCatalogAsync(IProgress<DownloadProgress> progress, CancellationToken ct = default)
+        {
+            var cat = Manifest?.Catalog;
+            if (cat == null) return false;
+
+            var downloaded = false;
+            foreach (var pair in new[]
+            {
+                new KeyValuePair<string, CatalogFileEntry>("cards", cat.Cards),
+                new KeyValuePair<string, CatalogFileEntry>("rules", cat.Rules),
+                new KeyValuePair<string, CatalogFileEntry>("filters", cat.Filters),
+            })
+            {
+                var entry = pair.Value;
+                if (!CatalogFileNeedsSync(pair.Key, entry)) continue;
+
+                var destPath = Path.Combine(AppConstants.CatalogDir, Path.GetFileName(entry.File));
+                var uri = ManifestService.ResolveFileUri(Config.ManifestUrl, entry.File);
+                await _downloadService.DownloadAndVerifyAsync(uri, entry.Sha256, destPath, progress, ct)
+                    .ConfigureAwait(false);
+
+                Config.CachedCatalogFiles[pair.Key] = new CachedFile { Version = entry.Version, Sha256 = entry.Sha256 };
+                downloaded = true;
+            }
+            if (downloaded) _configService.Save(Config);
+            return downloaded;
+        }
+
+        // ---------------- Packs de imágenes del pool (manifest de la app) ----------------
+
+        private PoolManifest _poolManifest;
+        private string _poolManifestUrl;
+
+        /// <summary>Carga (o recarga) el manifest del pool. URL alternativa solo para tests.</summary>
+        public async Task LoadPoolManifestAsync(string url = null, CancellationToken ct = default)
+        {
+            _poolManifestUrl = url ?? AppConstants.PoolManifestUrl;
+            _poolManifest = await _manifestService.FetchPoolAsync(_poolManifestUrl, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>Packs de imágenes del pool, en el orden del manifest. Vacío si no se cargó.</summary>
+        public IReadOnlyList<PoolPackage> ImagePacks =>
+            _poolManifest?.Packages?
+                .Where(p => string.Equals(p.Type, "images", StringComparison.OrdinalIgnoreCase))
+                .ToList() ?? (IReadOnlyList<PoolPackage>)new List<PoolPackage>();
+
+        /// <summary>True si el pack ya está aplicado en esta versión exacta (por hash).</summary>
+        public bool PackIsCurrent(PoolPackage pack) =>
+            Config.AppliedImagePacks.TryGetValue(pack.Id, out var cached)
+            && HashUtil.HashesEqual(cached.Sha256, pack.Sha256);
+
+        public bool PackWasApplied(PoolPackage pack) =>
+            Config.AppliedImagePacks.ContainsKey(pack.Id);
+
+        /// <summary>
+        /// Descarga un pack del pool (URL validada contra el origen del manifest, SHA-256
+        /// verificado), lo extrae sobre &lt;SunAndMoon&gt;\images\ con la protección zip-slip de
+        /// ImagePackService, borra el zip (pesan hasta ~280MB) y registra la versión aplicada.
+        /// </summary>
+        public async Task ApplyPoolImagePackAsync(PoolPackage pack, IProgress<DownloadProgress> progress, CancellationToken ct = default)
+        {
+            if (!InstallationService.IsValidInstall(Config.SunAndMoonPath))
+                throw new InvalidOperationException("No hay una instalación válida de Sun and Moon configurada.");
+            if (_poolManifestUrl == null)
+                throw new InvalidOperationException("El manifest del pool no está cargado.");
+
+            var uri = ManifestService.ResolveSameOriginUrl(_poolManifestUrl, pack.Url);
+            var zipPath = Path.Combine(AppConstants.CacheDir, "packs", $"{pack.Id}-{pack.Version}.zip");
+
+            await _downloadService.DownloadAndVerifyAsync(uri, pack.Sha256, zipPath, progress, ct)
+                .ConfigureAwait(false);
+            try
+            {
+                _imagePackService.ApplyImagePack(Config.SunAndMoonPath, zipPath);
+            }
+            finally
+            {
+                try { File.Delete(zipPath); } catch { /* limpieza best-effort */ }
+            }
+
+            Config.AppliedImagePacks[pack.Id] = new CachedFile { Version = pack.Version, Sha256 = pack.Sha256 };
+            _configService.Save(Config);
+        }
+
+        // ---------------- Catálogo del Buscador desde el pool ----------------
+
+        // Mapeo package del pool → clave de config y nombre base local. El nombre local lleva
+        // la versión (cards_db-2.3.1.zip) porque CatalogStore elige la versión más alta por
+        // nombre de archivo; la URL del pool termina sin versión (cards_db.zip).
+        private static readonly Tuple<string, string, string>[] CatalogPoolParts =
+        {
+            Tuple.Create("cards", "database", "cards_db"),
+            Tuple.Create("rules", "rules", "rules"),
+            Tuple.Create("filters", "filters", "filters"),
+        };
+
+        private PoolPackage FindPoolPackage(string type) =>
+            _poolManifest?.Packages?.FirstOrDefault(p =>
+                string.Equals(p.Type, type, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>True si el pool (ya cargado) trae catálogo con algo para (re)descargar.</summary>
+        public bool CatalogNeedsSyncFromPool()
+        {
+            if (_poolManifest == null) return false;
+            foreach (var part in CatalogPoolParts)
+            {
+                var pkg = FindPoolPackage(part.Item2);
+                if (pkg != null && CatalogPoolFileNeedsSync(part.Item1, part.Item3, pkg)) return true;
+            }
+            return false;
+        }
+
+        private bool CatalogPoolFileNeedsSync(string key, string baseName, PoolPackage pkg)
+        {
+            var path = Path.Combine(AppConstants.CatalogDir, CatalogLocalName(baseName, pkg));
+            if (!File.Exists(path)) return true;
+            return !Config.CachedCatalogFiles.TryGetValue(key, out var cached)
+                   || !HashUtil.HashesEqual(cached.Sha256, pkg.Sha256);
+        }
+
+        private static string CatalogLocalName(string baseName, PoolPackage pkg)
+        {
+            var ext = Path.GetExtension(new Uri(pkg.Url, UriKind.Absolute).AbsolutePath);
+            if (string.IsNullOrEmpty(ext)) ext = ".json";
+            return baseName + "-" + pkg.Version + ext;
+        }
+
+        /// <summary>
+        /// Sincroniza cards_db/rules/filters desde el pool a cache/catalog/ (URL same-origin +
+        /// SHA-256, como los packs). Borra las versiones viejas de cada archivo para que la
+        /// caché no acumule. Devuelve true si descargó algo.
+        /// </summary>
+        public async Task<bool> SyncCatalogFromPoolAsync(IProgress<DownloadProgress> progress, CancellationToken ct = default)
+        {
+            if (_poolManifest == null) return false;
+
+            var downloaded = false;
+            foreach (var part in CatalogPoolParts)
+            {
+                var pkg = FindPoolPackage(part.Item2);
+                if (pkg == null || !CatalogPoolFileNeedsSync(part.Item1, part.Item3, pkg)) continue;
+
+                var uri = ManifestService.ResolveSameOriginUrl(_poolManifestUrl, pkg.Url);
+                var localName = CatalogLocalName(part.Item3, pkg);
+                var destPath = Path.Combine(AppConstants.CatalogDir, localName);
+                await _downloadService.DownloadAndVerifyAsync(uri, pkg.Sha256, destPath, progress, ct)
+                    .ConfigureAwait(false);
+
+                CleanupOldCatalogVersions(part.Item3, localName);
+                Config.CachedCatalogFiles[part.Item1] = new CachedFile { Version = pkg.Version, Sha256 = pkg.Sha256 };
+                downloaded = true;
+            }
+            if (downloaded) _configService.Save(Config);
+            return downloaded;
+        }
+
+        private static void CleanupOldCatalogVersions(string baseName, string keepFileName)
+        {
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(AppConstants.CatalogDir, baseName + "-*"))
+                    if (!string.Equals(Path.GetFileName(file), keepFileName, StringComparison.OrdinalIgnoreCase))
+                        File.Delete(file);
+            }
+            catch
+            {
+                // limpieza best-effort: una versión vieja no molesta (se elige la más alta)
+            }
         }
 
         // ---------------- Lanzar ----------------

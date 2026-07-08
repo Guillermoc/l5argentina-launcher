@@ -24,30 +24,43 @@ namespace L5ArgentinaLauncher.Services
     {
         public async Task<Manifest> FetchAsync(string manifestUrl, CancellationToken ct = default)
         {
-            if (!Uri.TryCreate(manifestUrl, UriKind.Absolute, out var uri))
-                throw new InvalidOperationException("La URL del manifest no es válida.");
-
-            EnsureAllowedScheme(uri);
-
-            string json;
-            if (uri.IsFile)
-            {
-                json = File.ReadAllText(uri.LocalPath);
-            }
-            else
-            {
-                using (var resp = await Http.Client.GetAsync(uri, ct).ConfigureAwait(false))
-                {
-                    resp.EnsureSuccessStatusCode();
-                    json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                }
-            }
-
+            var json = await FetchRawAsync(manifestUrl, ct).ConfigureAwait(false);
             var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var manifest = JsonSerializer.Deserialize<Manifest>(json, opts);
             if (manifest == null)
                 throw new InvalidOperationException("El manifest está vacío o no se pudo parsear.");
             return manifest;
+        }
+
+        /// <summary>
+        /// Descarga y parsea el manifest del pool (CDN de la app Android, canal production).
+        /// Mismas reglas de esquema que el manifest del launcher (HTTPS; file/localhost solo DEBUG).
+        /// </summary>
+        public async Task<PoolManifest> FetchPoolAsync(string manifestUrl, CancellationToken ct = default)
+        {
+            var json = await FetchRawAsync(manifestUrl, ct).ConfigureAwait(false);
+            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var manifest = JsonSerializer.Deserialize<PoolManifest>(json, opts);
+            if (manifest?.Packages == null)
+                throw new InvalidOperationException("El manifest del pool está vacío o no se pudo parsear.");
+            return manifest;
+        }
+
+        private static async Task<string> FetchRawAsync(string manifestUrl, CancellationToken ct)
+        {
+            if (!Uri.TryCreate(manifestUrl, UriKind.Absolute, out var uri))
+                throw new InvalidOperationException("La URL del manifest no es válida.");
+
+            EnsureAllowedScheme(uri);
+
+            if (uri.IsFile)
+                return File.ReadAllText(uri.LocalPath);
+
+            using (var resp = await Http.Client.GetAsync(uri, ct).ConfigureAwait(false))
+            {
+                resp.EnsureSuccessStatusCode();
+                return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            }
         }
 
         /// <summary>
@@ -78,6 +91,34 @@ namespace L5ArgentinaLauncher.Services
             if (!sameOrigin || !underBaseDir)
                 throw new SecurityException(
                     "El manifest referencia un origen o ruta fuera de su propio bucket: " + relativeFile);
+
+            return resolved;
+        }
+
+        /// <summary>
+        /// Valida una URL ABSOLUTA de un package del pool: debe ser del MISMO origen
+        /// (esquema + host + puerto) que el manifest que la referencia. A diferencia de
+        /// <see cref="ResolveFileUri"/> no exige quedar bajo el directorio del manifest,
+        /// porque el pool publica el manifest en /production/ y los archivos en /pool/ —
+        /// la confianza sigue confinada al mismo bucket.
+        /// </summary>
+        public static Uri ResolveSameOriginUrl(string manifestUrl, string absoluteUrl)
+        {
+            if (string.IsNullOrWhiteSpace(absoluteUrl))
+                throw new InvalidOperationException("El manifest del pool referencia una URL vacía.");
+
+            var baseUri = new Uri(manifestUrl, UriKind.Absolute);
+            if (!Uri.TryCreate(absoluteUrl, UriKind.Absolute, out var resolved))
+                throw new SecurityException("El manifest del pool referencia una URL inválida: " + absoluteUrl);
+
+            bool sameOrigin =
+                string.Equals(resolved.Scheme, baseUri.Scheme, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(resolved.Host, baseUri.Host, StringComparison.OrdinalIgnoreCase) &&
+                resolved.Port == baseUri.Port;
+
+            if (!sameOrigin)
+                throw new SecurityException(
+                    "El manifest del pool referencia un origen distinto al propio: " + absoluteUrl);
 
             return resolved;
         }

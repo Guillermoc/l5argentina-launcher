@@ -4,6 +4,7 @@ using System.IO;
 using System.Security;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using L5ArgentinaLauncher.Models;
 using L5ArgentinaLauncher.Resources;
@@ -21,6 +22,9 @@ namespace L5ArgentinaLauncher
 
         private string _settingsPath;
         private TaskCompletionSource<bool> _dialogTcs;
+
+        private Views.SearchWindow _searchWindow;
+        private CardCatalog _catalog; // catálogo del Buscador cargado (se invalida al re-sincronizar)
 
         public MainWindow(UserConfig config)
         {
@@ -63,6 +67,7 @@ namespace L5ArgentinaLauncher
             {
                 await _engine.LoadManifestAsync();
                 PopulateFromManifest();
+                await SyncCatalogQuietAsync();
                 SetStatus(Strings.Get("Status_Ready"));
             }
             catch (Exception ex)
@@ -73,6 +78,43 @@ namespace L5ArgentinaLauncher
             finally
             {
                 SetBusy(false);
+            }
+        }
+
+        /// <summary>
+        /// Sincroniza el catálogo del Buscador. Fuente primaria: el manifest de production del
+        /// pool (cards_db/rules/filters, mismos artefactos que la app). Fallback: la sección
+        /// `catalog` opcional del manifest del launcher. No es crítico para jugar: cualquier
+        /// error se ignora y el Buscador usa lo que haya en caché.
+        /// </summary>
+        private async Task SyncCatalogQuietAsync()
+        {
+            var progress = new Progress<DownloadProgress>(OnProgress);
+            try
+            {
+                await _engine.LoadPoolManifestAsync();
+                if (_engine.CatalogNeedsSyncFromPool())
+                {
+                    SetStatus(Strings.Get("Status_SyncingCatalog"));
+                    if (await _engine.SyncCatalogFromPoolAsync(progress))
+                        _catalog = null; // invalidar el catálogo cargado; se relee al abrir el Buscador
+                }
+                return;
+            }
+            catch
+            {
+                // pool no disponible → probar la sección catalog del manifest del launcher
+            }
+            try
+            {
+                if (!_engine.CatalogNeedsSync()) return;
+                SetStatus(Strings.Get("Status_SyncingCatalog"));
+                if (await _engine.SyncCatalogAsync(progress))
+                    _catalog = null;
+            }
+            catch
+            {
+                // catálogo desactualizado ≠ bloqueo
             }
         }
 
@@ -233,10 +275,245 @@ namespace L5ArgentinaLauncher
 
         private async void RefreshButton_Click(object sender, RoutedEventArgs e) => await RefreshAsync();
 
+        private async void SearchButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_searchWindow != null)
+            {
+                if (_searchWindow.WindowState == WindowState.Minimized)
+                    _searchWindow.WindowState = WindowState.Normal;
+                _searchWindow.Activate();
+                return;
+            }
+            if (_busy) return;
+
+            if (!Services.Search.CatalogStore.IsAvailable())
+            {
+                await ShowDialogAsync(Strings.Get("Dlg_NoCatalogTitle"), Strings.Get("Dlg_NoCatalogMsg"),
+                    Strings.Get("Btn_Close"), null, isError: false);
+                return;
+            }
+
+            SetBusy(true, Strings.Get("Status_LoadingCatalog"), indeterminate: true);
+            try
+            {
+                if (_catalog == null)
+                    _catalog = await Task.Run(() => Services.Search.CatalogStore.Load());
+
+                _searchWindow = new Views.SearchWindow(_catalog, _config.SunAndMoonPath) { Owner = null };
+                _searchWindow.Closed += (s2, e2) => _searchWindow = null;
+                _searchWindow.Show();
+                SetStatus(Strings.Get("Status_Ready"));
+            }
+            catch (Exception ex)
+            {
+                await ShowDialogAsync(Strings.Get("Dlg_GenericErrorTitle"), ex.Message,
+                    Strings.Get("Btn_Close"), null, isError: true);
+                SetStatus(Strings.Format("Fmt_ErrorStatus", Short(ex)));
+            }
+            finally
+            {
+                SetBusy(false);
+            }
+        }
+
         private void UpdateLinkButton_Click(object sender, RoutedEventArgs e)
         {
             try { Process.Start(new ProcessStartInfo(AppConstants.ReleasesPageUrl) { UseShellExecute = true }); }
             catch { /* navegador no disponible */ }
+        }
+
+        // ---------------- Overlay: Packs de imágenes ----------------
+
+        /// <summary>Status de la ventana principal antes de abrir el overlay de packs, para
+        /// restaurarlo al cerrar (si no, queda colgado el "Consultando…"/"Pack aplicado…").</summary>
+        private string _statusBeforePacks;
+
+        private async void PacksButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_busy) return;
+            _statusBeforePacks = StatusText.Text;
+            SetBusy(true, Strings.Get("Status_LoadingPacks"), indeterminate: true);
+            try
+            {
+                await _engine.LoadPoolManifestAsync();
+            }
+            catch (Exception ex)
+            {
+                SetStatus(_statusBeforePacks);
+                await ShowDialogAsync(Strings.Get("Dlg_GenericErrorTitle"),
+                    Strings.Format("Fmt_PacksLoadError", Short(ex)),
+                    Strings.Get("Btn_Close"), null, isError: true);
+                return;
+            }
+            finally
+            {
+                SetBusy(false);
+            }
+
+            BuildPacksList();
+            PacksStatus.Text = "";
+            PacksOverlay.Visibility = Visibility.Visible;
+        }
+
+        private void PacksClose_Click(object sender, RoutedEventArgs e)
+        {
+            if (_busy) return; // no cerrar en medio de una descarga
+            PacksOverlay.Visibility = Visibility.Collapsed;
+            SetStatus(_statusBeforePacks ?? Strings.Get("Status_Ready"));
+        }
+
+        private void BuildPacksList()
+        {
+            PacksList.Children.Clear();
+            foreach (var pack in _engine.ImagePacks)
+                PacksList.Children.Add(BuildPackRow(pack));
+        }
+
+        private UIElement BuildPackRow(PoolPackage pack)
+        {
+            var row = new Border
+            {
+                Background = (Brush)FindResource("SurfaceGlassSoft"),
+                CornerRadius = new CornerRadius(8),
+                BorderBrush = (Brush)FindResource("OutlineSoft"),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(14, 9, 14, 9),
+                Margin = new Thickness(0, 0, 0, 8),
+            };
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var info = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            info.Children.Add(new TextBlock
+            {
+                Text = PackLabel(pack.Id),
+                Style = (Style)FindResource("Body"),
+                Foreground = (Brush)FindResource("Text"),
+            });
+            info.Children.Add(new TextBlock
+            {
+                Text = Strings.Format("Fmt_PackMeta", pack.Version, pack.SizeBytes / 1048576.0),
+                Style = (Style)FindResource("BodySmall"),
+            });
+            grid.Children.Add(info);
+
+            var status = new TextBlock
+            {
+                Style = (Style)FindResource("BodySmall"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(12, 0, 14, 0),
+                TextAlignment = TextAlignment.Right,
+            };
+            Grid.SetColumn(status, 1);
+            grid.Children.Add(status);
+
+            var button = new Button
+            {
+                Style = (Style)FindResource("GhostButton"),
+                Height = 30,
+                FontSize = 14,
+                MinWidth = 110,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Grid.SetColumn(button, 2);
+            grid.Children.Add(button);
+
+            UpdatePackRowState(pack, status, button);
+            button.Click += async (s, e) => await DownloadPackAsync(pack);
+
+            row.Child = grid;
+            return row;
+        }
+
+        private void UpdatePackRowState(PoolPackage pack, TextBlock status, Button button)
+        {
+            if (_engine.PackIsCurrent(pack))
+            {
+                status.Text = Strings.Format("Fmt_PackApplied", pack.Version);
+                status.Foreground = (Brush)FindResource("Gold");
+                button.Content = Strings.Get("Btn_PackReapply");
+            }
+            else if (_engine.PackWasApplied(pack))
+            {
+                status.Text = Strings.Get("Packs_UpdateAvailable");
+                status.Foreground = (Brush)FindResource("Gold");
+                button.Content = Strings.Get("Btn_PackUpdate");
+            }
+            else
+            {
+                status.Text = Strings.Get("Packs_NotInstalled");
+                status.Foreground = (Brush)FindResource("TextFaint");
+                button.Content = Strings.Get("Btn_PackDownload");
+            }
+        }
+
+        private async Task DownloadPackAsync(PoolPackage pack)
+        {
+            if (_busy) return;
+
+            if (!InstallationService.IsValidInstall(_config.SunAndMoonPath))
+            {
+                await ShowDialogAsync(Strings.Get("Dlg_InstallNotFoundTitle"), Strings.Get("Dlg_InstallNotFoundMsg"),
+                    Strings.Get("Btn_Close"), null, isError: true);
+                return;
+            }
+
+            SetBusy(true, Strings.Format("Fmt_DownloadingPack", PackLabel(pack.Id)), indeterminate: true);
+            SetPackButtonsEnabled(false);
+            var progress = new Progress<DownloadProgress>(p =>
+            {
+                OnProgress(p);
+                PacksStatus.Text = p.Fraction.HasValue
+                    ? Strings.Format("Fmt_PackProgress", PackLabel(pack.Id), p.BytesRead / 1048576.0, p.TotalBytes.Value / 1048576.0)
+                    : Strings.Format("Fmt_PackProgressNoTotal", PackLabel(pack.Id), p.BytesRead / 1048576.0);
+            });
+
+            try
+            {
+                await _engine.ApplyPoolImagePackAsync(pack, progress);
+                PacksStatus.Text = Strings.Format("Fmt_PackDone", PackLabel(pack.Id));
+                SetStatus(Strings.Format("Fmt_PackDone", PackLabel(pack.Id)));
+                // El pack puede haber traído imágenes que el Buscador resuelva distinto → nada
+                // que invalidar (lee del disco al mostrar), pero refrescamos estados de la lista.
+            }
+            catch (SecurityException ex)
+            {
+                PacksStatus.Text = "";
+                await ShowDialogAsync(Strings.Get("Dlg_IntegrityTitle"),
+                    Strings.Get("Dlg_IntegrityMsg") + "\n\n" + ex.Message,
+                    Strings.Get("Btn_Close"), null, isError: true);
+                SetStatus(Strings.Get("Status_AbortedSecurity"));
+            }
+            catch (Exception ex)
+            {
+                PacksStatus.Text = "";
+                await ShowDialogAsync(Strings.Get("Dlg_GenericErrorTitle"), ex.Message,
+                    Strings.Get("Btn_Close"), null, isError: true);
+                SetStatus(Strings.Format("Fmt_ErrorStatus", Short(ex)));
+            }
+            finally
+            {
+                SetBusy(false);
+                BuildPacksList(); // re-render de estados + re-habilita botones
+            }
+        }
+
+        private void SetPackButtonsEnabled(bool enabled)
+        {
+            foreach (var child in PacksList.Children)
+                if (child is Border b && b.Child is Grid g)
+                    foreach (var inner in g.Children)
+                        if (inner is Button btn) btn.IsEnabled = enabled;
+        }
+
+        /// <summary>Nombre amigable del pack: Pack_&lt;id&gt; del resx; ids desconocidos quedan tal cual.</summary>
+        private static string PackLabel(string id)
+        {
+            var key = "Pack_" + id;
+            var label = Strings.Get(key);
+            return label == key ? id : label;
         }
 
         // ---------------- Overlay: Configuración ----------------
@@ -374,6 +651,8 @@ namespace L5ArgentinaLauncher
             PlayButton.IsEnabled = !busy;
             RefreshButton.IsEnabled = !busy;
             SettingsButton.IsEnabled = !busy;
+            SearchButton.IsEnabled = !busy || _searchWindow != null;
+            PacksButton.IsEnabled = !busy;
             CommunityCard.IsEnabled = !busy;
             OriginalCard.IsEnabled = !busy && _engine.HasOriginalBackup();
 

@@ -27,6 +27,16 @@ namespace L5ArgentinaLauncher
                 Shutdown();
                 return;
             }
+
+            // Abrir el Buscador directo (testing de UI, sin pasar por MainWindow ni first-run).
+            // Usa el catálogo de cache/catalog (respeta L5A_DATA_ROOT).
+            if (e.Args.Length > 0 && e.Args[0] == "--buscador")
+            {
+                var cat = Services.Search.CatalogStore.Load();
+                var cfg = new ConfigService().Load();
+                new SearchWindow(cat, cfg.SunAndMoonPath).Show();
+                return;
+            }
 #endif
 
             var configService = new ConfigService();

@@ -23,6 +23,12 @@ namespace L5ArgentinaLauncher
         // HARDCODEADO a propósito (spec §9): NUNCA se toma del manifest (evita phishing).
         public const string ReleasesPageUrl = "https://github.com/Guillermoc/l5argentina-launcher/releases";
 
+        // Manifest del CDN de la app Android (canal production): fuente de los packs de
+        // imágenes (y del catálogo del Buscador a futuro). Mismo bucket que el manifest del
+        // launcher; hardcodeado como ReleasesPageUrl.
+        public const string PoolManifestUrl =
+            "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/production/manifest.json";
+
         // ----- Rutas de estado/caché del usuario (spec §13) -----
 
         /// <summary>
@@ -45,8 +51,14 @@ namespace L5ArgentinaLauncher
                 : Path.Combine(OverrideRoot, "localappdata", AppName);
 
         public static string ConfigPath => Path.Combine(AppDataDir, "config.json");
+
+        /// <summary>Favoritas/ocultas del Buscador (equivale a user_card_data de la app Android).</summary>
+        public static string UserCardsPath => Path.Combine(AppDataDir, "usercards.json");
         public static string CacheDir => Path.Combine(LocalAppDataDir, "cache");
         public static string BackupsDir => Path.Combine(LocalAppDataDir, "backups");
+
+        /// <summary>Catálogo del Buscador (cards_db/rules/filters, mismos artefactos que la app Android).</summary>
+        public static string CatalogDir => Path.Combine(CacheDir, "catalog");
 
         /// <summary>Backup de la base "Original" capturada en el primer arranque (spec §7).</summary>
         public static string OriginalBackupPath => Path.Combine(BackupsDir, "database.original.xml");

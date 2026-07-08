@@ -32,6 +32,16 @@ namespace L5ArgentinaLauncher.Models
         [JsonPropertyName("cachedDatabases")]
         public Dictionary<string, CachedFile> CachedDatabases { get; set; } = new Dictionary<string, CachedFile>();
 
+        /// <summary>Hashes de los archivos del catálogo del Buscador ya descargados, por clave
+        /// ("cards" | "rules" | "filters"), para saber si re-descargar.</summary>
+        [JsonPropertyName("cachedCatalogFiles")]
+        public Dictionary<string, CachedFile> CachedCatalogFiles { get; set; } = new Dictionary<string, CachedFile>();
+
+        /// <summary>Packs de imágenes del pool ya aplicados sobre la instalación, por id
+        /// ("lotus", "celestial", …), para mostrar estado y detectar actualizaciones.</summary>
+        [JsonPropertyName("appliedImagePacks")]
+        public Dictionary<string, CachedFile> AppliedImagePacks { get; set; } = new Dictionary<string, CachedFile>();
+
         /// <summary>Versión del pack de imágenes ya aplicado (para no re-extraer si no cambió).</summary>
         [JsonPropertyName("appliedImagePackVersion")]
         public string AppliedImagePackVersion { get; set; }

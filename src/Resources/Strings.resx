@@ -102,4 +102,137 @@
   <data name="Warn_ModifiedBaseMsg" xml:space="preserve"><value>El database.xml actual parece una base de comunidad o modificada. Si continuás, esa será la copia que se guarde como tu base "Original", y no será una base limpia. Lo ideal es capturarla sobre una instalación recién bajada de Sun and Moon. ¿Querés continuar igual?</value></data>
   <data name="Btn_No" xml:space="preserve"><value>No</value></data>
   <data name="Btn_YesContinue" xml:space="preserve"><value>Sí, continuar</value></data>
+
+  <!-- ══════════ Buscador de cartas ══════════ -->
+  <data name="Btn_Search" xml:space="preserve"><value>Buscador</value></data>
+  <data name="Search_Title" xml:space="preserve"><value>Buscador de cartas</value></data>
+  <data name="Fmt_SearchWindowTitle" xml:space="preserve"><value>Buscador de cartas · catálogo {0}</value></data>
+  <data name="Search_NameHint" xml:space="preserve"><value>Buscar por nombre… (Ctrl+F)</value></data>
+  <data name="Fmt_SearchResults" xml:space="preserve"><value>{0} resultados</value></data>
+  <data name="Search_ClearFilters" xml:space="preserve"><value>Limpiar filtros</value></data>
+  <data name="Search_SortDirTip" xml:space="preserve"><value>Dirección del orden (ascendente / descendente)</value></data>
+  <data name="Search_Sort_Name" xml:space="preserve"><value>Nombre</value></data>
+  <data name="Search_Sort_Cost" xml:space="preserve"><value>Costo</value></data>
+  <data name="Search_Sort_Force" xml:space="preserve"><value>Fuerza</value></data>
+  <data name="Search_Sort_Chi" xml:space="preserve"><value>Chi</value></data>
+  <data name="Search_Sort_PHonor" xml:space="preserve"><value>Honor personal</value></data>
+  <data name="Search_Sort_Set" xml:space="preserve"><value>Edición</value></data>
+  <data name="Search_Section_Type" xml:space="preserve"><value>Tipo</value></data>
+  <data name="Search_Section_Clan" xml:space="preserve"><value>Clan</value></data>
+  <data name="Search_Section_Rarity" xml:space="preserve"><value>Rareza</value></data>
+  <data name="Search_Section_CardText" xml:space="preserve"><value>Texto de carta</value></data>
+  <data name="Search_CardTextTip" xml:space="preserve"><value>Palabras completas (AND). Entre comillas dobles busca la frase exacta.</value></data>
+  <data name="Search_CardTextHint" xml:space="preserve"><value>Palabras completas · "entre comillas" = frase exacta</value></data>
+  <data name="Search_IncludeBanned" xml:space="preserve"><value>Incluir baneadas</value></data>
+  <data name="Search_Section_Sets" xml:space="preserve"><value>Edición</value></data>
+  <data name="Search_Section_Keywords" xml:space="preserve"><value>Keywords</value></data>
+  <data name="Search_KwAddTip" xml:space="preserve"><value>Agregar keyword (Enter)</value></data>
+  <data name="Search_KwExclude" xml:space="preserve"><value>Excluir keywords:</value></data>
+  <data name="Search_KwExcludeTip" xml:space="preserve"><value>Excluir cartas con esta keyword (Enter)</value></data>
+  <data name="Search_KwMatchAll" xml:space="preserve"><value>Coincidir todas (AND)</value></data>
+  <data name="Search_KwAction" xml:space="preserve"><value>Incluir keywords de acción</value></data>
+  <data name="Search_KwSubtitle" xml:space="preserve"><value>Incluir subtítulos</value></data>
+  <data name="Search_ChipRemoveTip" xml:space="preserve"><value>Quitar</value></data>
+  <data name="Search_Section_Designators" xml:space="preserve"><value>Designador</value></data>
+  <data name="Search_Section_Other" xml:space="preserve"><value>Otros</value></data>
+  <data name="Search_KwAdvanced" xml:space="preserve"><value>Opciones avanzadas</value></data>
+  <data name="Search_ViewList" xml:space="preserve"><value>Lista</value></data>
+  <data name="Search_ViewGrid" xml:space="preserve"><value>Grilla</value></data>
+  <data name="Search_ExpandPrints" xml:space="preserve"><value>Impresiones</value></data>
+  <data name="Search_ExpandPrintsTip" xml:space="preserve"><value>Mostrar cada impresión de la carta como una entrada aparte (solo en la grilla)</value></data>
+  <data name="Search_OnlyFavorites" xml:space="preserve"><value>Solo favoritas</value></data>
+  <data name="Search_ShowHidden" xml:space="preserve"><value>Ver ocultas</value></data>
+  <data name="Search_OnlyHidden" xml:space="preserve"><value>Solo ocultas</value></data>
+  <data name="Search_Fav_Add" xml:space="preserve"><value>☆ Favorita</value></data>
+  <data name="Search_Fav_Remove" xml:space="preserve"><value>★ Quitar favorita</value></data>
+  <data name="Search_Hide" xml:space="preserve"><value>Ocultar</value></data>
+  <data name="Search_Unhide" xml:space="preserve"><value>Mostrar</value></data>
+  <!-- Arcos del selector de Edición (términos de juego, en inglés) -->
+  <data name="Arc_Lotus" xml:space="preserve"><value>Lotus</value></data>
+  <data name="Arc_Samurai" xml:space="preserve"><value>Samurai</value></data>
+  <data name="Arc_Celestial" xml:space="preserve"><value>Celestial</value></data>
+  <data name="Arc_Emperor" xml:space="preserve"><value>Emperor</value></data>
+  <data name="Arc_Ivory" xml:space="preserve"><value>Ivory</value></data>
+  <data name="Arc_TwentyFestivals" xml:space="preserve"><value>Twenty Festivals</value></data>
+  <data name="Arc_SamuraiExtended" xml:space="preserve"><value>Samurai Extended</value></data>
+  <data name="Arc_Promo" xml:space="preserve"><value>Promo</value></data>
+  <data name="Fmt_ImageMissing" xml:space="preserve"><value>Imagen no encontrada. Se buscó en: {0}</value></data>
+  <data name="Search_NoImagePath" xml:space="preserve"><value>La carta no tiene ruta de imagen en el catálogo.</value></data>
+  <data name="Search_NoImageRoots" xml:space="preserve"><value>Sin carpeta de imágenes: configurá la instalación de Sun and Moon.</value></data>
+  <data name="Search_Section_Stats" xml:space="preserve"><value>Stats</value></data>
+  <data name="Search_StatForce" xml:space="preserve"><value>Fuerza</value></data>
+  <data name="Search_StatChi" xml:space="preserve"><value>Chi</value></data>
+  <data name="Search_StatCost" xml:space="preserve"><value>Costo</value></data>
+  <data name="Search_StatHonor" xml:space="preserve"><value>Honor req.</value></data>
+  <data name="Search_StatPHonor" xml:space="preserve"><value>Honor pers.</value></data>
+  <data name="Search_StatFocus" xml:space="preserve"><value>Focus</value></data>
+  <data name="Search_StatGold" xml:space="preserve"><value>Prod. oro</value></data>
+  <data name="Search_StatProvince" xml:space="preserve"><value>Fza. provincia</value></data>
+  <data name="Search_StatStartHonor" xml:space="preserve"><value>Honor inicial</value></data>
+  <data name="Search_MinTip" xml:space="preserve"><value>Mínimo (vacío = sin límite)</value></data>
+  <data name="Search_MaxTip" xml:space="preserve"><value>Máximo (vacío = sin límite)</value></data>
+  <data name="Search_SpecialForceTip" xml:space="preserve"><value>Incluir cartas con fuerza +*</value></data>
+  <data name="Search_SpecialCostTip" xml:space="preserve"><value>Incluir cartas con costo *</value></data>
+  <data name="Search_NegativeHonorTip" xml:space="preserve"><value>Incluir cartas con "-" impreso</value></data>
+  <data name="Search_Col_Name" xml:space="preserve"><value>Nombre</value></data>
+  <data name="Search_Col_Type" xml:space="preserve"><value>Tipo</value></data>
+  <data name="Search_Col_Clan" xml:space="preserve"><value>Clan</value></data>
+  <data name="Search_Col_Rarity" xml:space="preserve"><value>Rar.</value></data>
+  <data name="Search_Col_Cost" xml:space="preserve"><value>Costo</value></data>
+  <data name="Search_Col_Force" xml:space="preserve"><value>F</value></data>
+  <data name="Search_Col_Chi" xml:space="preserve"><value>C</value></data>
+  <data name="Search_Col_Honor" xml:space="preserve"><value>HR</value></data>
+  <data name="Search_Col_PHonor" xml:space="preserve"><value>HP</value></data>
+  <data name="Search_Col_Sets" xml:space="preserve"><value>Ediciones</value></data>
+  <data name="Search_NoSelection" xml:space="preserve"><value>Elegí una carta para ver el detalle.</value></data>
+  <data name="Fmt_DetailSets" xml:space="preserve"><value>Ediciones: {0}</value></data>
+  <data name="Fmt_DetailLegality" xml:space="preserve"><value>Legalidad: {0}</value></data>
+  <data name="Fmt_DetailArtist" xml:space="preserve"><value>Arte: {0}</value></data>
+  <!-- Términos de juego: SIEMPRE en inglés (los nombres de clan y rarezas son vocabulario
+       oficial de L5R, no se traducen). -->
+  <data name="Clan_crab" xml:space="preserve"><value>Crab</value></data>
+  <data name="Clan_crane" xml:space="preserve"><value>Crane</value></data>
+  <data name="Clan_dragon" xml:space="preserve"><value>Dragon</value></data>
+  <data name="Clan_lion" xml:space="preserve"><value>Lion</value></data>
+  <data name="Clan_mantis" xml:space="preserve"><value>Mantis</value></data>
+  <data name="Clan_phoenix" xml:space="preserve"><value>Phoenix</value></data>
+  <data name="Clan_scorpion" xml:space="preserve"><value>Scorpion</value></data>
+  <data name="Clan_spider" xml:space="preserve"><value>Spider</value></data>
+  <data name="Clan_unicorn" xml:space="preserve"><value>Unicorn</value></data>
+  <data name="Clan_noclan" xml:space="preserve"><value>No Clan</value></data>
+  <data name="Rarity_P" xml:space="preserve"><value>Promo</value></data>
+  <data name="Rarity_R" xml:space="preserve"><value>Rare</value></data>
+  <data name="Rarity_U" xml:space="preserve"><value>Uncommon</value></data>
+  <data name="Rarity_C" xml:space="preserve"><value>Common</value></data>
+  <data name="Rarity_F" xml:space="preserve"><value>Fixed</value></data>
+  <!-- ══════════ Packs de imágenes (manifest del pool) ══════════ -->
+  <data name="Btn_Packs" xml:space="preserve"><value>Packs de imágenes…</value></data>
+  <data name="Packs_Title" xml:space="preserve"><value>Packs de imágenes</value></data>
+  <data name="Packs_Help" xml:space="preserve"><value>Arte oficial de cartas por arco. Cada pack se descarga, se verifica y se instala sobre la carpeta images de Sun and Moon (se fusiona con lo que ya tengas). Conviene hacerlo con el juego cerrado.</value></data>
+  <data name="Status_LoadingPacks" xml:space="preserve"><value>Consultando packs de imágenes…</value></data>
+  <data name="Fmt_PacksLoadError" xml:space="preserve"><value>No se pudo consultar la lista de packs. Reintentá con conexión. ({0})</value></data>
+  <data name="Fmt_PackMeta" xml:space="preserve"><value>v{0} · {1:0} MB</value></data>
+  <data name="Fmt_PackApplied" xml:space="preserve"><value>Aplicado (v{0})</value></data>
+  <data name="Packs_UpdateAvailable" xml:space="preserve"><value>Actualización disponible</value></data>
+  <data name="Packs_NotInstalled" xml:space="preserve"><value>No descargado</value></data>
+  <data name="Btn_PackDownload" xml:space="preserve"><value>Descargar</value></data>
+  <data name="Btn_PackUpdate" xml:space="preserve"><value>Actualizar</value></data>
+  <data name="Btn_PackReapply" xml:space="preserve"><value>Reaplicar</value></data>
+  <data name="Fmt_DownloadingPack" xml:space="preserve"><value>Descargando pack {0}…</value></data>
+  <data name="Fmt_PackProgress" xml:space="preserve"><value>{0}: {1:0.0} MB de {2:0.0} MB</value></data>
+  <data name="Fmt_PackProgressNoTotal" xml:space="preserve"><value>{0}: {1:0.0} MB descargados</value></data>
+  <data name="Fmt_PackDone" xml:space="preserve"><value>Pack {0} aplicado sobre la instalación.</value></data>
+  <data name="Pack_promo" xml:space="preserve"><value>Promo</value></data>
+  <data name="Pack_lotus" xml:space="preserve"><value>Lotus</value></data>
+  <data name="Pack_samurai" xml:space="preserve"><value>Samurai</value></data>
+  <data name="Pack_celestial" xml:space="preserve"><value>Celestial</value></data>
+  <data name="Pack_emperor" xml:space="preserve"><value>Emperor</value></data>
+  <data name="Pack_ivory" xml:space="preserve"><value>Ivory</value></data>
+  <data name="Pack_20F" xml:space="preserve"><value>Twenty Festivals</value></data>
+  <data name="Pack_samuraiEx" xml:space="preserve"><value>Samurai Extended</value></data>
+
+  <data name="Status_LoadingCatalog" xml:space="preserve"><value>Cargando catálogo de cartas…</value></data>
+  <data name="Status_SyncingCatalog" xml:space="preserve"><value>Sincronizando catálogo del Buscador…</value></data>
+  <data name="Dlg_NoCatalogTitle" xml:space="preserve"><value>Catálogo no disponible</value></data>
+  <data name="Dlg_NoCatalogMsg" xml:space="preserve"><value>Todavía no hay catálogo de cartas descargado. Se sincroniza automáticamente desde el manifest cuando el bucket lo publica (Buscar actualizaciones con conexión).</value></data>
 </root>

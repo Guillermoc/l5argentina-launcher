@@ -22,9 +22,42 @@ namespace L5ArgentinaLauncher.Models
         [JsonPropertyName("images")]
         public ImagePackEntry Images { get; set; }
 
+        // Catálogo del Buscador (cards_db/rules/filters). Opcional: si falta, el Buscador
+        // usa lo que haya en caché local. Mismos artefactos que consume la app Android.
+        [JsonPropertyName("catalog")]
+        public CatalogSection Catalog { get; set; }
+
         // v2: en v1 puede venir ausente o vacío. Placeholder hasta definir el formato.
         [JsonPropertyName("news")]
         public List<NewsEntry> News { get; set; } = new List<NewsEntry>();
+    }
+
+    /// <summary>Sección opcional del manifest con los tres artefactos del Buscador.</summary>
+    public class CatalogSection
+    {
+        [JsonPropertyName("cards")]
+        public CatalogFileEntry Cards { get; set; }
+
+        [JsonPropertyName("rules")]
+        public CatalogFileEntry Rules { get; set; }
+
+        [JsonPropertyName("filters")]
+        public CatalogFileEntry Filters { get; set; }
+    }
+
+    public class CatalogFileEntry
+    {
+        [JsonPropertyName("version")]
+        public string Version { get; set; }
+
+        [JsonPropertyName("file")]
+        public string File { get; set; }
+
+        [JsonPropertyName("sha256")]
+        public string Sha256 { get; set; }
+
+        [JsonPropertyName("size")]
+        public long Size { get; set; }
     }
 
     public class LauncherInfo

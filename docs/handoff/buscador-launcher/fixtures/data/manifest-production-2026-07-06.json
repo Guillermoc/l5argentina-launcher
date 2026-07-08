@@ -1,0 +1,88 @@
+{
+  "packages": [
+    {
+      "id": "changelog",
+      "type": "changelog",
+      "version": "3.2",
+      "url": "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/pool/changelog/changelog/3.2/changelog.md",
+      "sizeBytes": 811
+    },
+    {
+      "id": "cards_db",
+      "type": "database",
+      "version": "2.3.1",
+      "url": "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/pool/database/cards_db/2.3.1/cards_db.zip",
+      "sizeBytes": 900193
+    },
+    {
+      "id": "rules",
+      "type": "rules",
+      "version": "2.3.1",
+      "url": "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/pool/rules/rules/2.3.1/rules.json",
+      "sizeBytes": 64240
+    },
+    {
+      "id": "filters",
+      "type": "filters",
+      "version": "2.3.0",
+      "url": "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/pool/filters/filters/2.3.0/filters.json",
+      "sizeBytes": 137738
+    },
+    {
+      "id": "promo",
+      "type": "images",
+      "version": "1.0",
+      "url": "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/pool/images/promo/1.0/promo.zip",
+      "sizeBytes": 71076101
+    },
+    {
+      "id": "lotus",
+      "type": "images",
+      "version": "1.0",
+      "url": "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/pool/images/lotus/1.0/lotus.zip",
+      "sizeBytes": 54372895
+    },
+    {
+      "id": "samurai",
+      "type": "images",
+      "version": "1.0",
+      "url": "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/pool/images/samurai/1.0/samurai.zip",
+      "sizeBytes": 245067755
+    },
+    {
+      "id": "celestial",
+      "type": "images",
+      "version": "1.0",
+      "url": "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/pool/images/celestial/1.0/celestial.zip",
+      "sizeBytes": 277180161
+    },
+    {
+      "id": "emperor",
+      "type": "images",
+      "version": "1.0",
+      "url": "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/pool/images/emperor/1.0/emperor.zip",
+      "sizeBytes": 207961586
+    },
+    {
+      "id": "ivory",
+      "type": "images",
+      "version": "1.0",
+      "url": "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/pool/images/ivory/1.0/ivory.zip",
+      "sizeBytes": 94502113
+    },
+    {
+      "id": "20F",
+      "type": "images",
+      "version": "1.0",
+      "url": "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/pool/images/20F/1.0/20F.zip",
+      "sizeBytes": 52702296
+    },
+    {
+      "id": "samuraiEx",
+      "type": "images",
+      "version": "1.1",
+      "url": "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/pool/images/samuraiEx/1.1/samuraiEx.zip",
+      "sizeBytes": 4565774
+    }
+  ]
+}
