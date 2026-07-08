@@ -5,9 +5,9 @@ Rings* en la app **Sun and Moon**. Resuelve el problema de mantener sincronizada
 nuestra base de cartas curada: en lugar de copiar archivos a mano, el launcher chequea si hay una base
 nueva en nuestro bucket, deja **elegir con qué base jugar**, la aplica de forma segura y lanza el juego.
 
-Versión actual: **0.1.0**.
+Versión actual: **0.2.0**.
 
-> Diseño/decisiones: [docs/launcher-spec.md](docs/launcher-spec.md) · Guía visual: [docs/Style_guide.md](docs/Style_guide.md) · Plan: [docs/PLAN.md](docs/PLAN.md) · Guía de usuarios: [docs/USUARIOS.md](docs/USUARIOS.md)
+> Diseño/decisiones: [docs/launcher-spec.md](docs/launcher-spec.md) · Buscador: [docs/BUSCADOR.md](docs/BUSCADOR.md) · Guía visual: [docs/Style_guide.md](docs/Style_guide.md) · Plan: [docs/PLAN.md](docs/PLAN.md) · Guía de usuarios: [docs/USUARIOS.md](docs/USUARIOS.md)
 
 ---
 
@@ -31,6 +31,17 @@ Versión actual: **0.1.0**.
   están en los packs clásicos, verifica su SHA-256 y lo extrae sobre la carpeta de imágenes con
   **protección zip-slip**.
 - **Lanza Sun and Moon** (la instalación del usuario).
+- **Buscador de cartas** (desde 0.2.0): ventana propia con la **misma semántica de filtros que la app
+  Android L5Argentina** — el motor es un port 1:1 verificado contra 53 *golden tests* generados con la
+  lógica real de la app. Búsqueda por nombre y texto de carta, filtros por keywords (con autocomplete),
+  tipo, clan, designador, stats, edición (agrupada por arcos), rareza y baneadas; resultados en tabla o
+  **grilla de miniaturas** con expansión por impresión; favoritas/ocultas persistentes; detalle con el
+  arte de la carta, texto renderizado y etiquetas UNIQUE/BANNED data-driven del `rules.json`. El catálogo
+  (cards_db/rules/filters) se sincroniza solo desde el manifest de producción del CDN de la app.
+- **Packs de imágenes opcionales** (desde 0.2.0): menú para descargar el arte oficial de cartas por arco
+  (Lotus, Samurai, Celestial, Emperor, Ivory, Twenty Festivals, Promo, Samurai Extended) desde el CDN de
+  la app; cada pack se verifica por SHA-256 y se instala sobre la carpeta `images` de Sun and Moon —
+  sirve al juego y al Buscador.
 - **Avisa si hay un launcher nuevo.** Si el manifest indica una versión más nueva, muestra un banner con
   link a la página de descargas (el link va **hardcodeado en el exe**, nunca se toma del manifest).
 - **Configuración:** permite cambiar la carpeta de Sun and Moon y la URL del manifest (con default
@@ -47,8 +58,9 @@ El principio rector: **el launcher solo descarga datos (XML, JSON, ZIP), nunca c
   coincide, aborta sin tocar la instalación.
 - **HTTPS obligatorio** y **TLS 1.2+** forzado.
 - **Confinamiento al origen del manifest**: los archivos se resuelven como relativos al manifest; nunca
-  se siguen URLs absolutas a otros dominios ni rutas que escapen de su directorio.
-- **Extracción zip-slip-safe** del pack de imágenes.
+  se siguen URLs absolutas a otros dominios ni rutas que escapen de su directorio. El manifest del pool
+  (CDN de la app) usa URLs absolutas: se aceptan **solo si son del mismo origen** que ese manifest.
+- **Extracción zip-slip-safe** de todos los packs de imágenes.
 - **Sin auto-update del propio exe**: el link de descarga está hardcodeado, no viene del manifest.
 - **Backups** antes de cada sobrescritura (la Original y copias con timestamp).
 
@@ -59,9 +71,10 @@ El threat model completo está en la spec (§8–§10).
 ## UI
 
 WPF con estética **Rokugán / pergamino** (rojo lacado para acción, oro decorativo, tipografía de marca
-L5RTitles). Ventana **fija 810×540 (3:2)**, no redimensionable, con barra de título propia (el diseño se compone a
-1080×720 y se escala con un `Viewbox`).
-Diálogos de error/confirmación y la pantalla de Configuración son *overlays* dentro de la ventana
+L5RTitles). Ventana principal **fija 810×540 (3:2)**, no redimensionable, con barra de título propia (el
+diseño se compone a 1080×720 y se escala con un `Viewbox`). El **Buscador** es una segunda ventana,
+redimensionable y maximizable, con el mismo tema y chrome propio.
+Diálogos de error/confirmación, Configuración y Packs de imágenes son *overlays* dentro de la ventana
 (no `MessageBox` del sistema).
 
 **Textos (i18n):** todos los textos viven en [src/Resources/Strings.resx](src/Resources/Strings.resx)
@@ -96,10 +109,13 @@ quedan al lado).
 ### Self-test (solo Debug)
 
 Un harness de verificación monta un bucket+instalación falsos en `%TEMP%` y ejercita el pipeline real
-(hash, confinamiento de origen, zip-slip, backups, base zippeada) sin tocar tu instalación:
+(hash, confinamiento de origen, zip-slip, backups, base zippeada, catálogo y packs del pool) sin tocar
+tu instalación — **107 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador
+contra la lógica real de la app Android:
 
 ```sh
 src/bin/Debug/net48/L5ArgentinaLauncher.exe --selftest C:\ruta\reporte.txt
+src/bin/Debug/net48/L5ArgentinaLauncher.exe --buscador   # abre el Buscador directo (testing de UI)
 ```
 
 > Hook de testing: la variable de entorno `L5A_DATA_ROOT` redirige config/caché/backups a otra carpeta.
@@ -119,6 +135,7 @@ En [src/AppConstants.cs](src/AppConstants.cs):
 | Constante | Valor |
 |---|---|
 | `DefaultManifestUrl` | `https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/sunandmoon/manifest.json` |
+| `PoolManifestUrl` | `https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/production/manifest.json` (CDN de la app: catálogo del Buscador + packs de imágenes; **hardcodeado**) |
 | `ReleasesPageUrl` | `https://github.com/Guillermoc/l5argentina-launcher/releases` (link del aviso de update, **hardcodeado a propósito**) |
 
 El formato del `manifest.json` y un ejemplo con hashes reales están en
@@ -143,26 +160,35 @@ El formato del `manifest.json` y un ejemplo con hashes reales están en
 
 ```
 src/
-├─ App.xaml(.cs)              arranque, TLS 1.2+, ruteo de primer arranque, --selftest
-├─ MainWindow.xaml(.cs)       selección de base, banner de update, sync, JUGAR, overlays
+├─ App.xaml(.cs)              arranque, TLS 1.2+, ruteo de primer arranque, --selftest/--buscador
+├─ MainWindow.xaml(.cs)       selección de base, banner de update, sync, JUGAR, overlays (config/packs)
 ├─ AppConstants.cs            URLs, versión, rutas de %APPDATA%/%LOCALAPPDATA%
 ├─ Themes/Theme.xaml          paleta, fuentes, estilos y fondo (guía de estilos L5Argentina)
 ├─ Resources/
 │  ├─ Strings.resx            TODOS los textos de UI (i18n, español)
 │  ├─ Strings.cs              accesor (ResourceManager)
 │  └─ LocExtension.cs         markup extension {loc:Loc}
-├─ Models/                    Manifest, UserConfig
-├─ Views/FirstRunWindow       primer arranque (detección + captura de la Original)
+├─ Models/                    Manifest, PoolManifest, UserConfig, CardCatalog
+├─ Views/
+│  ├─ FirstRunWindow          primer arranque (detección + captura de la Original)
+│  ├─ SearchWindow            Buscador de cartas (filtros vivos, tabla/grilla, detalle)
+│  └─ CardTextRenderer        HTML acotado de cartas → Inlines (sin WebView)
 └─ Services/
-   ├─ ManifestService         fetch + parseo + ResolveFileUri (confinado al origen, HTTPS-only)
+   ├─ ManifestService         fetch + parseo + resolución confinada (relativa y same-origin)
    ├─ DownloadService         descarga + verificación SHA-256
    ├─ DatabaseService         backup original + backup timestamped + aplicar base
-   ├─ ImagePackService        extracción del zip con protección zip-slip
+   ├─ ImagePackService        extracción de packs con protección zip-slip
    ├─ ZipUtil                 extracción del database.xml desde la base .zip
    ├─ GameLauncher            Process.Start de Sun and Moon
    ├─ ConfigService           %APPDATA% config
-   ├─ LauncherEngine          coordinador del flujo
-   └─ NewsService             placeholder (v2)
+   ├─ LauncherEngine          coordinador del flujo (bases, imágenes, catálogo, packs del pool)
+   ├─ NewsService             placeholder (v2)
+   └─ Search/
+      ├─ CatalogImporter      port del importer de la app (cards.json + rules + filters)
+      ├─ CardSearchEngine     motor de filtros (port 1:1, semánticas SQLite replicadas)
+      ├─ CardSearchCriteria   criterios (compatible con los golden tests)
+      ├─ CatalogStore         carga del catálogo desde cache/catalog
+      └─ UserCardDataStore    favoritas/ocultas persistentes
 ```
 
 Stack: **WPF sobre .NET Framework 4.8**, csproj SDK-style compilado con el **.NET SDK 8**, empaquetado en
