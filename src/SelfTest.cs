@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.Json;
 using L5ArgentinaLauncher.Models;
 using L5ArgentinaLauncher.Services;
+using L5ArgentinaLauncher.Services.Deck;
 
 namespace L5ArgentinaLauncher
 {
@@ -290,8 +291,38 @@ namespace L5ArgentinaLauncher
                    && poolCatalog.Cards[0].Id == "PX1",
                 "Pool: CatalogStore carga la versión del pool");
 
+            // ---------- Stores del Buscador: listas y presets (roundtrip en disco) ----------
+            var ucs = Services.Search.UserCardDataStore.Load();
+            Assert(ucs.CreateList("mazo-prueba"), "Stores: crea lista");
+            Assert(!ucs.CreateList("mazo-prueba"), "Stores: no duplica lista");
+            Assert(ucs.ToggleInList("mazo-prueba", "X1"), "Stores: agrega carta a la lista");
+            var ucs2 = Services.Search.UserCardDataStore.Load();
+            Assert(ucs2.ListContains("mazo-prueba", "X1"), "Stores: lista persiste en disco");
+            Assert(!ucs2.ToggleInList("mazo-prueba", "X1"), "Stores: toggle quita la carta");
+
+            var presets = Services.Search.FilterPresetStore.Load();
+            presets.Save("agresivo", new Services.Search.CardSearchCriteria
+            {
+                Types = new List<string> { "personality" },
+                ForceMin = 4,
+                SortField = Services.Search.SortField.FORCE,
+                SortAscending = false,
+            });
+            var presets2 = Services.Search.FilterPresetStore.Load();
+            var preset = presets2.Get("agresivo");
+            Assert(preset != null && preset.Types.Count == 1 && preset.Types[0] == "personality"
+                   && preset.ForceMin == 4 && preset.SortField == Services.Search.SortField.FORCE
+                   && !preset.SortAscending,
+                "Stores: preset roundtrip (tipos, rango, orden)");
+
             // ---------- Buscador: paridad con la app Android (golden tests) ----------
             RunGoldenSearchTests();
+
+            // ---------- Deckbuilder: paridad con la app Android (golden tests) ----------
+            RunGoldenDeckTests();
+
+            // ---------- Deckbuilder: persistencia txt de Sun and Moon ----------
+            RunDeckStoreTests(tempRoot);
 
             // ---------- Opcional: e2e con archivos REALES del bucket ----------
             // Se activa pasando L5A_SELFTEST_BUCKET=<carpeta con manifest.json + zips reales>.
@@ -383,6 +414,320 @@ namespace L5ArgentinaLauncher
         }
 
         private static string ElementAtOr(List<string> list, int i) => i < list.Count ? list[i] : "<fin>";
+
+        /// <summary>
+        /// Paridad del DeckRepository portado contra los 25 golden tests del deckbuilder
+        /// (docs/handoff/deckbuilder-launcher/fixtures/), generados ejecutando el
+        /// DeckRepository REAL de la app sobre SQLite. Se replica la secuencia exacta del
+        /// driver (DeckRunner.kt): mismo orden de casos, mismos nombres "Golden N" (el string
+        /// del export los incluye). Si los fixtures no están, se omite sin fallar.
+        /// </summary>
+        private static void RunGoldenDeckTests()
+        {
+            var fixturesDir = FindRepoRelative(Path.Combine("docs", "handoff", "deckbuilder-launcher", "fixtures"));
+            if (fixturesDir == null)
+            {
+                Line("SKIP: golden tests del deckbuilder (fixtures no encontrados junto al repo)");
+                return;
+            }
+
+            Line("");
+            Line("=== Deckbuilder: golden tests de paridad (DeckRepository portado vs app Android) ===");
+
+            var catalog = Services.Search.CatalogStore.Load(Path.Combine(fixturesDir, "data"));
+            Assert(catalog.InitialHoldingSlots.Count == 2 && catalog.InitialHoldingSlots.All(s => s.Required),
+                "Golden deck: filters.json trae 2 slots de holding inicial requeridos");
+            var repo = new Services.Deck.DeckRepository(catalog);
+
+            // Ids de cartas del harness (cardsUsed del golden-tests.json)
+            const string STRONGHOLD_CRAB = "Samurai395";   // The Seventh Tower
+            const string STRONGHOLD_ZERO = "Tomorrow054";  // Barracks of the Damned
+            const string STRONGHOLD_LION = "Samurai401";   // The Hall of Ancestors
+            const string PERSONALITY_MAX3 = "TDoW012";     // Hida Akeno
+            const string UNIQUE_EVENT = "P232";            // Redrawing the Maps
+            const string BANNED = "ALitS117";              // A Kensai's Art
+            const string BORDER_KEEP = "Emperor028";
+            const string BORDER_KEEP_EXP = "Ivory402";
+            const string BAMBOO = "HaT001";
+
+            using (var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(fixturesDir, "golden-tests.json"))))
+            {
+                var cases = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+                foreach (var c in doc.RootElement.GetProperty("cases").EnumerateArray())
+                    cases[c.GetProperty("name").GetString()] = c.Clone();
+
+                JsonElement Op(string name, int i) => cases[name].GetProperty("operations")[i];
+
+                var deckSeq = 0;
+                string NewDeck(string type = "deck") => repo.CreateDeck("Golden " + deckSeq++, type);
+
+                void AssertAdd(string caseName, int opIdx, AddCardResult actual)
+                {
+                    var expect = Op(caseName, opIdx).GetProperty("expect");
+                    var expected = expect.GetProperty("result").GetString();
+                    var ok = actual.Kind.ToString() == expected;
+                    if (ok && expect.TryGetProperty("max", out var max))
+                        ok = max.GetInt32() == actual.Max;
+                    Assert(ok, $"Golden deck {caseName}[{opIdx}] (esperado {expected}, obtenido {actual.Kind})");
+                }
+
+                string ImportText(string caseName, int opIdx) =>
+                    Op(caseName, opIdx).GetProperty("import").GetString().Replace("\\n", "\n");
+
+                void AssertImport(string caseName, int opIdx, ImportResult actual)
+                {
+                    var op = Op(caseName, opIdx);
+                    var ok = actual.Imported == op.GetProperty("imported").GetInt32();
+                    if (ok && op.TryGetProperty("notFound", out var nf))
+                        ok = actual.NotFound == nf.GetInt32();
+                    if (ok && op.TryGetProperty("notFoundNames", out var names))
+                        ok = actual.NotFoundNames.SequenceEqual(
+                            names.EnumerateArray().Select(n => n.GetString()), StringComparer.Ordinal);
+                    Assert(ok, $"Golden deck {caseName} (imported={actual.Imported}, notFound={actual.NotFound})");
+                }
+
+                // ── addCard (misma secuencia y numeración de mazos que DeckRunner.kt) ──
+                { var d = NewDeck(); AssertAdd("add-banned-rechazado", 0, repo.AddCard(d, BANNED)); }
+                {
+                    var d = NewDeck();
+                    AssertAdd("add-normal-exito", 0, repo.AddCard(d, PERSONALITY_MAX3));
+                    Assert(repo.GetDeckCard(d, PERSONALITY_MAX3)?.Quantity ==
+                           Op("add-normal-exito", 0).GetProperty("quantityAfter").GetInt32(),
+                        "Golden deck add-normal-exito: quantityAfter");
+                }
+                {
+                    var d = NewDeck();
+                    for (int i = 0; i < 4; i++) AssertAdd("add-max-copias-deck", i, repo.AddCard(d, PERSONALITY_MAX3));
+                }
+                {
+                    var d = NewDeck();
+                    AssertAdd("add-unique-max1", 0, repo.AddCard(d, UNIQUE_EVENT));
+                    AssertAdd("add-unique-max1", 1, repo.AddCard(d, UNIQUE_EVENT));
+                }
+                {
+                    var d = NewDeck("list");
+                    AssertAdd("add-lista-tope-1", 1, repo.AddCard(d, PERSONALITY_MAX3));
+                    AssertAdd("add-lista-tope-1", 2, repo.AddCard(d, PERSONALITY_MAX3));
+                }
+                { var d = NewDeck(); AssertAdd("add-card-inexistente", 0, repo.AddCard(d, "NO_EXISTE_999")); }
+                AssertAdd("add-deck-inexistente", 0, repo.AddCard("deck-inexistente-xyz", PERSONALITY_MAX3));
+                { var d = NewDeck(); AssertAdd("add-holding-inicial-ok", 0, repo.AddCard(d, BORDER_KEEP)); }
+                {
+                    var d = NewDeck();
+                    AssertAdd("add-holding-slot-ocupado", 0, repo.AddCard(d, BORDER_KEEP));
+                    AssertAdd("add-holding-slot-ocupado", 1, repo.AddCard(d, BORDER_KEEP_EXP));
+                }
+                {
+                    var d = NewDeck();
+                    AssertAdd("add-holding-slots-distintos", 0, repo.AddCard(d, BORDER_KEEP));
+                    AssertAdd("add-holding-slots-distintos", 1, repo.AddCard(d, BAMBOO));
+                }
+                {
+                    var d = NewDeck();
+                    AssertAdd("add-dos-strongholds", 0, repo.AddCard(d, STRONGHOLD_CRAB));
+                    AssertAdd("add-dos-strongholds", 1, repo.AddCard(d, STRONGHOLD_LION));
+                }
+
+                // ── importCards ──
+                { var d = NewDeck(); AssertImport("import-basico", 0, repo.ImportCards(d, ImportText("import-basico", 0))); }
+                { var d = NewDeck(); AssertImport("import-clamp-max", 0, repo.ImportCards(d, ImportText("import-clamp-max", 0))); }
+                { var d = NewDeck(); AssertImport("import-baneada", 0, repo.ImportCards(d, ImportText("import-baneada", 0))); }
+                { var d = NewDeck(); AssertImport("import-desconocida", 0, repo.ImportCards(d, ImportText("import-desconocida", 0))); }
+                { var d = NewDeck("list"); AssertImport("import-lista-tope-1", 1, repo.ImportCards(d, ImportText("import-lista-tope-1", 1))); }
+                { var d = NewDeck(); AssertImport("import-holding-conflicto", 0, repo.ImportCards(d, ImportText("import-holding-conflicto", 0))); }
+                {
+                    var d = NewDeck();
+                    AssertImport("import-notas-headers-sortmode", 0,
+                        repo.ImportCards(d, ImportText("import-notas-headers-sortmode", 0)));
+                    var after = Op("import-notas-headers-sortmode", 1);
+                    var deck = repo.GetDeckById(d);
+                    Assert((deck.Notes ?? "") == after.GetProperty("notesAfter").GetString(),
+                        $"Golden deck import-notas: notes='{deck.Notes}'");
+                    Assert((deck.SortMode ?? "") == after.GetProperty("sortModeAfter").GetString(),
+                        $"Golden deck import-notas: sort_mode='{deck.SortMode}'");
+                }
+                { var d = NewDeck(); AssertImport("import-qty-implicita", 0, repo.ImportCards(d, ImportText("import-qty-implicita", 0))); }
+
+                // ── export round-trip (string EXACTO del mazo "Golden 18") ──
+                {
+                    var d = NewDeck();
+                    repo.AddCard(d, STRONGHOLD_CRAB);
+                    repo.ImportCards(d, "3 Hida Akeno\n2 Jade Works\n2 A Brave New World");
+                    var exportText = repo.ExportDeck(d);
+                    var expected = Op("export-roundtrip", 0).GetProperty("exportText").GetString();
+                    Assert(exportText == expected,
+                        "Golden deck export-roundtrip: string exacto" +
+                        (exportText == expected ? "" : $" (obtenido:\n{exportText})"));
+                    var d2 = NewDeck();
+                    var reimport = repo.ImportCards(d2, exportText);
+                    var totals = Op("export-roundtrip", 1);
+                    Assert(repo.TotalCardCount(d) == totals.GetProperty("totalOriginal").GetInt32()
+                           && reimport.Imported == totals.GetProperty("reimported").GetInt32()
+                           && repo.TotalCardCount(d2) == totals.GetProperty("totalReimport").GetInt32(),
+                        $"Golden deck export-roundtrip: totales {repo.TotalCardCount(d)}→{repo.TotalCardCount(d2)}");
+                }
+
+                // ── conteos Dynasty/Fate (espejo de DeckDetailViewModel) ──
+                {
+                    var d = NewDeck();
+                    repo.AddCard(d, STRONGHOLD_CRAB);
+                    repo.ImportCards(d, "3 Hida Akeno\n2 Jade Works\n3 A Brave New World");
+                    var op = Op("conteos-dynasty-fate", 0);
+                    Assert(repo.DynastyCount(d) == op.GetProperty("dynastyCount").GetInt32()
+                           && repo.FateCount(d) == op.GetProperty("fateCount").GetInt32(),
+                        $"Golden deck conteos: dynasty={repo.DynastyCount(d)} fate={repo.FateCount(d)}");
+                    Assert(Services.Deck.DeckRepository.SideTarget ==
+                           op.GetProperty("sideTarget").GetInt32(), "Golden deck conteos: SIDE_TARGET=40");
+                }
+
+                // ── slots requeridos sin cubrir ──
+                {
+                    var d = NewDeck();
+                    var op0 = Op("slots-requeridos-sin-cubrir", 0);
+                    var expectedRequired = op0.GetProperty("requiredSlots").EnumerateArray()
+                        .Select(x => x.GetString()).ToList();
+                    Assert(repo.RequiredSlots.Select(s => s.SlotId).SequenceEqual(expectedRequired),
+                        "Golden deck slots: requeridos = [bamboo, border]");
+                    Assert(repo.UncoveredRequiredSlots(d).Select(s => s.SlotId).SequenceEqual(
+                            op0.GetProperty("uncoveredEmpty").EnumerateArray().Select(x => x.GetString())),
+                        "Golden deck slots: mazo vacío → ambos sin cubrir");
+                    repo.AddCard(d, BORDER_KEEP);
+                    Assert(repo.UncoveredRequiredSlots(d).Select(s => s.SlotId).SequenceEqual(
+                            Op("slots-requeridos-sin-cubrir", 1).GetProperty("afterAddBorderKeep")
+                                .EnumerateArray().Select(x => x.GetString())),
+                        "Golden deck slots: tras Border Keep queda bamboo");
+                }
+
+                // ── honor inicial (espejo de GoldfishViewModel) ──
+                {
+                    var op = Op("stat-inicial-honor-stronghold", 0);
+                    var card = repo.GetCardById(STRONGHOLD_CRAB);
+                    Assert(card.StartingHonor == op.GetProperty("startingHonor").GetInt32()
+                           && card.ProvinceStrength == op.GetProperty("provinceStrength").GetInt32()
+                           && card.GoldProduction == op.GetProperty("goldProduction").GetInt32(),
+                        "Golden deck honor: The Seventh Tower (3 / prov 8 / oro 4)");
+                    var d = NewDeck();
+                    repo.AddCard(d, STRONGHOLD_CRAB);
+                    Assert(repo.InitialHonor(d) == op.GetProperty("honorCounterInGoldfish").GetInt32(),
+                        "Golden deck honor: honorCounter = 3");
+                }
+                {
+                    var op = Op("stat-inicial-honor-cero", 0);
+                    var d = NewDeck();
+                    repo.AddCard(d, STRONGHOLD_ZERO);
+                    Assert(repo.GetCardById(STRONGHOLD_ZERO).StartingHonor == op.GetProperty("startingHonor").GetInt32()
+                           && repo.InitialHonor(d) == op.GetProperty("honorCounterInGoldfish").GetInt32(),
+                        "Golden deck honor: starting_honor=0 legítimo → 0");
+                }
+                {
+                    var d = NewDeck();
+                    repo.AddCard(d, STRONGHOLD_CRAB);
+                    repo.AddCard(d, STRONGHOLD_LION);
+                    var pick = Op("stat-inicial-honor-multi-stronghold", 2)
+                        .GetProperty("goldfishPicksByNameOrder").GetString();
+                    var honorB = Op("stat-inicial-honor-multi-stronghold", 1).GetProperty("honorB").GetInt32();
+                    Assert(pick == "The Hall of Ancestors" && repo.InitialHonor(d) == honorB,
+                        $"Golden deck honor multi-stronghold: gana '{pick}' → {repo.InitialHonor(d)}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Persistencia del deckbuilder propia del launcher: formato .txt de Sun and Moon
+        /// (parse/write round-trip) y DeckLibrary (un txt por mazo en la carpeta Decks +
+        /// sidecar de metadata, rename/delete/activo).
+        /// </summary>
+        private static void RunDeckStoreTests(string tempRoot)
+        {
+            var fixturesDir = FindRepoRelative(Path.Combine("docs", "handoff", "deckbuilder-launcher", "fixtures"));
+            if (fixturesDir == null) return;
+
+            Line("");
+            Line("=== Deckbuilder: persistencia txt (formato Sun and Moon) ===");
+            var catalog = Services.Search.CatalogStore.Load(Path.Combine(fixturesDir, "data"));
+            var decksDir = Path.Combine(tempRoot, "saminstall", "Decks");
+            Directory.CreateDirectory(decksDir);
+
+            // Un txt como los que trae el juego: Legality + starter sin prefijo + "Nx Nombre",
+            // incluyendo los tres patrones de nombre de Sun and Moon que difieren del catálogo
+            // (stronghold sin sufijo "(1)", case distinto, "- exp" omitido)
+            File.WriteAllText(Path.Combine(decksDir, "Golden Crab.txt"),
+                "Legality: s_extended\r\n\r\nThe Seventh Tower\r\n" +
+                "The Impregnable Fortress of the Crab\r\n\r\n2x Jade Works\r\n\r\n" +
+                "3 Hida Akeno\r\nCarta Inexistente Zzz\r\n" +
+                "Strength of my Father\r\n1x Ancestral Armor of the Mantis Clan\r\n");
+
+            var lib = new DeckLibrary(catalog, decksDir, Path.Combine(tempRoot, "decksmeta.json"));
+            var loaded = lib.Repo.Decks.FirstOrDefault(d => d.Name == "Golden Crab");
+            Assert(loaded != null, "DeckTxt: carga el txt existente de la carpeta Decks");
+            Assert(loaded.Legality == "s_extended", "DeckTxt: preserva el header Legality");
+            Assert(lib.Repo.GetDeckCard(loaded.Id, "Samurai395")?.Quantity == 1,
+                "DeckTxt: stronghold sin prefijo → 1 copia");
+            Assert(lib.Repo.GetDeckCard(loaded.Id, "Ivory032")?.Quantity == 2, "DeckTxt: '2x Nombre' → 2 copias");
+            Assert(lib.Repo.GetDeckCard(loaded.Id, "TDoW012")?.Quantity == 3, "DeckTxt: '3 Nombre' (formato app) → 3 copias");
+            Assert(loaded.Unknown.Count == 1 && loaded.Unknown[0].Raw == "Carta Inexistente Zzz",
+                "DeckTxt: línea desconocida se conserva cruda");
+            Assert(lib.Repo.GetDeckCard(loaded.Id, "AMoH053")?.Quantity == 1,
+                "DeckTxt: stronghold del juego sin '(1)' resuelve a la primera versión del catálogo");
+            Assert(lib.Repo.GetDeckCard(loaded.Id, "TCW054")?.Quantity == 1,
+                "DeckTxt: nombre con case distinto ('my'/'My') resuelve");
+            Assert(lib.Repo.GetDeckCard(loaded.Id, "Ivory223")?.Quantity == 1,
+                "DeckTxt: nombre sin '- exp' resuelve a la versión exp");
+
+            // Mutación → reescritura del txt; la línea desconocida sobrevive verbatim
+            lib.Repo.AddCard(loaded.Id, "P410"); // A Brave New World (fate)
+            var rewritten = File.ReadAllText(Path.Combine(decksDir, "Golden Crab.txt"));
+            Assert(rewritten.Contains("1x A Brave New World") && rewritten.Contains("Carta Inexistente Zzz"),
+                "DeckTxt: guardado con la carta nueva y la desconocida intacta");
+            Assert(rewritten.Contains("Legality: s_extended") &&
+                   rewritten.Contains("The Seventh Tower\r\n") && !rewritten.Contains("1x The Seventh Tower"),
+                "DeckTxt: Legality + starter sin prefijo al reescribir");
+            // Los nombres que el juego escribe distinto al catálogo se reescriben IGUAL que
+            // estaban (para que Sun and Moon siga reconociendo su mazo)
+            Assert(rewritten.Contains("The Impregnable Fortress of the Crab\r\n") && !rewritten.Contains("(1)"),
+                "DeckTxt: el stronghold se reescribe sin sufijo '(1)'");
+            Assert(rewritten.Contains("Strength of my Father") && !rewritten.Contains("Strength of My Father"),
+                "DeckTxt: se reescribe el case original del juego");
+            Assert(rewritten.Contains("1x Ancestral Armor of the Mantis Clan\r\n") && !rewritten.Contains("Mantis Clan - exp"),
+                "DeckTxt: se reescribe sin '- exp' como estaba");
+
+            // Round-trip completo por una segunda instancia (relee el disco)
+            var lib2 = new DeckLibrary(catalog, decksDir, Path.Combine(tempRoot, "decksmeta.json"));
+            var again = lib2.Repo.Decks.FirstOrDefault(d => d.Name == "Golden Crab");
+            Assert(again != null
+                   && lib2.Repo.GetDeckCard(again.Id, "Ivory032")?.Quantity == 2
+                   && lib2.Repo.GetDeckCard(again.Id, "P410")?.Quantity == 1
+                   && again.Unknown.Count == 1,
+                "DeckTxt: round-trip por disco conserva cantidades y desconocidas");
+
+            // Crear (activa) / renombrar (renombra el txt) / borrar (borra el txt) / activo persiste
+            var newId = lib2.CreateDeck("Mi Mazo: ¿nuevo?"); // caracteres inválidos de archivo
+            var deck = lib2.Repo.GetDeckById(newId);
+            Assert(lib2.ActiveDeckId == newId, "DeckLibrary: el mazo nuevo queda activo");
+            lib2.Repo.ImportCards(newId, "2 Jade Works");
+            var newFile = Path.Combine(decksDir, deck.Name + ".txt");
+            Assert(File.Exists(newFile) && deck.Name.IndexOf(':') < 0 && deck.Name.IndexOf('?') < 0,
+                $"DeckLibrary: txt creado con nombre saneado ('{deck.Name}')");
+            lib2.RenameDeck(newId, "Renombrado");
+            Assert(!File.Exists(newFile) && File.Exists(Path.Combine(decksDir, "Renombrado.txt")),
+                "DeckLibrary: renombrar mueve el txt");
+            var lib3 = new DeckLibrary(catalog, decksDir, Path.Combine(tempRoot, "decksmeta.json"));
+            Assert(lib3.ActiveDeck?.Name == "Renombrado", "DeckLibrary: el mazo activo persiste en el sidecar");
+            lib3.DeleteDeck(lib3.ActiveDeckId);
+            Assert(!File.Exists(Path.Combine(decksDir, "Renombrado.txt")) && lib3.ActiveDeckId == null,
+                "DeckLibrary: borrar elimina el txt y limpia el activo");
+
+            // Nombres duplicados → sufijo
+            var dupA = lib3.CreateDeck("Duplicado");
+            var dupB = lib3.CreateDeck("Duplicado");
+            Assert(lib3.Repo.GetDeckById(dupB).Name == "Duplicado (2)", "DeckLibrary: nombre duplicado → ' (2)'");
+
+            // Duplicar mazo (extra del launcher): copia composición
+            lib3.Repo.ImportCards(dupA, "2 Jade Works\nThe Seventh Tower");
+            var copyId = lib3.DuplicateDeck(dupA);
+            Assert(copyId != null && lib3.Repo.TotalCardCount(copyId) == lib3.Repo.TotalCardCount(dupA),
+                "DeckLibrary: duplicar copia la composición (export→import)");
+        }
 
         /// <summary>Busca una ruta relativa al repo subiendo desde el directorio del exe.</summary>
         private static string FindRepoRelative(string relative)

@@ -1,0 +1,323 @@
+<Window
+    x:Class="L5ArgentinaLauncher.Views.DeckWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+    xmlns:loc="clr-namespace:L5ArgentinaLauncher.Resources"
+    xmlns:v="clr-namespace:L5ArgentinaLauncher.Views"
+    Title="{loc:Loc Deck_WindowTitle}"
+    Width="1470" Height="840" MinWidth="1060" MinHeight="640"
+    WindowStartupLocation="CenterScreen"
+    WindowStyle="None"
+    Background="{StaticResource ParchmentBackground}"
+    Icon="pack://application:,,,/Assets/icon.png"
+    StateChanged="Window_StateChanged">
+
+    <!-- Chrome custom (como SearchWindow): redimensionable y con maximizar -->
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="35" CornerRadius="0" GlassFrameThickness="0"
+                            ResizeBorderThickness="6" UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="CardUiStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Botón de acción chico de la barra del editor -->
+            <Style x:Key="DeckActionBtn" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                <Setter Property="Height" Value="30" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="Padding" Value="11,0" />
+                <Setter Property="Margin" Value="6,0,0,0" />
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid x:Name="RootLayout">
+        <!-- Capas de fondo -->
+        <Rectangle Fill="{StaticResource PaperOverlayBrush}" IsHitTestVisible="False" />
+        <Rectangle Fill="{StaticResource BackgroundScrim}" IsHitTestVisible="False" />
+        <Border BorderBrush="#552A1710" BorderThickness="1" IsHitTestVisible="False" />
+
+        <DockPanel>
+            <!-- ===== Title bar custom ===== -->
+            <Grid DockPanel.Dock="Top" Height="36" Background="{StaticResource Surface}">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                    <Image Source="pack://application:,,,/Assets/icon.png" Width="20" Height="20" Margin="0,0,9,0" />
+                    <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
+                               FontFamily="{StaticResource BrushFont}" FontSize="16"
+                               Foreground="{StaticResource TextDim}" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="MinButton" Style="{StaticResource CaptionButton}" Content="—"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True" Click="MinButton_Click" />
+                    <Button x:Name="MaxButton" Style="{StaticResource CaptionButton}" Content="□" FontSize="18"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True" Click="MaxButton_Click" />
+                    <Button x:Name="CloseButton" Style="{StaticResource CaptionCloseButton}" Content="✕"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True" Click="CloseButton_Click" />
+                </StackPanel>
+            </Grid>
+
+            <Grid Margin="16,12,16,12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- ===== Barra superior: mazo actual + acciones | conteos + orden ===== -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <ToggleButton x:Name="DecksPaneBtn" Style="{StaticResource FilterChip}" Margin="0,0,12,0"
+                                      Padding="10,6" IsChecked="True" Content="{loc:Loc Deck_PaneDecks}"
+                                      ToolTip="{loc:Loc Deck_PaneDecksTip}" Click="PaneToggle_Click" />
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock x:Name="DeckTitle" Style="{StaticResource CardTitle}" FontSize="24"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="ActiveBadge" Style="{StaticResource BodySmall}"
+                                       Foreground="{StaticResource Gold}" Margin="12,4,0,0"
+                                       VerticalAlignment="Center" Visibility="Collapsed"
+                                       Text="{loc:Loc Deck_ActiveBadge}" />
+                            <Button x:Name="ActivateBtn" Style="{StaticResource DeckActionBtn}" Margin="12,0,0,0"
+                                    Content="{loc:Loc Deck_Activate}" ToolTip="{loc:Loc Deck_ActivateTip}"
+                                    Visibility="Collapsed" Click="ActivateBtn_Click" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="ImportBtn" Style="{StaticResource DeckActionBtn}"
+                                    Content="{loc:Loc Deck_Import}" ToolTip="{loc:Loc Deck_ImportTip}"
+                                    Click="ImportBtn_Click" />
+                            <Button x:Name="ExportBtn" Style="{StaticResource DeckActionBtn}"
+                                    Content="{loc:Loc Deck_Export}" ToolTip="{loc:Loc Deck_ExportTip}"
+                                    Click="ExportBtn_Click" />
+                            <Button x:Name="DuplicateBtn" Style="{StaticResource DeckActionBtn}"
+                                    Content="{loc:Loc Deck_Duplicate}" Click="DuplicateBtn_Click" />
+                            <Button x:Name="RenameBtn" Style="{StaticResource DeckActionBtn}"
+                                    Content="{loc:Loc Deck_Rename}" Click="RenameBtn_Click" />
+                            <Button x:Name="DeleteBtn" Style="{StaticResource DeckActionBtn}"
+                                    Content="{loc:Loc Deck_Delete}" Click="DeleteBtn_Click" />
+                            <Button x:Name="OpenFolderBtn" Style="{StaticResource DeckActionBtn}"
+                                    Content="{loc:Loc Deck_OpenFolder}" ToolTip="{loc:Loc Deck_OpenFolderTip}"
+                                    Click="OpenFolderBtn_Click" />
+                        </StackPanel>
+
+                        <ToggleButton x:Name="SidePaneBtn" Grid.Column="3" Style="{StaticResource FilterChip}"
+                                      Margin="12,0,0,0" Padding="10,6" IsChecked="True"
+                                      Content="{loc:Loc Deck_PaneSide}" ToolTip="{loc:Loc Deck_PaneSideTip}"
+                                      Click="PaneToggle_Click" />
+                    </Grid>
+
+                    <Grid Grid.Row="1" Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Conteos blandos (Dynasty/Fate en rojo si <40) + slots sin cubrir + status -->
+                        <TextBlock x:Name="DeckCounts" Style="{StaticResource Body}" FontSize="14"
+                                   VerticalAlignment="Center" TextWrapping="Wrap" />
+
+                        <TextBlock x:Name="StatusText" Grid.Column="1" Style="{StaticResource BodySmall}"
+                                   Foreground="{StaticResource Gold}" VerticalAlignment="Center"
+                                   Margin="0,0,14,0" Visibility="Collapsed" />
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Vista del mazo: filas o cartas en imagen (secciones en ambas;
+                                 la app muestra imágenes, así que Grilla es el default) -->
+                            <ToggleButton x:Name="ViewListBtn" Style="{StaticResource FilterChip}" Margin="0,0,4,0"
+                                          Padding="10,6" Content="{loc:Loc Search_ViewList}"
+                                          Click="ViewToggle_Click" />
+                            <ToggleButton x:Name="ViewGridBtn" Style="{StaticResource FilterChip}" Margin="0,0,12,0"
+                                          Padding="10,6" IsChecked="True" Content="{loc:Loc Search_ViewGrid}"
+                                          Click="ViewToggle_Click" />
+                            <ComboBox x:Name="SortCombo" Width="130" SelectionChanged="Sort_Changed" />
+                            <ToggleButton x:Name="SortDirBtn" Style="{StaticResource FilterChip}"
+                                          Margin="8,0,0,0" Padding="10,6" IsChecked="False"
+                                          Checked="Sort_Changed" Unchecked="Sort_Changed"
+                                          ToolTip="{loc:Loc Search_SortDirTip}" Content="↑" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+
+                <!-- ===== Cuerpo: mazos+filtros | cartas del mazo | detalle/stats ===== -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <!-- Anchos pensados para ~1200 DIP útiles (monitor 1080p a 125%) -->
+                        <ColumnDefinition x:Name="DecksCol" Width="260" />
+                        <ColumnDefinition x:Name="DecksGap" Width="10" />
+                        <ColumnDefinition Width="*" MinWidth="360" />
+                        <ColumnDefinition x:Name="SideGap" Width="10" />
+                        <ColumnDefinition x:Name="SideCol" Width="405" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Panel izquierdo: lista de mazos + filtros del contenido -->
+                    <Border x:Name="DecksPanel" Grid.Column="0" Background="{StaticResource SurfaceGlassSoft}"
+                            CornerRadius="9" BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1"
+                            Padding="12,8,12,12">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{loc:Loc Deck_ListHeader}" FontFamily="{StaticResource BrushFont}"
+                                           FontSize="18" Foreground="{StaticResource GoldSoft}"
+                                           VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Content="＋" Style="{StaticResource GhostButton}"
+                                        Height="28" FontSize="16" Padding="10,0"
+                                        ToolTip="{loc:Loc Deck_NewTip}" Click="NewDeck_Click" />
+                            </Grid>
+
+                            <ListBox x:Name="DeckList" Grid.Row="1" Background="#40140A05"
+                                     BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1"
+                                     HorizontalContentAlignment="Stretch"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     SelectionChanged="DeckList_SelectionChanged">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border x:Name="bd" Background="Transparent" Padding="9,6">
+                                                        <ContentPresenter />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="bd" Property="Background" Value="#22C9A961" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter TargetName="bd" Property="Background" Value="#CC7D1F1C" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Title}" FontSize="14"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Subtitle}" FontSize="11"
+                                                       Foreground="{StaticResource TextDim}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <!-- Filtros sobre las cartas del mazo -->
+                            <StackPanel Grid.Row="2" Margin="0,10,0,0">
+                                <TextBlock Text="{loc:Loc Deck_FiltersHeader}" FontFamily="{StaticResource BrushFont}"
+                                           FontSize="16" Foreground="{StaticResource GoldSoft}" Margin="0,0,0,6" />
+                                <Grid>
+                                    <TextBox x:Name="FilterBox" Style="{StaticResource InvertedTextBox}" Height="30"
+                                             FontSize="13" TextChanged="Filter_Changed" />
+                                    <TextBlock Text="{loc:Loc Deck_FilterHint}" Foreground="{StaticResource InputPlace}"
+                                               Margin="14,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Text, ElementName=FilterBox}" Value="">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                                <WrapPanel Margin="0,8,0,0">
+                                    <ToggleButton x:Name="GroupStarterBtn" Style="{StaticResource FilterChip}"
+                                                  IsChecked="True" Content="Starter"
+                                                  Checked="Filter_Changed" Unchecked="Filter_Changed" />
+                                    <ToggleButton x:Name="GroupDynastyBtn" Style="{StaticResource FilterChip}"
+                                                  IsChecked="True" Content="Dynasty"
+                                                  Checked="Filter_Changed" Unchecked="Filter_Changed" />
+                                    <ToggleButton x:Name="GroupFateBtn" Style="{StaticResource FilterChip}"
+                                                  IsChecked="True" Content="Fate"
+                                                  Checked="Filter_Changed" Unchecked="Filter_Changed" />
+                                </WrapPanel>
+                                <TextBlock Text="{loc:Loc Deck_AddFromSearchHint}" Style="{StaticResource BodySmall}"
+                                           FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Centro: cartas del mazo agrupadas Starter/Dynasty/Fate → tipo -->
+                    <Border Grid.Column="2" Background="#66140A05" BorderBrush="{StaticResource OutlineSoft}"
+                            BorderThickness="1" CornerRadius="9">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Padding="14,8,14,8">
+                                <StackPanel x:Name="DeckBody" />
+                            </ScrollViewer>
+
+                            <!-- Notas del mazo (auto-guardado con debounce 1s, como la app) -->
+                            <Expander x:Name="NotesExpander" Grid.Row="1" Header="{loc:Loc Deck_NotesHeader}"
+                                      Style="{StaticResource SubExpander}" Margin="14,0,14,8">
+                                <TextBox x:Name="NotesBox" Style="{StaticResource InvertedTextBox}"
+                                         MinHeight="64" MaxHeight="140" FontSize="13" AcceptsReturn="True"
+                                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                                         TextChanged="NotesBox_TextChanged" />
+                            </Expander>
+                        </Grid>
+                    </Border>
+
+                    <!-- Panel derecho: detalle de carta / stats del mazo -->
+                    <Border x:Name="SidePanel" Grid.Column="4" Background="{StaticResource SurfaceGlass}"
+                            CornerRadius="9" BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1"
+                            Padding="14">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <ToggleButton x:Name="TabCardBtn" Style="{StaticResource FilterChip}"
+                                              Padding="12,6" Content="{loc:Loc Deck_TabCard}" Click="Tab_Click" />
+                                <ToggleButton x:Name="TabStatsBtn" Style="{StaticResource FilterChip}"
+                                              Padding="12,6" IsChecked="True" Content="{loc:Loc Deck_TabStats}"
+                                              Click="Tab_Click" />
+                            </StackPanel>
+
+                            <v:CardDetailPanel x:Name="Detail" Grid.Row="1" Visibility="Collapsed" />
+                            <ScrollViewer x:Name="StatsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <StackPanel x:Name="StatsBody" />
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+        </DockPanel>
+    </Grid>
+</Window>

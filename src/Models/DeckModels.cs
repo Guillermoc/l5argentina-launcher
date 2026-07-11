@@ -1,0 +1,154 @@
+using System;
+using System.Collections.Generic;
+
+namespace L5ArgentinaLauncher.Models
+{
+    /// <summary>
+    /// Mazo del deckbuilder — espejo de la tabla `decks` de la app Android
+    /// (docs/handoff/deckbuilder-launcher/MODELO-DATOS-MAZO.md §1), con dos diferencias
+    /// deliberadas del launcher: la persistencia es un .txt por mazo en la carpeta Decks de
+    /// Sun and Moon (no Room), y las líneas del txt que no matchean el catálogo se conservan
+    /// crudas en <see cref="Unknown"/> (equivalente launcher de las "huérfanas" ADR-013:
+    /// nunca se pierde lo que había en el archivo).
+    /// </summary>
+    public class Deck
+    {
+        /// <summary>Id estable durante la sesión (UUID). La identidad en disco es el archivo.</summary>
+        public string Id { get; set; }
+
+        public string Name { get; set; }
+
+        /// <summary>Epoch ms (System.currentTimeMillis() de la app).</summary>
+        public long CreatedAt { get; set; }
+
+        /// <summary>Notas libres; null si no hay (el import de texto las acumula acá).</summary>
+        public string Notes { get; set; }
+
+        /// <summary>"deck" | "list" — en listas el tope de copias se fuerza a 1.</summary>
+        public string Type { get; set; } = "deck";
+
+        public int SortOrder { get; set; }
+
+        /// <summary>null | "default" | "by_type" | "custom" (lo setea `# sort_mode:` del import).</summary>
+        public string SortMode { get; set; }
+
+        /// <summary>
+        /// Header "Legality: X" del txt de Sun and Moon. Se preserva tal cual (el modelo de la
+        /// app no tiene formato objetivo; esto es solo fidelidad de archivo).
+        /// </summary>
+        public string Legality { get; set; }
+
+        /// <summary>Una entrada por carta distinta; la multiplicidad va en Quantity.</summary>
+        public List<DeckCardEntry> Cards { get; } = new List<DeckCardEntry>();
+
+        /// <summary>Líneas del txt que no matchearon el catálogo (se reescriben verbatim al guardar).</summary>
+        public List<UnknownDeckLine> Unknown { get; } = new List<UnknownDeckLine>();
+    }
+
+    /// <summary>Fila de `deck_cards`: quantity=0 = carta "recortada" (la fila persiste).</summary>
+    public class DeckCardEntry
+    {
+        public string CardId { get; set; }
+        public int Quantity { get; set; }
+        public int SortOrder { get; set; }
+
+        /// <summary>
+        /// Nombre EXACTO con el que la carta aparecía en el .txt de Sun and Moon, cuando difiere
+        /// del nombre del catálogo (strongholds sin sufijo "(1)", case distinto, "- exp" omitido).
+        /// Al guardar el txt se reescribe este nombre para que el juego lo siga reconociendo.
+        /// null = la entrada nació en el launcher (se escribe el nombre del catálogo).
+        /// </summary>
+        public string SourceName { get; set; }
+    }
+
+    /// <summary>Línea cruda no resuelta contra el catálogo (nombre desconocido).</summary>
+    public class UnknownDeckLine
+    {
+        /// <summary>La línea original del archivo, sin tocar.</summary>
+        public string Raw { get; set; }
+    }
+
+    /// <summary>Resultado de DeckRepository.AddCard (port de AddCardResult.kt).</summary>
+    public enum AddCardResultKind
+    {
+        Success,
+        Banned,
+        /// <summary>⚠️ Nombre engañoso heredado de la app: carta O mazo inexistente.</summary>
+        NoActiveDeck,
+        LimitReached,
+        SlotAlreadyCovered,
+    }
+
+    public struct AddCardResult
+    {
+        public AddCardResultKind Kind;
+        /// <summary>Solo para LimitReached: el máximo alcanzado.</summary>
+        public int Max;
+
+        public static readonly AddCardResult Success = new AddCardResult { Kind = AddCardResultKind.Success };
+        public static readonly AddCardResult Banned = new AddCardResult { Kind = AddCardResultKind.Banned };
+        public static readonly AddCardResult NoActiveDeck = new AddCardResult { Kind = AddCardResultKind.NoActiveDeck };
+        public static readonly AddCardResult SlotAlreadyCovered = new AddCardResult { Kind = AddCardResultKind.SlotAlreadyCovered };
+        public static AddCardResult LimitReached(int max) =>
+            new AddCardResult { Kind = AddCardResultKind.LimitReached, Max = max };
+    }
+
+    /// <summary>Resultado de ImportCards (port de ImportResult.kt).</summary>
+    public class ImportResult
+    {
+        public int Imported;
+        public int NotFound;
+        public List<string> NotFoundNames = new List<string>();
+    }
+
+    /// <summary>
+    /// Grupos del mazo y orden canónico de tipos dentro de cada uno (DeckGroup.kt +
+    /// TYPE_ORDER_MAP de DeckDetailViewModel.kt). Base de los conteos, el export y la grilla.
+    /// </summary>
+    public static class DeckGroups
+    {
+        public static readonly string[] Order = { "starter", "dynasty", "fate" };
+
+        private static readonly Dictionary<string, string[]> TypeOrderMap =
+            new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                ["starter"] = new[] { "stronghold", "sensei", "wind", "holding" },
+                ["dynasty"] = new[] { "celestial", "event", "region", "holding", "personality" },
+                ["fate"] = new[] { "follower", "item", "spell", "strategy" },
+            };
+
+        public static int GroupOrder(string group)
+        {
+            switch (group)
+            {
+                case "starter": return 0;
+                case "dynasty": return 1;
+                case "fate": return 2;
+                default: return 3;
+            }
+        }
+
+        public static int TypeOrderInGroup(string deckGroup, string type)
+        {
+            string[] order;
+            if (deckGroup != null && TypeOrderMap.TryGetValue(deckGroup, out order))
+            {
+                var idx = Array.IndexOf(order, type);
+                if (idx >= 0) return idx;
+            }
+            return int.MaxValue;
+        }
+
+        /// <summary>starterRank del Goldfish (orden del área starter y del honor inicial).</summary>
+        public static int StarterRank(string type)
+        {
+            switch (type)
+            {
+                case "stronghold": return 0;
+                case "sensei": return 1;
+                case "holding": return 2;
+                default: return 3;
+            }
+        }
+    }
+}

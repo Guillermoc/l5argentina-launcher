@@ -37,6 +37,15 @@ namespace L5ArgentinaLauncher
                 new SearchWindow(cat, cfg.SunAndMoonPath).Show();
                 return;
             }
+
+            // Ídem para el editor de Mazos.
+            if (e.Args.Length > 0 && e.Args[0] == "--mazos")
+            {
+                var cat = Services.Search.CatalogStore.Load();
+                var cfg = new ConfigService().Load();
+                DeckWindow.Open(cat, cfg.SunAndMoonPath);
+                return;
+            }
 #endif
 
             var configService = new ConfigService();

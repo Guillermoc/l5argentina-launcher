@@ -5,9 +5,9 @@ Rings* en la app **Sun and Moon**. Resuelve el problema de mantener sincronizada
 nuestra base de cartas curada: en lugar de copiar archivos a mano, el launcher chequea si hay una base
 nueva en nuestro bucket, deja **elegir con qué base jugar**, la aplica de forma segura y lanza el juego.
 
-Versión actual: **0.2.0**.
+Versión actual: **0.3.0**.
 
-> Diseño/decisiones: [docs/launcher-spec.md](docs/launcher-spec.md) · Buscador: [docs/BUSCADOR.md](docs/BUSCADOR.md) · Guía visual: [docs/Style_guide.md](docs/Style_guide.md) · Plan: [docs/PLAN.md](docs/PLAN.md) · Guía de usuarios: [docs/USUARIOS.md](docs/USUARIOS.md)
+> Diseño/decisiones: [docs/launcher-spec.md](docs/launcher-spec.md) · Buscador: [docs/BUSCADOR.md](docs/BUSCADOR.md) · Mazos: [docs/MAZOS.md](docs/MAZOS.md) · Guía visual: [docs/Style_guide.md](docs/Style_guide.md) · Plan: [docs/PLAN.md](docs/PLAN.md) · Guía de usuarios: [docs/USUARIOS.md](docs/USUARIOS.md)
 
 ---
 
@@ -42,6 +42,14 @@ Versión actual: **0.2.0**.
   (Lotus, Samurai, Celestial, Emperor, Ivory, Twenty Festivals, Promo, Samurai Extended) desde el CDN de
   la app; cada pack se verifica por SHA-256 y se instala sobre la carpeta `images` de Sun and Moon —
   sirve al juego y al Buscador.
+- **Mazos / deckbuilder** (desde 0.3.0): editor de mazos, port 1:1 del `DeckRepository` de la app
+  Android (mismo orden de validaciones: baneada → slot → tope de copias). **Persiste como .txt en la
+  carpeta `Decks` de Sun and Moon** — el mazo que armás acá se juega directo, sin exportar nada — con un
+  sidecar (`decksmeta.json`) para lo que el formato del juego no representa (notas, orden, mazo activo).
+  Ventana propia (crear/renombrar/duplicar/borrar mazos, importar/exportar por portapapeles, vista lista
+  o grilla, agrupado Starter/Dynasty/Fate) y también integrado en el Buscador (panel derecho con el mazo
+  activo y botones +/− por carta). A diferencia de la app, acá **sí se muestra** por qué una carta no
+  entró (baneada, slot cubierto, tope alcanzado).
 - **Avisa si hay un launcher nuevo.** Si el manifest indica una versión más nueva, muestra un banner con
   link a la página de descargas (el link va **hardcodeado en el exe**, nunca se toma del manifest).
 - **Configuración:** permite cambiar la carpeta de Sun and Moon y la URL del manifest (con default
@@ -110,12 +118,13 @@ quedan al lado).
 
 Un harness de verificación monta un bucket+instalación falsos en `%TEMP%` y ejercita el pipeline real
 (hash, confinamiento de origen, zip-slip, backups, base zippeada, catálogo y packs del pool) sin tocar
-tu instalación — **107 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador
-contra la lógica real de la app Android:
+tu instalación — **177 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
+los **25 golden tests** del deckbuilder, ambos contra la lógica real de la app Android:
 
 ```sh
 src/bin/Debug/net48/L5ArgentinaLauncher.exe --selftest C:\ruta\reporte.txt
 src/bin/Debug/net48/L5ArgentinaLauncher.exe --buscador   # abre el Buscador directo (testing de UI)
+src/bin/Debug/net48/L5ArgentinaLauncher.exe --mazos      # abre el editor de Mazos directo (testing de UI)
 ```
 
 > Hook de testing: la variable de entorno `L5A_DATA_ROOT` redirige config/caché/backups a otra carpeta.
@@ -125,6 +134,10 @@ src/bin/Debug/net48/L5ArgentinaLauncher.exe --buscador   # abre el Buscador dire
 ## Configuración del usuario (rutas)
 
 - Config: `%APPDATA%\L5Argentina Launcher\config.json`
+- Favoritas/ocultas/listas del Buscador: `%APPDATA%\L5Argentina Launcher\usercards.json`
+- Presets de filtros del Buscador: `%APPDATA%\L5Argentina Launcher\presets.json`
+- Sidecar de mazos (notas, orden, mazo activo): `%APPDATA%\L5Argentina Launcher\decksmeta.json`
+  — los mazos en sí son `.txt` en la carpeta `Decks` de la instalación de Sun and Moon.
 - Caché de descargas: `%LOCALAPPDATA%\L5Argentina Launcher\cache\`
 - Backups: `%LOCALAPPDATA%\L5Argentina Launcher\backups\` (la Original + copias con timestamp)
 
@@ -168,10 +181,13 @@ src/
 │  ├─ Strings.resx            TODOS los textos de UI (i18n, español)
 │  ├─ Strings.cs              accesor (ResourceManager)
 │  └─ LocExtension.cs         markup extension {loc:Loc}
-├─ Models/                    Manifest, PoolManifest, UserConfig, CardCatalog
+├─ Models/                    Manifest, PoolManifest, UserConfig, CardCatalog, DeckModels
 ├─ Views/
 │  ├─ FirstRunWindow          primer arranque (detección + captura de la Original)
-│  ├─ SearchWindow            Buscador de cartas (filtros vivos, tabla/grilla, detalle)
+│  ├─ SearchWindow            Buscador de cartas (filtros vivos, tabla/grilla, detalle, mazo activo)
+│  ├─ DeckWindow               editor de Mazos (rail de mazos, grupos Starter/Dynasty/Fate, import/export)
+│  ├─ CardDetailPanel          detalle de carta compartido entre Buscador y editor de Mazos
+│  ├─ CardUiStyles             estilos XAML compartidos (chips, checkboxes, celdas) entre ambas ventanas
 │  └─ CardTextRenderer        HTML acotado de cartas → Inlines (sin WebView)
 └─ Services/
    ├─ ManifestService         fetch + parseo + resolución confinada (relativa y same-origin)
@@ -183,12 +199,17 @@ src/
    ├─ ConfigService           %APPDATA% config
    ├─ LauncherEngine          coordinador del flujo (bases, imágenes, catálogo, packs del pool)
    ├─ NewsService             placeholder (v2)
-   └─ Search/
-      ├─ CatalogImporter      port del importer de la app (cards.json + rules + filters)
-      ├─ CardSearchEngine     motor de filtros (port 1:1, semánticas SQLite replicadas)
-      ├─ CardSearchCriteria   criterios (compatible con los golden tests)
-      ├─ CatalogStore         carga del catálogo desde cache/catalog
-      └─ UserCardDataStore    favoritas/ocultas persistentes
+   ├─ Search/
+   │  ├─ CatalogImporter      port del importer de la app (cards.json + rules + filters)
+   │  ├─ CardSearchEngine     motor de filtros (port 1:1, semánticas SQLite replicadas)
+   │  ├─ CardSearchCriteria   criterios (compatible con los golden tests)
+   │  ├─ CatalogStore         carga del catálogo desde cache/catalog
+   │  ├─ UserCardDataStore    favoritas/ocultas/listas persistentes
+   │  └─ FilterPresetStore    presets de filtros guardados con nombre
+   └─ Deck/
+      ├─ DeckRepository       port 1:1 de DeckRepository.kt (AddCard, import/export, CRUD, conteos)
+      ├─ SunAndMoonDeckFile   lee/escribe el formato .txt de la carpeta Decks del juego
+      └─ DeckLibrary          un .txt por mazo en Decks + sidecar decksmeta.json en %APPDATA%
 ```
 
 Stack: **WPF sobre .NET Framework 4.8**, csproj SDK-style compilado con el **.NET SDK 8**, empaquetado en

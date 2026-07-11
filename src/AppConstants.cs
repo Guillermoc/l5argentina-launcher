@@ -14,7 +14,7 @@ namespace L5ArgentinaLauncher
         public const string AppName = "L5Argentina Launcher";
 
         /// <summary>Versión embebida del launcher; se compara contra manifest.launcher.latest_version.</summary>
-        public const string LauncherVersion = "0.2.0";
+        public const string LauncherVersion = "0.3.0";
 
         // URL del manifest en el bucket R2 público (origen de datos por defecto).
         public const string DefaultManifestUrl = "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/sunandmoon/manifest.json";
@@ -52,8 +52,18 @@ namespace L5ArgentinaLauncher
 
         public static string ConfigPath => Path.Combine(AppDataDir, "config.json");
 
-        /// <summary>Favoritas/ocultas del Buscador (equivale a user_card_data de la app Android).</summary>
+        /// <summary>Favoritas/ocultas/listas del Buscador (equivale a user_card_data de la app Android).</summary>
         public static string UserCardsPath => Path.Combine(AppDataDir, "usercards.json");
+
+        /// <summary>Presets de filtros del Buscador (criterios guardados con nombre).</summary>
+        public static string PresetsPath => Path.Combine(AppDataDir, "presets.json");
+
+        /// <summary>
+        /// Sidecar de los mazos: lo que el .txt de Sun and Moon no puede representar
+        /// (notas, sort_mode, fecha, mazo activo). Los mazos en sí son .txt en la carpeta
+        /// Decks de la instalación (ver DeckLibrary).
+        /// </summary>
+        public static string DecksMetaPath => Path.Combine(AppDataDir, "decksmeta.json");
         public static string CacheDir => Path.Combine(LocalAppDataDir, "cache");
         public static string BackupsDir => Path.Combine(LocalAppDataDir, "backups");
 

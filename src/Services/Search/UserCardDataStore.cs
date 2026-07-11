@@ -19,6 +19,7 @@ namespace L5ArgentinaLauncher.Services.Search
         {
             [JsonPropertyName("favorites")] public List<string> Favorites { get; set; } = new List<string>();
             [JsonPropertyName("hidden")] public List<string> Hidden { get; set; } = new List<string>();
+            [JsonPropertyName("lists")] public Dictionary<string, List<string>> Lists { get; set; } = new Dictionary<string, List<string>>();
         }
 
         public UserCardData Data { get; } = new UserCardData();
@@ -33,6 +34,8 @@ namespace L5ArgentinaLauncher.Services.Search
                     var dto = JsonSerializer.Deserialize<Dto>(File.ReadAllText(AppConstants.UserCardsPath));
                     foreach (var id in dto?.Favorites ?? new List<string>()) store.Data.Favorites.Add(id);
                     foreach (var id in dto?.Hidden ?? new List<string>()) store.Data.Hidden.Add(id);
+                    foreach (var list in dto?.Lists ?? new Dictionary<string, List<string>>())
+                        store.Data.Lists[list.Key] = new HashSet<string>(list.Value ?? new List<string>());
                 }
             }
             catch
@@ -48,6 +51,9 @@ namespace L5ArgentinaLauncher.Services.Search
             {
                 Favorites = Data.Favorites.OrderBy(x => x, StringComparer.Ordinal).ToList(),
                 Hidden = Data.Hidden.OrderBy(x => x, StringComparer.Ordinal).ToList(),
+                Lists = Data.Lists.ToDictionary(
+                    kv => kv.Key,
+                    kv => kv.Value.OrderBy(x => x, StringComparer.Ordinal).ToList()),
             };
             Directory.CreateDirectory(Path.GetDirectoryName(AppConstants.UserCardsPath));
             File.WriteAllText(AppConstants.UserCardsPath,
@@ -68,6 +74,40 @@ namespace L5ArgentinaLauncher.Services.Search
         {
             var added = Data.Hidden.Add(cardId);
             if (!added) Data.Hidden.Remove(cardId);
+            Save();
+            return added;
+        }
+
+        // ------------------------------------------------------------------ listas de cartas
+
+        /// <summary>Nombres de lista ordenados (el nombre ES el id, como el seed de los golden).</summary>
+        public List<string> ListNames =>
+            Data.Lists.Keys.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+
+        /// <summary>Crea una lista vacía. Devuelve false si ya existía o el nombre está vacío.</summary>
+        public bool CreateList(string name)
+        {
+            name = (name ?? "").Trim();
+            if (name.Length == 0 || Data.Lists.ContainsKey(name)) return false;
+            Data.Lists[name] = new HashSet<string>();
+            Save();
+            return true;
+        }
+
+        public void DeleteList(string name)
+        {
+            if (Data.Lists.Remove(name)) Save();
+        }
+
+        public bool ListContains(string name, string cardId) =>
+            Data.Lists.TryGetValue(name, out var ids) && ids.Contains(cardId);
+
+        /// <summary>Agrega/quita la carta de la lista y persiste. Devuelve el estado nuevo (está en la lista).</summary>
+        public bool ToggleInList(string name, string cardId)
+        {
+            if (!Data.Lists.TryGetValue(name, out var ids)) return false;
+            var added = ids.Add(cardId);
+            if (!added) ids.Remove(cardId);
             Save();
             return added;
         }

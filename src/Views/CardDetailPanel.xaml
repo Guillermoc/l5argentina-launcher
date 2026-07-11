@@ -1,0 +1,67 @@
+<UserControl
+    x:Class="L5ArgentinaLauncher.Views.CardDetailPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:loc="clr-namespace:L5ArgentinaLauncher.Resources">
+
+    <!-- Panel de detalle de carta (imagen + texto renderizado + stats), compartido entre el
+         Buscador y el editor de mazos. Las acciones (favorita/ocultar/mazo) viven en cada
+         ventana, no acá. -->
+    <UserControl.Resources>
+        <!-- Fondo claro de la pastilla de estado: contraste garantizado para el texto
+             (los colores de rules.json son oscuros: negro UNIQUE, rojo BANNED). -->
+        <SolidColorBrush x:Key="LabelPillBg" Color="#F2F1E8D5" />
+    </UserControl.Resources>
+    <Grid>
+        <TextBlock x:Name="DetailEmpty" Text="{loc:Loc Search_NoSelection}"
+                   Style="{StaticResource Body}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        <ScrollViewer x:Name="DetailScroll" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+            <StackPanel>
+                <!-- Diseño a 428 de ancho (upscale incluido: el tamaño percibido no depende de la
+                     resolución del jpg); el Viewbox lo encoge si el panel es más angosto
+                     (pantallas a 125%/150% de escala). -->
+                <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Center">
+                    <Grid>
+                        <Border x:Name="CardImageFrame" BorderThickness="0" CornerRadius="6">
+                            <Image x:Name="CardImage" Width="428" MaxHeight="612" Stretch="Uniform" />
+                        </Border>
+                        <Border x:Name="BannedPill" CornerRadius="11" Padding="10,3" Margin="0,10,10,0"
+                                HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed"
+                                BorderThickness="1" Background="{StaticResource LabelPillBg}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="BannedPillDiamond" Text="◆" FontSize="10"
+                                           VerticalAlignment="Center" Margin="0,0,5,0" />
+                                <TextBlock x:Name="BannedPillText" FontFamily="{StaticResource BodyFont}"
+                                           FontWeight="Bold" FontSize="12" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Viewbox>
+
+                <!-- Diagnóstico: dónde se buscó la imagen que no apareció -->
+                <TextBlock x:Name="DetailImageMiss" Style="{StaticResource BodySmall}"
+                           FontSize="11" Foreground="{StaticResource ErrorText}"
+                           Margin="0,6,0,0" Visibility="Collapsed" TextWrapping="Wrap" />
+
+                <TextBlock x:Name="DetailName" Style="{StaticResource CardTitle}" FontSize="24"
+                           TextWrapping="Wrap" Margin="0,8,0,2" />
+                <TextBlock x:Name="DetailMeta" Style="{StaticResource BodySmall}" Margin="0,0,0,6" />
+                <TextBlock x:Name="DetailKeywords" Style="{StaticResource Body}" FontSize="13"
+                           Foreground="{StaticResource Gold}" FontStyle="Italic" Margin="0,0,0,6" />
+                <TextBlock x:Name="DetailText" Style="{StaticResource Body}" FontSize="14"
+                           Foreground="{StaticResource Text}" Margin="0,0,0,8" />
+                <TextBlock x:Name="DetailFlavor" Style="{StaticResource Body}" FontSize="13"
+                           FontStyle="Italic" Margin="0,0,0,8" />
+                <Border x:Name="DetailNoteBox" Background="#33C9A961" CornerRadius="6" Padding="10,7"
+                        Margin="0,0,0,8" Visibility="Collapsed">
+                    <TextBlock x:Name="DetailNote" Style="{StaticResource BodySmall}"
+                               Foreground="{StaticResource Text}" />
+                </Border>
+                <TextBlock x:Name="DetailStats" Style="{StaticResource BodySmall}" Margin="0,0,0,4" />
+                <TextBlock x:Name="DetailSets" Style="{StaticResource BodySmall}" Margin="0,0,0,4" />
+                <TextBlock x:Name="DetailLegality" Style="{StaticResource BodySmall}" Margin="0,0,0,4" />
+                <TextBlock x:Name="DetailArtist" Style="{StaticResource BodySmall}" Margin="0,0,0,4" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

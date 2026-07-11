@@ -90,6 +90,19 @@ namespace L5ArgentinaLauncher.Models
     }
 
     /// <summary>
+    /// Slot de holding inicial de un formato (tabla format_initial_holding_slots de la app;
+    /// filters.json → formats[].initialHoldingSlots[]). Los slots con Required alimentan el
+    /// aviso "Falta: {label}" del deckbuilder; hoy solo el formato samurai define slots.
+    /// </summary>
+    public class InitialHoldingSlot
+    {
+        public string FormatId { get; set; }
+        public string SlotId { get; set; }
+        public string Label { get; set; }
+        public bool Required { get; set; }
+    }
+
+    /// <summary>
     /// Catálogo cargado en memoria: cartas (en el orden del cards.json — ese orden es el
     /// desempate implícito "rowid" de los ordenamientos) + tablas auxiliares de filters.json.
     /// </summary>
@@ -102,6 +115,9 @@ namespace L5ArgentinaLauncher.Models
         public List<SetInfo> Sets = new List<SetInfo>();
 
         public List<FormatInfo> Formats = new List<FormatInfo>();
+
+        /// <summary>Slots de holding inicial por formato, en el orden del filters.json.</summary>
+        public List<InitialHoldingSlot> InitialHoldingSlots = new List<InitialHoldingSlot>();
 
         /// <summary>Códigos de keyword para el autocomplete (838 en filters 2.3.0).</summary>
         public List<string> KeywordCodes = new List<string>();

@@ -202,6 +202,24 @@ namespace L5ArgentinaLauncher.Services.Search
                 return c.SortField == SortField.SET ? SortBySet(byName, asc) : byName;
             }
 
+            // Extras del launcher (cabeceras de columna): texto Ordinal, vacíos al final,
+            // desempate por nombre ASC. No existen en la app, no los cubren los golden.
+            Func<Card, string> strCol = null;
+            switch (c.SortField)
+            {
+                case SortField.TYPE: strCol = x => x.Type; break;
+                case SortField.CLAN: strCol = x => x.Clan; break;
+                case SortField.RARITY: strCol = x => x.Rarity; break;
+            }
+            if (strCol != null)
+            {
+                var ordered2 = cards.OrderBy(x => string.IsNullOrEmpty(strCol(x)) ? 1 : 0);
+                var byStr = asc
+                    ? ordered2.ThenBy(x => strCol(x) ?? "", StringComparer.OrdinalIgnoreCase)
+                    : ordered2.ThenByDescending(x => strCol(x) ?? "", StringComparer.OrdinalIgnoreCase);
+                return byStr.ThenBy(x => x.Name, StringComparer.Ordinal);
+            }
+
             Func<Card, int?> col;
             switch (c.SortField)
             {
@@ -209,6 +227,8 @@ namespace L5ArgentinaLauncher.Services.Search
                 case SortField.FORCE: col = x => x.Force; break;
                 case SortField.CHI: col = x => x.Chi; break;
                 case SortField.PERSONAL_HONOR: col = x => x.PersonalHonor; break;
+                case SortField.HONOR_REQ: col = x => x.Honor; break;
+                case SortField.FOCUS: col = x => x.Focus; break;
                 default: col = x => null; break;
             }
 

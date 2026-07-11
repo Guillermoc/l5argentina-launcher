@@ -14,6 +14,7 @@ dotnet run  --project src/L5ArgentinaLauncher.csproj
 dotnet build src/L5ArgentinaLauncher.csproj -c Release          # exe único en bin/Release/net48
 src/bin/Debug/net48/L5ArgentinaLauncher.exe --selftest out.txt  # verificación (solo DEBUG)
 src/bin/Debug/net48/L5ArgentinaLauncher.exe --buscador          # abre el Buscador directo (solo DEBUG)
+src/bin/Debug/net48/L5ArgentinaLauncher.exe --mazos             # abre el editor de Mazos directo (solo DEBUG)
 ```
 
 Ojo: el exe es WinExe — desde PowerShell hay que esperarlo con `Start-Process -Wait` para
@@ -32,8 +33,9 @@ leer el exit code del selftest.
 5. **Zip-slip** obligatorio al extraer imágenes (`ImagePackService`).
 6. **Link de update hardcodeado** (`AppConstants.ReleasesPageUrl`), nunca del manifest.
 
-Si tocás red/descarga/extracción o el motor del Buscador, corré `--selftest` y mantené
-**todos** los checks en verde (107 hoy: pipeline + catálogo + pool + 53 golden).
+Si tocás red/descarga/extracción, el motor del Buscador o el DeckRepository, corré
+`--selftest` y mantené **todos** los checks en verde (177 hoy: pipeline + catálogo + pool +
+stores + 53 golden Buscador + 25 golden deckbuilder + persistencia txt de mazos).
 
 ## Cosas a saber
 
@@ -56,3 +58,18 @@ Si tocás red/descarga/extracción o el motor del Buscador, corré `--selftest` 
   los arreglos de UX van en la capa UI (ej.: rareza manda 'P' y 'p').
 - El catálogo se sincroniza desde la sección opcional `catalog` del manifest a
   `cache/catalog/`; sin ella, el Buscador usa lo que haya cacheado/copiado a mano ahí.
+
+## Mazos / deckbuilder (ver docs/MAZOS.md)
+
+- `DeckRepository` (`src/Services/Deck/`) es port 1:1 de `DeckRepository.kt`
+  (`docs/handoff/deckbuilder-launcher/`): orden de chequeos de `AddCard`, import/export en el
+  formato de texto de la app, `NoActiveDeck` con su nombre engañoso incluido. **No cambiar
+  semántica sin regenerar los golden** (`fixtures/golden-tests.json`, 25 casos).
+- **Persistencia: un .txt por mazo en la carpeta `Decks` de Sun and Moon** (formato del juego:
+  `Legality:`, starter sin prefijo, `Nx Nombre`) + sidecar `decksmeta.json` en %APPDATA%.
+  La resolución tolerante de nombres (strongholds sin sufijo "(N)", case, "- exp") vive SOLO
+  en el parser de txt (`GetCardByNameRelaxed`); `ImportCards` mantiene el match exacto.
+  Cada entrada conserva el nombre original del archivo (`SourceName`) y las líneas no
+  reconocidas se reescriben verbatim: nunca romperle el mazo al juego.
+- No hay motor de validación (paridad con la app): solo rechazos de `AddCard` + indicadores
+  blandos. Diferencia deliberada: el launcher SÍ muestra el `AddCardResult` (la app lo ignora).

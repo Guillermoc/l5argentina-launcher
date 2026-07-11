@@ -112,8 +112,48 @@ hay catálogo; para desarrollo se pueden copiar los archivos a mano a esa carpet
 - **Autocomplete de keywords estilo app**: matching por "contiene" (OrdinalIgnoreCase) sobre
   los 838 códigos mientras se tipea, en ambos combos (incluir/excluir).
 
-## Pendientes (v3)
+## V3 (implementado)
 
-- Listas de cartas (van junto con Mazos si algún día se encara).
-- Preset de filtros, tabs múltiples, operadores `k.`/`c.`/`t.`/`tx.` en la barra.
-- Navegación por teclado en la grilla; sincronizar scroll entre lista y grilla.
+- **Listas de cartas**: crear/borrar listas con nombre (el nombre es el id, como el seed de
+  los golden), agregar/quitar la carta seleccionada desde el detalle, y filtro "Solo la lista
+  seleccionada" (usa el `listId` del motor — semántica cubierta por el golden `filtro-lista`).
+  Persisten en `usercards.json` junto a favoritas/ocultas.
+- **Presets de filtros con nombre** (superset del slot único de la app): guardar/cargar/borrar
+  el criteria completo, en `presets.json` con los mismos nombres JSON que los golden.
+- **Operadores de barra** (port de parseBarText): `tx.` filtra el texto de carta en vivo;
+  `k.`/`c.`/`t.` + Enter agregan la keyword / activan el chip de clan o tipo (match exacto o
+  prefijo único). Divergencia: sin dropdown de sugerencias en la barra (el panel ya las tiene).
+- **Navegación por teclado en la grilla** (flechas/Inicio/Fin) + scroll a la selección al
+  entrar a la grilla o recomputar.
+- **Ctrl+N abre otra ventana del Buscador** sobre el mismo catálogo — la versión desktop de
+  los 3 tabs de la app (estado de filtros independiente por ventana).
+
+## V4 (implementado — junto con el deckbuilder, ver docs/MAZOS.md)
+
+- **Paneles laterales colapsables** (chips "Filtros"/"Panel"): cada colapso libera ~1 columna
+  de cartas. **Grilla por defecto**, celdas 226×322 (20% más grandes que el MVP); anchos
+  calibrados para monitores 1080p a 125% de escala (~1530 DIP útiles).
+- **Barra superior en dos filas**: búsqueda + contador + vista/orden arriba; abajo los toggles
+  rápidos (Solo favoritas / Ver ocultas), la **lista activa** y los botones Limpiar/Mazos…/Panel.
+- **Lista activa como filtro de armado**: el selector "Lista:" de la barra elige una lista de
+  usercards; el botón ≡ de las celdas agrega/quita cartas de ella, y el chip **"Solo lista"**
+  filtra los resultados a sus cartas — el flujo "armo la lista de ninjas, después armo el mazo
+  filtrando por ella". Crear/borrar listas sigue en Filtros → Listas (borra la lista activa).
+- **Barra de acciones en cada celda de la grilla** (hover/selección, como la HalfCardCell de
+  la app): − / + contra el mazo activo, ★ favorita, ⊘ ocultar, ≡ lista activa; badge con la
+  cantidad en el mazo activo (esquina superior izquierda, "2/3").
+- **Panel derecho con toggle Carta | Mazo**: arriba el selector del mazo activo (+ ✎ abre el
+  editor); la pestaña Mazo muestra conteos blandos y el contenido completo con −/+ por fila;
+  la pestaña Carta, el detalle. Elegir una carta en la grilla/tabla salta a Carta; tocar una
+  fila del mazo actualiza el detalle sin cambiar de pestaña.
+- **Orden por cabecera de columna** en la tabla (click = ordenar, otro click = invertir).
+  `SortField` ganó TYPE/CLAN/RARITY/HONOR_REQ/FOCUS (extras del launcher, sin goldens).
+- +/− con feedback del `AddCardResult` (la app lo ignora en silencio); doble click en una
+  carta = agregar al mazo activo.
+- Detalle de carta extraído a `CardDetailPanel` (compartido con el editor; la imagen escala
+  con Viewbox si el panel es angosto); estilos comunes en `Views/CardUiStyles.xaml`;
+  **ScrollBar temática app-wide** en `Themes/Theme.xaml` (antes quedaba la gris de WPF).
+
+## Pendientes
+
+- Contador de cartas por lista en el selector; renombrar listas.

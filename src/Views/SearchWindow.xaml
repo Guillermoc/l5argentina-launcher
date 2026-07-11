@@ -6,7 +6,7 @@
     xmlns:loc="clr-namespace:L5ArgentinaLauncher.Resources"
     xmlns:v="clr-namespace:L5ArgentinaLauncher.Views"
     Title="{loc:Loc Search_Title}"
-    Width="1450" Height="840" MinWidth="1240" MinHeight="680"
+    Width="1470" Height="840" MinWidth="1060" MinHeight="640"
     WindowStartupLocation="CenterScreen"
     WindowStyle="None"
     Background="{StaticResource ParchmentBackground}"
@@ -21,407 +21,13 @@
     </shell:WindowChrome.WindowChrome>
 
     <Window.Resources>
-        <!-- ══ ScrollBar fina, oscura (implícita para toda la ventana) ══ -->
-        <Style x:Key="LScrollThumb" TargetType="Thumb">
-            <Setter Property="IsTabStop" Value="False" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Thumb">
-                        <Border x:Name="bd" CornerRadius="4" Background="#59C9A961" Margin="1" />
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#8CC9A961" />
-                            </Trigger>
-                            <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#B3C9A961" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style TargetType="ScrollBar">
-            <Setter Property="Background" Value="#26140A05" />
-            <Setter Property="Width" Value="10" />
-            <Setter Property="MinWidth" Value="10" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ScrollBar">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="5">
-                            <Track x:Name="PART_Track" IsDirectionReversed="True">
-                                <Track.DecreaseRepeatButton>
-                                    <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}" Opacity="0"
-                                                  Focusable="False" IsTabStop="False" />
-                                </Track.DecreaseRepeatButton>
-                                <Track.IncreaseRepeatButton>
-                                    <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}" Opacity="0"
-                                                  Focusable="False" IsTabStop="False" />
-                                </Track.IncreaseRepeatButton>
-                                <Track.Thumb>
-                                    <Thumb Style="{StaticResource LScrollThumb}" />
-                                </Track.Thumb>
-                            </Track>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="Orientation" Value="Horizontal">
-                    <Setter Property="Width" Value="Auto" />
-                    <Setter Property="MinWidth" Value="0" />
-                    <Setter Property="Height" Value="10" />
-                    <Setter Property="MinHeight" Value="10" />
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="ScrollBar">
-                                <Border Background="{TemplateBinding Background}" CornerRadius="5">
-                                    <Track x:Name="PART_Track">
-                                        <Track.DecreaseRepeatButton>
-                                            <RepeatButton Command="{x:Static ScrollBar.PageLeftCommand}" Opacity="0"
-                                                          Focusable="False" IsTabStop="False" />
-                                        </Track.DecreaseRepeatButton>
-                                        <Track.IncreaseRepeatButton>
-                                            <RepeatButton Command="{x:Static ScrollBar.PageRightCommand}" Opacity="0"
-                                                          Focusable="False" IsTabStop="False" />
-                                        </Track.IncreaseRepeatButton>
-                                        <Track.Thumb>
-                                            <Thumb Style="{StaticResource LScrollThumb}" />
-                                        </Track.Thumb>
-                                    </Track>
-                                </Border>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- ══ CheckBox oscuro con tilde oro (implícito) ══ -->
-        <Style TargetType="CheckBox">
-            <Setter Property="Foreground" Value="{StaticResource Text}" />
-            <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="CheckBox">
-                        <Grid Background="Transparent">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Border x:Name="box" Width="16" Height="16" CornerRadius="3" BorderThickness="1"
-                                    BorderBrush="{StaticResource GoldDim}" Background="#40140A05"
-                                    VerticalAlignment="Center">
-                                <Path x:Name="mark" Data="M 3,8 L 6.5,11.5 L 13,4" Stroke="{StaticResource Gold}"
-                                      StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                      Visibility="Collapsed" />
-                            </Border>
-                            <ContentPresenter Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
-                                              RecognizesAccessKey="True" />
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="box" Property="BorderBrush" Value="{StaticResource Gold}" />
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="mark" Property="Visibility" Value="Visible" />
-                                <Setter TargetName="box" Property="BorderBrush" Value="{StaticResource Gold}" />
-                                <Setter TargetName="box" Property="Background" Value="#597D1F1C" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.55" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="FilterCheck" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
-            <Setter Property="Margin" Value="0,3,0,3" />
-        </Style>
-
-        <!-- ══ ComboBox pergamino (implícito; soporta editable) ══ -->
-        <LinearGradientBrush x:Key="InputFieldBrush" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#FFF0E2BF" Offset="0" />
-            <GradientStop Color="#FFE8D6AD" Offset="1" />
-        </LinearGradientBrush>
-
-        <Style x:Key="ComboEditBox" TargetType="TextBox">
-            <Setter Property="Foreground" Value="{StaticResource InputText}" />
-            <Setter Property="CaretBrush" Value="{StaticResource InputText}" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TextBox">
-                        <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style TargetType="ComboBoxItem">
-            <Setter Property="Foreground" Value="{StaticResource Text}" />
-            <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBoxItem">
-                        <Border x:Name="bd" Background="Transparent" Padding="11,6">
-                            <ContentPresenter />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#33C9A961" />
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="{StaticResource Red}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style TargetType="ComboBox">
-            <Setter Property="Foreground" Value="{StaticResource InputText}" />
-            <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Height" Value="30" />
-            <Setter Property="MaxDropDownHeight" Value="320" />
-            <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
-            <Setter Property="ItemsPanel">
-                <Setter.Value>
-                    <ItemsPanelTemplate>
-                        <VirtualizingStackPanel />
-                    </ItemsPanelTemplate>
-                </Setter.Value>
-            </Setter>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBox">
-                        <Grid>
-                            <ToggleButton x:Name="toggle" Focusable="False" ClickMode="Press"
-                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
-                                <ToggleButton.Template>
-                                    <ControlTemplate TargetType="ToggleButton">
-                                        <Border x:Name="bd" CornerRadius="6" BorderThickness="1"
-                                                BorderBrush="{StaticResource InputBorder}"
-                                                Background="{StaticResource InputFieldBrush}">
-                                            <Path Data="M 0 0 L 4.5 4.5 L 9 0" Stroke="{StaticResource InputText}"
-                                                  StrokeThickness="1.6" HorizontalAlignment="Right"
-                                                  VerticalAlignment="Center" Margin="0,1,10,0" />
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
-                                            </Trigger>
-                                            <Trigger Property="IsChecked" Value="True">
-                                                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </ToggleButton.Template>
-                            </ToggleButton>
-                            <ContentPresenter x:Name="selectedContent" Content="{TemplateBinding SelectionBoxItem}"
-                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                              Margin="11,0,26,0" VerticalAlignment="Center" IsHitTestVisible="False"
-                                              TextElement.Foreground="{StaticResource InputText}" />
-                            <TextBox x:Name="PART_EditableTextBox" Style="{StaticResource ComboEditBox}"
-                                     Margin="11,0,26,0" VerticalAlignment="Center" Visibility="Hidden"
-                                     FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}" />
-                            <Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}"
-                                   AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade">
-                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource GoldDim}"
-                                        BorderThickness="1" CornerRadius="6" Margin="0,3,0,0"
-                                        MinWidth="{TemplateBinding ActualWidth}"
-                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
-                                    <ScrollViewer>
-                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
-                                    </ScrollViewer>
-                                </Border>
-                            </Popup>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsEditable" Value="True">
-                                <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
-                                <Setter TargetName="selectedContent" Property="Visibility" Value="Hidden" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- ══ Expander con flecha oro (implícito; tipografía por instancia) ══ -->
-        <Style TargetType="Expander">
-            <Setter Property="Foreground" Value="{StaticResource GoldSoft}" />
-            <Setter Property="FontFamily" Value="{StaticResource BrushFont}" />
-            <Setter Property="FontSize" Value="16" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Expander">
-                        <StackPanel>
-                            <ToggleButton x:Name="hdr" Focusable="False" Cursor="Hand"
-                                          IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
-                                <ToggleButton.Template>
-                                    <ControlTemplate TargetType="ToggleButton">
-                                        <Border Background="Transparent" Padding="0,6">
-                                            <StackPanel Orientation="Horizontal">
-                                                <Path x:Name="arrow" Data="M 0 0 L 5 5 L 0 10"
-                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Expander}}"
-                                                      StrokeThickness="1.8" VerticalAlignment="Center"
-                                                      Margin="2,1,9,0" RenderTransformOrigin="0.5,0.5">
-                                                    <Path.RenderTransform>
-                                                        <RotateTransform Angle="0" />
-                                                    </Path.RenderTransform>
-                                                </Path>
-                                                <ContentPresenter Content="{Binding Header, RelativeSource={RelativeSource AncestorType=Expander}}"
-                                                                  TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Expander}}"
-                                                                  VerticalAlignment="Center" />
-                                            </StackPanel>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsChecked" Value="True">
-                                                <Setter TargetName="arrow" Property="RenderTransform">
-                                                    <Setter.Value>
-                                                        <RotateTransform Angle="90" />
-                                                    </Setter.Value>
-                                                </Setter>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </ToggleButton.Template>
-                            </ToggleButton>
-                            <ContentPresenter x:Name="body" Visibility="Collapsed" Margin="16,2,0,4" />
-                        </StackPanel>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsExpanded" Value="True">
-                                <Setter TargetName="body" Property="Visibility" Value="Visible" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Sección de filtros (Expander de primer nivel) -->
-        <Style x:Key="FilterExpander" TargetType="Expander" BasedOn="{StaticResource {x:Type Expander}}">
-            <Setter Property="Margin" Value="0,4,0,0" />
-        </Style>
-
-        <!-- Sub-sección (Opciones avanzadas) -->
-        <Style x:Key="SubExpander" TargetType="Expander" BasedOn="{StaticResource {x:Type Expander}}">
-            <Setter Property="Foreground" Value="{StaticResource TextDim}" />
-            <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Margin" Value="0,6,0,0" />
-        </Style>
-
-        <!-- Chip de filtro (estilo Style_guide: seleccionado = rojo acento, borde oro) -->
-        <Style x:Key="FilterChip" TargetType="ToggleButton">
-            <Setter Property="Foreground" Value="{StaticResource Text}" />
-            <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Margin" Value="0,0,6,6" />
-            <Setter Property="Padding" Value="10,4" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ToggleButton">
-                        <Border x:Name="bd" CornerRadius="12" Background="#452A1710"
-                                BorderThickness="1" BorderBrush="{StaticResource OutlineSoft}"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource GoldDim}" />
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="{StaticResource Red}" />
-                                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Input numérico chico para rangos de stats -->
-        <Style x:Key="SmallNumBox" TargetType="TextBox" BasedOn="{StaticResource InvertedTextBox}">
-            <Setter Property="Width" Value="46" />
-            <Setter Property="Height" Value="26" />
-            <Setter Property="Padding" Value="6,0" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Margin" Value="0,0,6,0" />
-        </Style>
-
-        <!-- Chip removible (keyword agregada): click = quitar -->
-        <Style x:Key="RemovableChip" TargetType="Button">
-            <Setter Property="Foreground" Value="{StaticResource Text}" />
-            <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Margin" Value="0,0,6,6" />
-            <Setter Property="ToolTip" Value="{loc:Loc Search_ChipRemoveTip}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd" CornerRadius="11" Background="{StaticResource Red}"
-                                BorderThickness="1" BorderBrush="{StaticResource GoldDim}" Padding="9,3">
-                            <StackPanel Orientation="Horizontal">
-                                <ContentPresenter VerticalAlignment="Center" />
-                                <TextBlock Text=" ✕" FontSize="11" Foreground="{StaticResource TextDim}" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Encabezado de columna de la grilla -->
-        <Style TargetType="GridViewColumnHeader">
-            <Setter Property="Background" Value="{StaticResource Surface}" />
-            <Setter Property="Foreground" Value="{StaticResource GoldSoft}" />
-            <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Padding" Value="8,6" />
-            <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="GridViewColumnHeader">
-                        <Grid>
-                            <Border Background="{TemplateBinding Background}" BorderBrush="{StaticResource OutlineSoft}"
-                                    BorderThickness="0,0,1,1" Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                  VerticalAlignment="Center" />
-                            </Border>
-                            <Thumb x:Name="PART_HeaderGripper" HorizontalAlignment="Right" Width="8"
-                                   Margin="0,0,-4,0" Cursor="SizeWE">
-                                <Thumb.Template>
-                                    <ControlTemplate TargetType="Thumb">
-                                        <Border Background="Transparent" />
-                                    </ControlTemplate>
-                                </Thumb.Template>
-                            </Thumb>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <!-- Estilos compartidos con la ventana de Mazos: Views/CardUiStyles.xaml
+             (CheckBox/ComboBox/Expander/chips/cabeceras). Acá quedan solo los recursos
+             propios del Buscador. -->
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="CardUiStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
 
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <v:HexBrushConverter x:Key="HexBrush" />
@@ -430,10 +36,37 @@
              (los colores de rules.json son oscuros: negro UNIQUE, rojo BANNED). -->
         <SolidColorBrush x:Key="LabelPillBg" Color="#F2F1E8D5" />
 
-        <!-- Celda de la grilla de miniaturas: nombre de fondo (placeholder) + imagen encima -->
+        <!-- Botón compacto de la barra de acciones de las celdas -->
+        <Style x:Key="CellActionBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Padding" Value="7,1" />
+            <Setter Property="Margin" Value="1,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" CornerRadius="5" Background="Transparent"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource Red}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Celda de la grilla de miniaturas: nombre de fondo (placeholder) + imagen encima
+             + barra de acciones al pie (hover/selección), como la HalfCardCell de la app -->
         <DataTemplate x:Key="GridCellTemplate">
-            <Border Width="188" Height="268" Margin="5" CornerRadius="7" Background="#4D140A05"
-                    BorderThickness="2" Cursor="Hand" MouseLeftButtonUp="GridCell_Click">
+            <Border x:Name="cellRoot" Width="226" Height="322" Margin="5" CornerRadius="7" Background="#4D140A05"
+                    BorderThickness="2" Cursor="Hand" MouseLeftButtonUp="GridCell_Click"
+                    MouseLeftButtonDown="GridCell_MouseDown">
                 <Border.Style>
                     <Style TargetType="Border">
                         <Setter Property="BorderBrush" Value="#33C9A961" />
@@ -475,6 +108,94 @@
                                    FontSize="9" FontWeight="Bold"
                                    Foreground="{Binding Card.LabelColor, Converter={StaticResource HexBrush}}" />
                     </Border>
+
+                    <!-- Cantidad en el mazo activo (esquina sup. izq., visible si > 0) -->
+                    <Border CornerRadius="8" Padding="7,2" Margin="7,7,0,0" BorderThickness="1"
+                            HorizontalAlignment="Left" VerticalAlignment="Top"
+                            Background="#E5140A05" BorderBrush="{StaticResource GoldDim}">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DeckQtyText}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding DeckQtyText}" FontFamily="{StaticResource BodyFont}"
+                                   FontSize="11" FontWeight="Bold" Foreground="{StaticResource Gold}" />
+                    </Border>
+
+                    <!-- Barra de acciones (hover / seleccionada): mazo activo, favorita,
+                         oculta, lista activa -->
+                    <Border VerticalAlignment="Bottom" Background="#E0140A05" CornerRadius="0,0,5,5"
+                            Padding="3,3">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMouseOver, ElementName=cellRoot}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Button Style="{StaticResource CellActionBtn}" Content="−"
+                                    ToolTip="{loc:Loc Cell_MinusTip}" Click="CellMinus_Click" />
+                            <Button Style="{StaticResource CellActionBtn}" Content="+"
+                                    ToolTip="{loc:Loc Cell_PlusTip}" Click="CellPlus_Click" />
+                            <Rectangle Width="1" Margin="4,3" Fill="{StaticResource OutlineSoft}" />
+                            <Button Style="{StaticResource CellActionBtn}" Click="CellFav_Click"
+                                    ToolTip="{loc:Loc Cell_FavTip}">
+                                <TextBlock Text="★">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsFav}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource Gold}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Button>
+                            <Button Style="{StaticResource CellActionBtn}" Click="CellHide_Click"
+                                    ToolTip="{loc:Loc Cell_HideTip}">
+                                <TextBlock Text="⊘">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsHidden}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource ErrorText}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Button>
+                            <Button Style="{StaticResource CellActionBtn}" Click="CellList_Click"
+                                    ToolTip="{loc:Loc Cell_ListTip}">
+                                <TextBlock Text="≡">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding InList}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource Gold}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Button>
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
         </DataTemplate>
@@ -508,6 +229,7 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        </ResourceDictionary>
     </Window.Resources>
 
     <Grid x:Name="RootLayout">
@@ -541,80 +263,133 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!-- ===== Barra superior: búsqueda + contador + vista + orden ===== -->
-                <Grid Grid.Row="0" Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                <!-- ===== Barra superior (2 filas): búsqueda | toggles rápidos + vista + orden ===== -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Column="0" Text="{loc:Loc Search_Title}" Style="{StaticResource CardTitle}"
-                               VerticalAlignment="Center" Margin="0,0,18,0" />
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                    <Grid Grid.Column="1" MaxWidth="560" HorizontalAlignment="Left" MinWidth="320">
-                        <TextBox x:Name="NameBox" Style="{StaticResource InvertedTextBox}"
-                                 TextChanged="Filter_Changed" KeyDown="NameBox_KeyDown" />
-                        <TextBlock Text="{loc:Loc Search_NameHint}" Foreground="{StaticResource InputPlace}"
-                                   Margin="16,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="14">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Text, ElementName=NameBox}" Value="">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
+                        <TextBlock Grid.Column="0" Text="{loc:Loc Search_Title}" Style="{StaticResource CardTitle}"
+                                   VerticalAlignment="Center" Margin="0,0,18,0" />
+
+                        <Grid Grid.Column="1" MaxWidth="480" HorizontalAlignment="Left" MinWidth="260">
+                            <TextBox x:Name="NameBox" Style="{StaticResource InvertedTextBox}"
+                                     ToolTip="{loc:Loc Search_BarOperatorsTip}"
+                                     TextChanged="FilterText_Changed" KeyDown="NameBox_KeyDown" />
+                            <TextBlock Text="{loc:Loc Search_NameHint}" Foreground="{StaticResource InputPlace}"
+                                       Margin="16,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="14">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Text, ElementName=NameBox}" Value="">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+
+                        <TextBlock x:Name="ResultCount" Grid.Column="2" Style="{StaticResource Body}"
+                                   Foreground="{StaticResource Gold}" VerticalAlignment="Center" Margin="18,0,18,0" />
+
+                        <!-- Vista + orden (a la derecha de la fila 1 para que la fila 2 no desborde) -->
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ToggleButton x:Name="ViewListBtn" Style="{StaticResource FilterChip}" Margin="0,0,4,0"
+                                          Padding="10,6" Content="{loc:Loc Search_ViewList}"
+                                          Click="ViewToggle_Click" />
+                            <ToggleButton x:Name="ViewGridBtn" Style="{StaticResource FilterChip}" Margin="0"
+                                          Padding="10,6" IsChecked="True" Content="{loc:Loc Search_ViewGrid}"
+                                          Click="ViewToggle_Click" />
+                            <ToggleButton x:Name="ExpandPrintsBtn" Style="{StaticResource FilterChip}" Margin="10,0,0,0"
+                                          Padding="10,6" Content="{loc:Loc Search_ExpandPrints}"
+                                          ToolTip="{loc:Loc Search_ExpandPrintsTip}"
+                                          Checked="ExpandPrints_Changed" Unchecked="ExpandPrints_Changed" />
+                            <ComboBox x:Name="SortCombo" Width="130" Margin="10,0,0,0"
+                                      SelectionChanged="Filter_Changed" />
+                            <ToggleButton x:Name="SortDirBtn" Style="{StaticResource FilterChip}"
+                                          Margin="8,0,0,0" Padding="10,6" IsChecked="False"
+                                          Checked="Filter_Changed" Unchecked="Filter_Changed"
+                                          ToolTip="{loc:Loc Search_SortDirTip}" Content="↑" />
+                        </StackPanel>
                     </Grid>
 
-                    <TextBlock x:Name="ResultCount" Grid.Column="2" Style="{StaticResource Body}"
-                               Foreground="{StaticResource Gold}" VerticalAlignment="Center" Margin="18,0,18,0" />
+                    <Grid Grid.Row="1" Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                    <Button x:Name="ClearFiltersBtn" Grid.Column="3" Content="{loc:Loc Search_ClearFilters}"
-                            Style="{StaticResource GhostButton}" FontSize="15" Height="34"
-                            Click="ClearFilters_Click" Margin="0,0,14,0" />
+                        <!-- Colapso del panel de filtros -->
+                        <ToggleButton x:Name="FiltersPaneBtn" Style="{StaticResource FilterChip}" Margin="0,0,12,0"
+                                      Padding="10,6" IsChecked="True" Content="{loc:Loc Search_PaneFilters}"
+                                      ToolTip="{loc:Loc Search_PaneFiltersTip}" Click="PaneToggle_Click" />
 
-                    <!-- Vista: lista / grilla + expansión por impresión (solo grilla) -->
-                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
-                        <ToggleButton x:Name="ViewListBtn" Style="{StaticResource FilterChip}" Margin="0,0,4,0"
-                                      Padding="10,6" IsChecked="True" Content="{loc:Loc Search_ViewList}"
-                                      Click="ViewToggle_Click" />
-                        <ToggleButton x:Name="ViewGridBtn" Style="{StaticResource FilterChip}" Margin="0"
-                                      Padding="10,6" Content="{loc:Loc Search_ViewGrid}"
-                                      Click="ViewToggle_Click" />
-                        <ToggleButton x:Name="ExpandPrintsBtn" Style="{StaticResource FilterChip}" Margin="12,0,0,0"
-                                      Padding="10,6" IsEnabled="False" Content="{loc:Loc Search_ExpandPrints}"
-                                      ToolTip="{loc:Loc Search_ExpandPrintsTip}"
-                                      Checked="ExpandPrints_Changed" Unchecked="ExpandPrints_Changed" />
-                    </StackPanel>
+                        <!-- Toggles rápidos (antes enterrados en el panel de filtros) -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ToggleButton x:Name="QuickFavBtn" Style="{StaticResource FilterChip}" Margin="0,0,6,0"
+                                          Padding="10,6" Content="{loc:Loc Search_OnlyFavorites}"
+                                          Checked="Filter_Changed" Unchecked="Filter_Changed" />
+                            <ToggleButton x:Name="QuickHiddenBtn" Style="{StaticResource FilterChip}" Margin="0,0,12,0"
+                                          Padding="10,6" Content="{loc:Loc Search_ShowHidden}"
+                                          Checked="Filter_Changed" Unchecked="Filter_Changed" />
+                        </StackPanel>
 
-                    <ComboBox x:Name="SortCombo" Grid.Column="5" Width="150" VerticalAlignment="Center"
-                              SelectionChanged="Filter_Changed" />
-                    <ToggleButton x:Name="SortDirBtn" Grid.Column="6" Style="{StaticResource FilterChip}"
-                                  Margin="8,0,0,0" Padding="10,6" VerticalAlignment="Center" IsChecked="False"
-                                  Checked="Filter_Changed" Unchecked="Filter_Changed"
-                                  ToolTip="{loc:Loc Search_SortDirTip}" Content="↑" />
+                        <!-- Lista activa: se elige acá; ≡ en las cartas la carga y "Solo lista"
+                             filtra los resultados a sus cartas (armar el mazo de ninjas desde
+                             la lista de ninjas) -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ComboBox x:Name="ListFilterCombo" Width="160" Height="30"
+                                      ToolTip="{loc:Loc Search_ListFilterTip}"
+                                      SelectionChanged="ListFilterCombo_Changed" />
+                            <ToggleButton x:Name="QuickListBtn" Style="{StaticResource FilterChip}" Margin="8,0,0,0"
+                                          Padding="10,6" Content="{loc:Loc Search_OnlyListShort}"
+                                          ToolTip="{loc:Loc Search_OnlyListTip}"
+                                          Checked="Filter_Changed" Unchecked="Filter_Changed" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="ClearFiltersBtn" Content="{loc:Loc Search_ClearFilters}"
+                                    Style="{StaticResource GhostButton}" FontSize="14" Height="32"
+                                    Margin="0,0,14,0" Click="ClearFilters_Click" />
+                            <Button x:Name="DecksBtn" Content="{loc:Loc Search_DecksBtn}"
+                                    Style="{StaticResource GhostButton}" Height="32" FontSize="14" Padding="12,0"
+                                    ToolTip="{loc:Loc Search_DecksBtnTip}" Click="DecksBtn_Click" />
+                            <!-- Colapso del panel de detalle/mazo -->
+                            <ToggleButton x:Name="DetailPaneBtn" Style="{StaticResource FilterChip}" Margin="12,0,0,0"
+                                          Padding="10,6" IsChecked="True" Content="{loc:Loc Search_PaneDetail}"
+                                          ToolTip="{loc:Loc Search_PaneDetailTip}" Click="PaneToggle_Click" />
+                        </StackPanel>
+                    </Grid>
                 </Grid>
 
-                <!-- ===== Cuerpo: filtros | resultados | detalle ===== -->
+                <!-- ===== Cuerpo: filtros | resultados | mazo + detalle (laterales colapsables) ===== -->
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="292" />
-                        <ColumnDefinition Width="12" />
-                        <ColumnDefinition Width="*" MinWidth="420" />
-                        <ColumnDefinition Width="12" />
-                        <ColumnDefinition Width="470" />
+                        <!-- Anchos pensados para ~1200 DIP útiles (monitor 1080p a 125%):
+                             con ambos paneles entran 2 columnas de cartas; cada colapso suma una. -->
+                        <ColumnDefinition x:Name="FiltersCol" Width="270" />
+                        <ColumnDefinition x:Name="FiltersGap" Width="10" />
+                        <ColumnDefinition Width="*" MinWidth="320" />
+                        <ColumnDefinition x:Name="DetailGap" Width="10" />
+                        <ColumnDefinition x:Name="DetailCol" Width="405" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Panel de filtros (siempre visible; aplican en vivo) -->
-                    <Border Grid.Column="0" Background="{StaticResource SurfaceGlassSoft}" CornerRadius="9"
+                    <!-- Panel de filtros (colapsable; aplican en vivo) -->
+                    <Border x:Name="FiltersPanel" Grid.Column="0" Background="{StaticResource SurfaceGlassSoft}" CornerRadius="9"
                             BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12,6,12,12">
                             <StackPanel>
@@ -671,7 +446,7 @@
                                           IsExpanded="True">
                                     <StackPanel>
                                         <TextBox x:Name="TextSearchBox" Style="{StaticResource InvertedTextBox}" Height="32"
-                                                 FontSize="13" TextChanged="Filter_Changed"
+                                                 FontSize="13" TextChanged="FilterText_Changed"
                                                  ToolTip="{loc:Loc Search_CardTextTip}" />
                                         <TextBlock Text="{loc:Loc Search_CardTextHint}" Style="{StaticResource BodySmall}"
                                                    FontSize="11" Margin="2,4,0,0" />
@@ -710,16 +485,10 @@
                                     <WrapPanel x:Name="RarityChips" />
                                 </Expander>
 
-                                <!-- 9. Otros -->
+                                <!-- 9. Otros (los toggles frecuentes viven en la barra superior) -->
                                 <Expander Header="{loc:Loc Search_Section_Other}" Style="{StaticResource FilterExpander}">
                                     <StackPanel>
                                         <CheckBox x:Name="IncludeBannedBox" Content="{loc:Loc Search_IncludeBanned}"
-                                                  Style="{StaticResource FilterCheck}"
-                                                  Checked="Filter_Changed" Unchecked="Filter_Changed" />
-                                        <CheckBox x:Name="OnlyFavoritesBox" Content="{loc:Loc Search_OnlyFavorites}"
-                                                  Style="{StaticResource FilterCheck}"
-                                                  Checked="Filter_Changed" Unchecked="Filter_Changed" />
-                                        <CheckBox x:Name="IncludeHiddenBox" Content="{loc:Loc Search_ShowHidden}"
                                                   Style="{StaticResource FilterCheck}"
                                                   Checked="Filter_Changed" Unchecked="Filter_Changed" />
                                         <CheckBox x:Name="OnlyHiddenBox" Content="{loc:Loc Search_OnlyHidden}"
@@ -727,14 +496,71 @@
                                                   Checked="Filter_Changed" Unchecked="Filter_Changed" />
                                     </StackPanel>
                                 </Expander>
+
+                                <!-- 10. Listas de cartas (la selección va en el panel derecho) -->
+                                <Expander Header="{loc:Loc Search_Section_Lists}" Style="{StaticResource FilterExpander}">
+                                    <StackPanel>
+                                        <TextBlock Text="{loc:Loc Search_ListCreateLabel}" Style="{StaticResource BodySmall}"
+                                                   FontSize="12" Margin="0,2,0,4" />
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="NewListBox" Style="{StaticResource InvertedTextBox}"
+                                                     Height="28" FontSize="13" KeyDown="NewListBox_KeyDown" />
+                                            <Button Grid.Column="1" Content="+" Style="{StaticResource GhostButton}"
+                                                    Height="28" FontSize="16" Padding="10,0" Margin="6,0,0,0"
+                                                    ToolTip="{loc:Loc Search_ListCreateTip}" Click="ListCreate_Click" />
+                                        </Grid>
+                                        <Button Content="{loc:Loc Search_ListDelete}" Style="{StaticResource GoldLink}"
+                                                Margin="2,10,0,0" ToolTip="{loc:Loc Search_ListDeleteTip}"
+                                                Click="ListDelete_Click" />
+                                    </StackPanel>
+                                </Expander>
+
+                                <!-- 11. Presets de filtros -->
+                                <Expander Header="{loc:Loc Search_Section_Presets}" Style="{StaticResource FilterExpander}">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <ComboBox x:Name="PresetCombo" Height="28" />
+                                            <Button Grid.Column="1" Content="{loc:Loc Search_PresetLoad}"
+                                                    Style="{StaticResource GhostButton}" Height="28" FontSize="13"
+                                                    Padding="10,0" Margin="6,0,0,0" Click="PresetLoad_Click" />
+                                            <Button Grid.Column="2" Content="✕" Style="{StaticResource GhostButton}"
+                                                    Height="28" FontSize="13" Padding="8,0" Margin="6,0,0,0"
+                                                    ToolTip="{loc:Loc Search_PresetDeleteTip}" Click="PresetDelete_Click" />
+                                        </Grid>
+                                        <TextBlock Text="{loc:Loc Search_PresetSaveLabel}" Style="{StaticResource BodySmall}"
+                                                   FontSize="12" Margin="0,10,0,4" />
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="PresetNameBox" Style="{StaticResource InvertedTextBox}"
+                                                     Height="28" FontSize="13" KeyDown="PresetNameBox_KeyDown" />
+                                            <Button Grid.Column="1" Content="{loc:Loc Search_PresetSave}"
+                                                    Style="{StaticResource GhostButton}" Height="28" FontSize="13"
+                                                    Padding="10,0" Margin="6,0,0,0" Click="PresetSave_Click" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Expander>
                             </StackPanel>
                         </ScrollViewer>
                     </Border>
 
-                    <!-- Resultados -->
-                    <ListView x:Name="ResultsList" Grid.Column="2"
+                    <!-- Resultados (tabla; cabeceras clickeables para ordenar) -->
+                    <ListView x:Name="ResultsList" Grid.Column="2" Visibility="Collapsed"
                               Background="#66140A05" BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1"
                               ItemContainerStyle="{StaticResource ResultRow}"
+                              GridViewColumnHeader.Click="ResultsHeader_Click"
+                              MouseDoubleClick="ResultsList_MouseDoubleClick"
                               VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                               ScrollViewer.HorizontalScrollBarVisibility="Auto"
                               SelectionMode="Single" SelectionChanged="ResultsList_SelectionChanged">
@@ -754,12 +580,13 @@
                         </ListView.View>
                     </ListView>
 
-                    <!-- Grilla de miniaturas (alternativa a la lista; filas virtualizadas) -->
-                    <ListBox x:Name="CardGrid" Grid.Column="2" Visibility="Collapsed"
+                    <!-- Grilla de miniaturas (vista por defecto; filas virtualizadas) -->
+                    <ListBox x:Name="CardGrid" Grid.Column="2" Focusable="True"
                              Background="#66140A05" BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1"
                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                             VirtualizingPanel.ScrollUnit="Pixel"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             SizeChanged="CardGrid_SizeChanged">
+                             SizeChanged="CardGrid_SizeChanged" PreviewKeyDown="CardGrid_PreviewKeyDown">
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem">
                                 <Setter Property="Focusable" Value="False" />
@@ -786,64 +613,115 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
 
-                    <!-- Detalle -->
-                    <Border Grid.Column="4" Background="{StaticResource SurfaceGlass}" CornerRadius="9"
+                    <!-- Panel derecho: mazo activo arriba; abajo, toggle Carta | Mazo -->
+                    <Border x:Name="DetailPanelBorder" Grid.Column="4" Background="{StaticResource SurfaceGlass}" CornerRadius="9"
                             BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1" Padding="14">
                         <Grid>
-                            <TextBlock x:Name="DetailEmpty" Text="{loc:Loc Search_NoSelection}"
-                                       Style="{StaticResource Body}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            <ScrollViewer x:Name="DetailScroll" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-                                <StackPanel>
-                                    <Grid HorizontalAlignment="Center">
-                                        <Border x:Name="CardImageFrame" BorderThickness="0" CornerRadius="6">
-                                            <!-- Ancho fijo (upscale incluido): el tamaño percibido no
-                                                 depende de la resolución del jpg de cada printing. -->
-                                            <Image x:Name="CardImage" Width="428" MaxHeight="612" Stretch="Uniform" />
-                                        </Border>
-                                        <Border x:Name="BannedPill" CornerRadius="11" Padding="10,3" Margin="0,10,10,0"
-                                                HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed"
-                                                BorderThickness="1" Background="{StaticResource LabelPillBg}">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock x:Name="BannedPillDiamond" Text="◆" FontSize="10"
-                                                           VerticalAlignment="Center" Margin="0,0,5,0" />
-                                                <TextBlock x:Name="BannedPillText" FontFamily="{StaticResource BodyFont}"
-                                                           FontWeight="Bold" FontSize="12" VerticalAlignment="Center" />
-                                            </StackPanel>
-                                        </Border>
-                                    </Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
 
-                                    <!-- Diagnóstico: dónde se buscó la imagen que no apareció -->
-                                    <TextBlock x:Name="DetailImageMiss" Style="{StaticResource BodySmall}"
-                                               FontSize="11" Foreground="{StaticResource ErrorText}"
-                                               Margin="0,6,0,0" Visibility="Collapsed" TextWrapping="Wrap" />
+                            <!-- Mazo activo (destino de los + / −) + abrir el editor -->
+                            <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{loc:Loc Search_ActiveDeckLabel}" Style="{StaticResource BodySmall}"
+                                           VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <ComboBox x:Name="DeckCombo" Grid.Column="1" SelectionChanged="DeckCombo_Changed" />
+                                <Button Grid.Column="2" Content="✎" Style="{StaticResource GhostButton}"
+                                        Height="30" FontSize="15" Padding="10,0" Margin="6,0,0,0"
+                                        ToolTip="{loc:Loc Search_EditDeckTip}" Click="DecksBtn_Click" />
+                            </Grid>
 
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
-                                        <Button x:Name="FavBtn" Style="{StaticResource GhostButton}" Height="30"
-                                                FontSize="14" Padding="12,0" Click="FavBtn_Click" />
-                                        <Button x:Name="HideBtn" Style="{StaticResource GhostButton}" Height="30"
-                                                FontSize="14" Padding="12,0" Margin="8,0,0,0" Click="HideBtn_Click" />
-                                    </StackPanel>
+                            <!-- Toggle Carta / Mazo -->
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,10,0,0">
+                                <ToggleButton x:Name="TabCardBtn" Style="{StaticResource FilterChip}"
+                                              Padding="12,6" Content="{loc:Loc Deck_TabCard}" Click="Tab_Click" />
+                                <ToggleButton x:Name="TabDeckBtn" Style="{StaticResource FilterChip}"
+                                              Padding="12,6" IsChecked="True" Content="{loc:Loc Search_TabDeck}"
+                                              Click="Tab_Click" />
+                            </StackPanel>
 
-                                    <TextBlock x:Name="DetailName" Style="{StaticResource CardTitle}" FontSize="24"
-                                               TextWrapping="Wrap" Margin="0,8,0,2" />
-                                    <TextBlock x:Name="DetailMeta" Style="{StaticResource BodySmall}" Margin="0,0,0,6" />
-                                    <TextBlock x:Name="DetailKeywords" Style="{StaticResource Body}" FontSize="13"
-                                               Foreground="{StaticResource Gold}" FontStyle="Italic" Margin="0,0,0,6" />
-                                    <TextBlock x:Name="DetailText" Style="{StaticResource Body}" FontSize="14"
-                                               Foreground="{StaticResource Text}" Margin="0,0,0,8" />
-                                    <TextBlock x:Name="DetailFlavor" Style="{StaticResource Body}" FontSize="13"
-                                               FontStyle="Italic" Margin="0,0,0,8" />
-                                    <Border x:Name="DetailNoteBox" Background="#33C9A961" CornerRadius="6" Padding="10,7"
-                                            Margin="0,0,0,8" Visibility="Collapsed">
-                                        <TextBlock x:Name="DetailNote" Style="{StaticResource BodySmall}"
-                                                   Foreground="{StaticResource Text}" />
-                                    </Border>
-                                    <TextBlock x:Name="DetailStats" Style="{StaticResource BodySmall}" Margin="0,0,0,4" />
-                                    <TextBlock x:Name="DetailSets" Style="{StaticResource BodySmall}" Margin="0,0,0,4" />
-                                    <TextBlock x:Name="DetailLegality" Style="{StaticResource BodySmall}" Margin="0,0,0,4" />
-                                    <TextBlock x:Name="DetailArtist" Style="{StaticResource BodySmall}" Margin="0,0,0,4" />
-                                </StackPanel>
-                            </ScrollViewer>
+                            <!-- Acciones sobre la carta seleccionada + feedback de AddCardResult -->
+                            <StackPanel Grid.Row="2" Margin="0,4,0,6">
+                                <WrapPanel HorizontalAlignment="Center">
+                                    <Button x:Name="AddToDeckBtn" Style="{StaticResource GhostButton}" Height="28"
+                                            FontSize="13" Padding="10,0" Margin="3,2"
+                                            Content="{loc:Loc Search_AddToDeck}"
+                                            ToolTip="{loc:Loc Search_AddToDeckTip}" Click="AddToDeckBtn_Click" />
+                                    <Button x:Name="RemoveFromDeckBtn" Style="{StaticResource GhostButton}" Height="28"
+                                            FontSize="13" Padding="10,0" Margin="3,2"
+                                            Content="{loc:Loc Search_RemoveFromDeck}" Click="RemoveFromDeckBtn_Click" />
+                                    <Button x:Name="FavBtn" Style="{StaticResource GhostButton}" Height="28"
+                                            FontSize="13" Padding="10,0" Margin="3,2" Click="FavBtn_Click" />
+                                    <Button x:Name="HideBtn" Style="{StaticResource GhostButton}" Height="28"
+                                            FontSize="13" Padding="10,0" Margin="3,2" Click="HideBtn_Click" />
+                                </WrapPanel>
+                                <TextBlock x:Name="DeckFeedback" Style="{StaticResource BodySmall}" FontSize="12"
+                                           HorizontalAlignment="Center" Margin="0,5,0,0" Visibility="Collapsed"
+                                           TextWrapping="Wrap" TextAlignment="Center" />
+                            </StackPanel>
+
+                            <!-- Contenido según el toggle -->
+                            <v:CardDetailPanel x:Name="Detail" Grid.Row="3" Visibility="Collapsed" />
+                            <DockPanel x:Name="DeckPane" Grid.Row="3" LastChildFill="True">
+                                <!-- Conteos del mazo (Dynasty/Fate en rojo si <40, indicador blando) -->
+                                <TextBlock x:Name="DeckCounts" DockPanel.Dock="Top" Style="{StaticResource BodySmall}"
+                                           Margin="2,0,0,6" TextWrapping="Wrap" />
+                                <ListBox x:Name="DeckCardsList"
+                                         Background="#40140A05" BorderBrush="{StaticResource OutlineSoft}"
+                                         BorderThickness="1" HorizontalContentAlignment="Stretch"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         SelectionChanged="DeckCardsList_SelectionChanged">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                            <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+                                            <Setter Property="FontSize" Value="12" />
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                        <Border x:Name="bd" Background="Transparent" Padding="6,2">
+                                                            <ContentPresenter />
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="bd" Property="Background" Value="#22C9A961" />
+                                                            </Trigger>
+                                                            <Trigger Property="IsSelected" Value="True">
+                                                                <Setter TargetName="bd" Property="Background" Value="#CC7D1F1C" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel LastChildFill="True">
+                                                <Button DockPanel.Dock="Right" Content="+" Style="{StaticResource GhostButton}"
+                                                        Height="20" FontSize="12" Padding="7,0" Margin="4,0,0,0"
+                                                        Click="DeckRowPlus_Click" />
+                                                <Button DockPanel.Dock="Right" Content="−" Style="{StaticResource GhostButton}"
+                                                        Height="20" FontSize="12" Padding="7,0" Margin="6,0,0,0"
+                                                        Click="DeckRowMinus_Click" />
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding QtyText}" Margin="8,0,0,0"
+                                                           VerticalAlignment="Center" Foreground="{StaticResource Gold}" />
+                                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </DockPanel>
                         </Grid>
                     </Border>
                 </Grid>

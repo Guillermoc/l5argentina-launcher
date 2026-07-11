@@ -4,7 +4,11 @@ using System.Text.Json.Serialization;
 
 namespace L5ArgentinaLauncher.Services.Search
 {
-    /// <summary>Campos de ordenamiento (port de SortField de la app; mismos nombres).</summary>
+    /// <summary>
+    /// Campos de ordenamiento. Los primeros seis son el port de SortField de la app (mismos
+    /// nombres, mismas semánticas golden); los de abajo son extras del launcher para el orden
+    /// por cabecera de columna de la tabla.
+    /// </summary>
     public enum SortField
     {
         NAME,
@@ -13,6 +17,12 @@ namespace L5ArgentinaLauncher.Services.Search
         CHI,
         PERSONAL_HONOR,
         SET,
+        // ----- extras del launcher (orden por cabecera; no existen en la app) -----
+        TYPE,
+        CLAN,
+        RARITY,
+        HONOR_REQ,
+        FOCUS,
     }
 
     /// <summary>

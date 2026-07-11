@@ -48,11 +48,22 @@ namespace L5ArgentinaLauncher.Services.Search
                 {
                     catalog.Formats.Add(new FormatInfo { Code = Str(f?["code"]), Name = Str(f?["name"]) });
                     foreach (var slot in AsArray(f?["initialHoldingSlots"]))
+                    {
+                        // default required=true, como FormatInitialHoldingSlotEntity
+                        var required = !(slot?["required"] is JsonValue rv && rv.TryGetValue<bool>(out var r)) || r;
+                        catalog.InitialHoldingSlots.Add(new InitialHoldingSlot
+                        {
+                            FormatId = Str(f?["code"]),
+                            SlotId = Str(slot?["id"]),
+                            Label = Str(slot?["label"]),
+                            Required = required,
+                        });
                         foreach (var cardName in AsArray(slot?["eligibleCards"]))
                         {
                             var n = Str(cardName);
                             if (n != null) initialHoldingByCard[n] = Str(slot?["id"]);
                         }
+                    }
                 }
                 foreach (var k in AsArray(filters?["keywords"]))
                 {
