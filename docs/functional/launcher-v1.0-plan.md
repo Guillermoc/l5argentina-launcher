@@ -1,7 +1,12 @@
-# Plan de implementación — L5Argentina Launcher (v1 / MVP)
+# Plan de implementación v1.0 — L5Argentina Launcher (MVP)
+
+> **Documento histórico (2026-06-12).** Es el plan con el que se construyó la v1, no una hoja de
+> ruta vigente: para eso está [`../ROADMAP.md`](../ROADMAP.md). Se conserva porque explica el orden
+> en que se armó el proyecto y qué se difirió desde el día uno.
 
 > Plan aprobado para construir la v1 completa. La spec de diseño vive en
-> [`launcher-spec.md`](./launcher-spec.md) y la guía visual en [`Style_guide.md`](./Style_guide.md).
+> [`launcher-v1.0-spec.md`](./launcher-v1.0-spec.md) y la guía visual en
+> [`../design/style-guide.md`](../design/style-guide.md).
 
 ## Estado del entorno (al iniciar)
 

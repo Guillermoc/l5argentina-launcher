@@ -1,0 +1,89 @@
+# Diseño transversal — paridad con la app Android
+
+Aplica a **dos dominios** (Buscador y Mazos) y a cualquier port futuro desde la app L5Argentina.
+Es la regla que explica por qué hay código que se ve "mal" a propósito.
+
+Specs de origen (paquetes de handoff): [../functional/buscador-launcher/](../functional/buscador-launcher/)
+y [../functional/deckbuilder-launcher/](../functional/deckbuilder-launcher/).
+
+---
+
+## La regla
+
+**El motor se porta 1:1; la experiencia se adapta al escritorio.**
+
+- **Semántica** (qué cartas devuelve una consulta, qué acepta o rechaza `AddCard`, qué string produce
+  un export): idéntica a la app, verificada por **golden tests**. Incluye los bugs.
+- **Interacción** (dónde va un panel, cuándo se muestra un mensaje, qué atajos hay): libre, pensada
+  para monitor y teclado.
+
+Un cambio de interacción que altere qué cartas se devuelven **no es** un cambio de interacción.
+
+---
+
+## Golden tests: qué son y qué los rompe
+
+| | Buscador | Deckbuilder |
+|---|---|---|
+| Casos | 53 | 25 |
+| Generados con | `CardQueryCompiler` real de la app sobre SQLite | `DeckRepository` real de la app sobre SQLite |
+| Fixtures | [`tests/fixtures/buscador/`](../../tests/fixtures/buscador/) | [`tests/fixtures/deckbuilder/`](../../tests/fixtures/deckbuilder/) |
+| Forma del caso | criteria serializado + ids esperados (`orderMatters` decide secuencia vs conjunto) | secuencia exacta del driver (mismos mazos "Golden N", string exacto del export) |
+| Corre en | `SelfTest.RunGoldenSearchTests` | `SelfTest.RunGoldenDeckTests` |
+
+**Si tocás `CardSearchEngine`, `CatalogImporter`, `CardSearchCriteria` o `DeckRepository`: corré
+`--selftest` al terminar ese cambio y dejalo en verde** (una corrida al final, no una por edición —
+[ADR-032](../DECISIONS.md#adr-032)). Si el cambio *pretende* modificar una semántica, no se ajusta el
+código hasta que pase: se **regeneran los expected afectados** con el harness del handoff
+([`tests/fixtures/<dominio>/generator/`](../../tests/fixtures/)), se anota qué cambió y por qué, y
+recién ahí vale el verde nuevo.
+
+Los golden se saltean (SKIP) si el exe corre fuera del repo: un reporte válido no trae FAIL ni
+ningún SKIP.
+
+---
+
+## Semánticas de SQLite replicadas a mano
+
+El motor del Buscador corre en memoria ([ADR-017](../DECISIONS.md#adr-017)), así que las reglas del
+SQL original están reimplementadas explícitamente. No son detalles de estilo:
+
+- `LIKE` → contains **case-insensitive solo-ASCII** (una `Á` no matchea una `á`).
+- `IN` / `=` → comparación **Ordinal** (BINARY), case-sensitive.
+- Stats `NULL` → siempre al final del orden.
+- Empates → **orden de inserción** (los sorts tienen que ser estables).
+- Orden por Set → `presortSets` + rank por printing, no alfabético.
+
+---
+
+## Bugs portados a propósito
+
+Los ⚠️ de las specs del handoff se portan tal cual; la corrección de experiencia va **en la capa
+UI** ([ADR-018](../DECISIONS.md#adr-018)):
+
+| Bug | Motor | UI |
+|---|---|---|
+| Rareza case-sensitive | se porta | el chip manda `P` y `p` |
+| Subtitle-substring en keywords | se porta | toggle "Incluir subtítulos" |
+| Mismatch `20F` / `TwentyFestivals` en formatos | se porta | sin UI de formato (la app tampoco) |
+| Dos strongholds permitidos en un mazo | se porta | indicador blando, no bloqueo |
+
+Los nombres del port también siguen al original aunque mientan: `NoActiveDeck` significa "carta o
+mazo inexistente" ([ADR-027](../DECISIONS.md#adr-027)).
+
+---
+
+## Divergencias deliberadas (todas anotadas)
+
+| Divergencia | Dónde | Por qué |
+|---|---|---|
+| Se **muestra** el `AddCardResult`; la app lo ignora | Buscador y editor | Un `+` que no hace nada sin explicar es un bug de UX ([ADR-026](../DECISIONS.md#adr-026)) |
+| "Solo ocultas" no resetea los demás filtros | Buscador | La app sí lo hace; acá sorprende |
+| `SortField` con TYPE/CLAN/RARITY/HONOR_REQ/FOCUS | Buscador | Orden por cabecera de tabla; sin goldens ([ADR-030](../DECISIONS.md#adr-030)) |
+| Duplicar mazo | Editor | Pedido frecuente, sale gratis ([ADR-029](../DECISIONS.md#adr-029)) |
+| Sin gracia de 2,5 s al llegar a 0 | Editor | Patrón táctil; el motor lo soporta igual ([ADR-025](../DECISIONS.md#adr-025)) |
+| Presets de filtros con nombre | Buscador | Superset del slot único de la app |
+| Resolución tolerante de nombres al leer `.txt` | Mazos | Los nombres del juego difieren del catálogo ([ADR-023](../DECISIONS.md#adr-023)) |
+
+**Al agregar una divergencia nueva:** anotarla acá y en el índice del dominio, y verificar que no
+toque ninguna semántica cubierta por goldens.

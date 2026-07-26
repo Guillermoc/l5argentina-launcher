@@ -32,8 +32,10 @@ reciben parches.
 - **Link de actualización hardcodeado** en el exe (nunca se toma del manifest → no es vector de phishing).
 - **Backups** antes de cada sobrescritura (la base Original + copias con timestamp → reversible).
 
-Detalle completo del threat model en [docs/launcher-spec.md](docs/launcher-spec.md) (§8–§10) y un
-resumen en el [README](README.md).
+Detalle completo del threat model en
+[docs/functional/launcher-v1.0-spec.md](docs/functional/launcher-v1.0-spec.md) (§8–§10), las reglas
+vigentes en [docs/design/seguridad.md](docs/design/seguridad.md) y un resumen en el
+[README](README.md).
 
 ## Verificá lo que ejecutás
 

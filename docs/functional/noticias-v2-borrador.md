@@ -1,10 +1,11 @@
-# Formato de noticias (v2) — PLACEHOLDER, a definir
+# Noticias y torneos (v2) — borrador de spec funcional
 
-> Esta feature es de **v2** y todavía **no está implementada**. Este documento es un marcador
-> para cuando definamos el formato. La UI ya tiene una sección "Noticias y torneos" con un
-> placeholder, y el modelo `NewsEntry` / `NewsService` existen como stubs.
+> **Borrador, sin implementar.** Feature de v2: este documento es el marcador para cuando se defina
+> el formato. La UI ya tiene una sección "Noticias y torneos" con un placeholder, y el modelo
+> `NewsEntry` / `NewsService` existen como stubs. Antes de implementar, esto se completa como spec
+> funcional versionada (`noticias-v2.0.md`) y recién ahí se le pide un enfoque técnico a Claude Code.
 
-## Decisiones de diseño ya tomadas (de la spec)
+## Decisiones de diseño ya tomadas (de la spec v1.0)
 
 - Las noticias serán archivos **`.md`** en el bucket, referenciados desde el `manifest.json` en
   una sección `news` (cada entrada con su `sha256`).

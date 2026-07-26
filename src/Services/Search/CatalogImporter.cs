@@ -11,7 +11,7 @@ namespace L5ArgentinaLauncher.Services.Search
 {
     /// <summary>
     /// Port fiel del pipeline de importación de la app Android (CardImporter + RulesImporter +
-    /// FiltersImporter; ver docs/handoff/buscador-launcher/). Produce el mismo estado final que
+    /// FiltersImporter; ver docs/functional/buscador-launcher/). Produce el mismo estado final que
     /// un sync completo de la app: import con mapa de rules → applyRules (reset + apply).
     /// Los comportamientos "accidentales" documentados con ⚠️ en las specs se portan tal cual:
     /// la paridad la verifican los 53 golden tests (SelfTest).

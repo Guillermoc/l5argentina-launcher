@@ -7,7 +7,32 @@ nueva en nuestro bucket, deja **elegir con qué base jugar**, la aplica de forma
 
 Versión actual: **0.3.0**.
 
-> Diseño/decisiones: [docs/launcher-spec.md](docs/launcher-spec.md) · Buscador: [docs/BUSCADOR.md](docs/BUSCADOR.md) · Mazos: [docs/MAZOS.md](docs/MAZOS.md) · Guía visual: [docs/Style_guide.md](docs/Style_guide.md) · Plan: [docs/PLAN.md](docs/PLAN.md) · Guía de usuarios: [docs/USUARIOS.md](docs/USUARIOS.md)
+> **Documentación:** mapa completo en [docs/README.md](docs/README.md) · estado actual del código en
+> [docs/index/](docs/index/) (empezar por
+> [OVERVIEW](docs/index/OVERVIEW.md)) · el proyecto entero de corrido en
+> [docs/technical/technical-specification.md](docs/technical/technical-specification.md) ·
+> por qué está hecho así en [docs/DECISIONS.md](docs/DECISIONS.md) · qué falta en
+> [docs/ROADMAP.md](docs/ROADMAP.md) · guía para usuarios en [docs/USUARIOS.md](docs/USUARIOS.md).
+
+---
+
+## Estado de las features
+
+| Feature | Estado | Desde | Detalle |
+|---|---|---|---|
+| Detección de la instalación + captura de la base Original | ✅ | v0.1.0 | [index/sincronizacion.md](docs/index/sincronizacion.md) |
+| Sincronizar y aplicar la base (Comunidad / Original) | ✅ | v0.1.0 | [index/sincronizacion.md](docs/index/sincronizacion.md) |
+| Pack de imágenes propio de la comunidad | ✅ | v0.1.0 | [index/sincronizacion.md](docs/index/sincronizacion.md) |
+| Aviso de versión nueva del launcher | ✅ | v0.1.0 | [DECISIONS ADR-009](docs/DECISIONS.md#adr-009) |
+| Configuración (carpeta del juego, URL del manifest) + modo offline | ✅ | v0.1.0 | [index/sincronizacion.md](docs/index/sincronizacion.md) |
+| Buscador de cartas (filtros, grilla/tabla, detalle) | ✅ | v0.2.0 | [index/buscador.md](docs/index/buscador.md) |
+| Favoritas, ocultas, listas y presets de filtros | ✅ | v0.2.0 | [index/buscador.md](docs/index/buscador.md) |
+| Packs de imágenes oficiales por arco (pool) | ✅ | v0.2.0 | [index/sincronizacion.md](docs/index/sincronizacion.md) |
+| Mazos / deckbuilder (editor + integración en el Buscador) | ✅ | v0.3.0 | [index/mazos.md](docs/index/mazos.md) |
+| Mazos guardados como `.txt` en la carpeta `Decks` del juego | ✅ | v0.3.0 | [DECISIONS ADR-022](docs/DECISIONS.md#adr-022) |
+| Firma del ejecutable (SignPath) | ⏳ esperando aprobación OSS | — | [ROADMAP §1](docs/ROADMAP.md) |
+| Noticias y torneos | ⬜ placeholder en UI, sin implementar | — | [functional/noticias-v2-borrador.md](docs/functional/noticias-v2-borrador.md) |
+| Firma del `manifest.json` | ⏸️ diferido con criterio | — | [DECISIONS ADR-015](docs/DECISIONS.md#adr-015) |
 
 ---
 
@@ -72,7 +97,9 @@ El principio rector: **el launcher solo descarga datos (XML, JSON, ZIP), nunca c
 - **Sin auto-update del propio exe**: el link de descarga está hardcodeado, no viene del manifest.
 - **Backups** antes de cada sobrescritura (la Original y copias con timestamp).
 
-El threat model completo está en la spec (§8–§10).
+Las reglas vigentes y cómo se verifican están en
+[docs/design/seguridad.md](docs/design/seguridad.md); el threat model completo, en la spec funcional
+v1.0 (§8–§10).
 
 ---
 
@@ -129,6 +156,9 @@ src/bin/Debug/net48/L5ArgentinaLauncher.exe --mazos      # abre el editor de Maz
 
 > Hook de testing: la variable de entorno `L5A_DATA_ROOT` redirige config/caché/backups a otra carpeta.
 
+Los datos de los golden tests (y el harness para regenerarlos) están en [tests/](tests/); el detalle
+de qué cubre cada bloque, en [docs/index/build-verificacion.md](docs/index/build-verificacion.md).
+
 ---
 
 ## Configuración del usuario (rutas)
@@ -151,8 +181,8 @@ En [src/AppConstants.cs](src/AppConstants.cs):
 | `PoolManifestUrl` | `https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/production/manifest.json` (CDN de la app: catálogo del Buscador + packs de imágenes; **hardcodeado**) |
 | `ReleasesPageUrl` | `https://github.com/Guillermoc/l5argentina-launcher/releases` (link del aviso de update, **hardcodeado a propósito**) |
 
-El formato del `manifest.json` y un ejemplo con hashes reales están en
-[docs/manifest.example.json](docs/manifest.example.json).
+El formato del `manifest.json`, el del pool y un ejemplo con hashes reales están en
+[docs/technical/contratos/](docs/technical/contratos/).
 
 ---
 
@@ -171,9 +201,12 @@ El formato del `manifest.json` y un ejemplo con hashes reales están en
 
 ## Arquitectura
 
+> Vista resumida. El mapa de archivos completo y siempre al día está en
+> [docs/index/OVERVIEW.md](docs/index/OVERVIEW.md).
+
 ```
 src/
-├─ App.xaml(.cs)              arranque, TLS 1.2+, ruteo de primer arranque, --selftest/--buscador
+├─ App.xaml(.cs)              arranque, TLS 1.2+, primer arranque, flags --selftest/--buscador/--mazos
 ├─ MainWindow.xaml(.cs)       selección de base, banner de update, sync, JUGAR, overlays (config/packs)
 ├─ AppConstants.cs            URLs, versión, rutas de %APPDATA%/%LOCALAPPDATA%
 ├─ Themes/Theme.xaml          paleta, fuentes, estilos y fondo (guía de estilos L5Argentina)

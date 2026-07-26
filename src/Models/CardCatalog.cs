@@ -5,7 +5,7 @@ namespace L5ArgentinaLauncher.Models
 {
     /// <summary>
     /// Carta del catálogo del Buscador, espejo 1:1 de la tabla `cards` de la app Android
-    /// (docs/handoff/buscador-launcher/MODELO-DATOS.md §2/§5). Las listas se guardan en el
+    /// (docs/functional/buscador-launcher/MODELO-DATOS.md §2/§5). Las listas se guardan en el
     /// formato pipe-delimited ("|a|b|") igual que en la app: la semántica de los filtros
     /// (match exacto de elemento vía LIKE '%|x|%') depende de conservar ese formato.
     /// Propiedades (no fields) porque la UI las bindea directo.

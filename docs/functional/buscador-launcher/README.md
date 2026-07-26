@@ -9,6 +9,11 @@ Paquete autocontenido para portar el Buscador de la app Android **L5Argentina** 
   cards_db **2.3.1**, rules **2.3.1**, filters **2.3.0** (copias en `fixtures/data/`).
 - Fecha de generación: 2026-07-06.
 
+> **Nota del launcher (2026-07-26):** la carpeta `fixtures/` de este paquete se movió a
+> [`tests/fixtures/buscador/`](../../../tests/fixtures/buscador/), junto al resto del material de
+> tests. Donde el texto de abajo (y el de las SPEC-*.md) diga `fixtures/…`, leer esa ruta. El
+> contenido no cambió.
+
 ## Índice
 
 | Archivo | Contenido |
@@ -19,9 +24,9 @@ Paquete autocontenido para portar el Buscador de la app Android **L5Argentina** 
 | [MODELO-DATOS.md](MODELO-DATOS.md) | Modelo de carta, parsing (normalizaciones, stats especiales `*`/`+*`/`-`), selección de printing/imagen, mapeo columna ← JSON ← XML kamisasori, tags HTML exhaustivos (`<b>`, `<br>`, `<i>`), campos derivados (keywords, subtitle, action_keywords). |
 | [UI-INVENTARIO.md](UI-INVENTARIO.md) | Pantalla: controles, tabs, carousel/grilla, visor, orden default, persistencia (ninguna), comportamientos no obvios. |
 | [src/](src/) + [src/INDEX.md](src/INDEX.md) | Los .kt reales copiados verbatim (motor, importers, modelo, y SearchViewModel porque parte de la semántica vive ahí — marcado). |
-| [fixtures/golden-tests.json](fixtures/golden-tests.json) | **53 casos golden** con `expectedIds` producidos ejecutando la lógica real (ver abajo). Cada caso incluye el SQL generado. |
-| [fixtures/data/](fixtures/data/) | Los datos exactos usados: `cards_db-2.3.1.zip` (contiene `cards-2.3.1.json`), `rules-2.3.1.json`, `filters-2.3.0.json`, manifest del canal production. |
-| [fixtures/generator/](fixtures/generator/) | El harness que generó los golden (driver JDBC + stubs mínimos de Room/SQLite). Reproducible: compila los .kt de `src/` **sin modificar** con kotlinc 2.0.21 (`-Xplugin=kotlinx-serialization-compiler-plugin`) + jars de kotlinx-serialization 1.7.3, coroutines 1.9.0 y sqlite-jdbc, y corre `harness.RunnerKt <dataDir> <out.json> <db> <commit>`. |
+| [fixtures/golden-tests.json](../../../tests/fixtures/buscador/golden-tests.json) | **53 casos golden** con `expectedIds` producidos ejecutando la lógica real (ver abajo). Cada caso incluye el SQL generado. |
+| [fixtures/data/](../../../tests/fixtures/buscador/data/) | Los datos exactos usados: `cards_db-2.3.1.zip` (contiene `cards-2.3.1.json`), `rules-2.3.1.json`, `filters-2.3.0.json`, manifest del canal production. |
+| [fixtures/generator/](../../../tests/fixtures/buscador/generator/) | El harness que generó los golden (driver JDBC + stubs mínimos de Room/SQLite). Reproducible: compila los .kt de `src/` **sin modificar** con kotlinc 2.0.21 (`-Xplugin=kotlinx-serialization-compiler-plugin`) + jars de kotlinx-serialization 1.7.3, coroutines 1.9.0 y sqlite-jdbc, y corre `harness.RunnerKt <dataDir> <out.json> <db> <commit>`. |
 
 ## Cómo se generaron los golden tests (garantía de "lógica real")
 

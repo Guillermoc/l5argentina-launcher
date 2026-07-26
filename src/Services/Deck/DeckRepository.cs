@@ -9,7 +9,7 @@ namespace L5ArgentinaLauncher.Services.Deck
 {
     /// <summary>
     /// Única capa de mutación de mazos: port 1:1 de DeckRepository.kt de la app Android
-    /// (docs/handoff/deckbuilder-launcher/). En vez de Room/SQLite opera sobre las listas en
+    /// (docs/functional/deckbuilder-launcher/). En vez de Room/SQLite opera sobre las listas en
     /// memoria de <see cref="Models.Deck"/> con las mismas semánticas (= de SQLite → Ordinal,
     /// getByName → primera carta en orden de inserción del cards.json). La paridad la
     /// verifican los 25 golden tests del deckbuilder en el SelfTest.

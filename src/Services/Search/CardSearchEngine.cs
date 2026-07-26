@@ -15,7 +15,7 @@ namespace L5ArgentinaLauncher.Services.Search
 
     /// <summary>
     /// Motor de filtrado en memoria: port semántico 1:1 del SQL que genera
-    /// CardQueryCompiler.kt de la app Android (docs/handoff/buscador-launcher/SPEC-FILTROS.md).
+    /// CardQueryCompiler.kt de la app Android (docs/functional/buscador-launcher/SPEC-FILTROS.md).
     /// En vez de SQLite (dependencia nativa) replica sus semánticas exactas:
     ///   - LIKE  → contains case-insensitive SOLO ASCII (LikeContains)
     ///   - IN/=  → igualdad Ordinal (case-sensitive, collation BINARY)

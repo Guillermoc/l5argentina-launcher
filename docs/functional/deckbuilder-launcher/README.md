@@ -34,9 +34,9 @@ Todo lo demás del reglamento (1 stronghold, tamaños mínimos, provincias, lega
 | [MODELO-DATOS-MAZO.md](MODELO-DATOS-MAZO.md) | Entidades `decks`/`deck_cards`/`deck_groups`; relación con `CardEntity`; **formato de import/export** con ejemplo real y reglas. |
 | [UI-INVENTARIO.md](UI-INVENTARIO.md) | Lista de mazos, editor (cómo se agregan cartas: desde el Buscador, no hay buscador embebido), no hay selector de stronghold, resumen de stats, indicador de validez. |
 | [src/](src/) + [src/INDEX.md](src/INDEX.md) | Los `.kt` reales verbatim (repo, entidades, DAOs, ViewModels; marcada la semántica que vive en UI). |
-| [fixtures/golden-tests.json](fixtures/golden-tests.json) | **25 casos** con resultados producidos ejecutando la lógica real (ver abajo). |
-| [fixtures/data/](fixtures/data/) | Datos exactos: `cards_db-2.3.1.zip`, `rules-2.3.1.json`, `filters-2.3.0.json`. |
-| [fixtures/generator/](fixtures/generator/) | Harness reproducible (driver JDBC + stubs). |
+| [fixtures/golden-tests.json](../../../tests/fixtures/deckbuilder/golden-tests.json) | **25 casos** con resultados producidos ejecutando la lógica real (ver abajo). |
+| [fixtures/data/](../../../tests/fixtures/deckbuilder/data/) | Datos exactos: `cards_db-2.3.1.zip`, `rules-2.3.1.json`, `filters-2.3.0.json`. |
+| [fixtures/generator/](../../../tests/fixtures/deckbuilder/generator/) | Harness reproducible (driver JDBC + stubs). |
 
 ## Golden tests — "lógica real", no armados a mano
 

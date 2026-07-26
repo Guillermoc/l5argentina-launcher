@@ -2,7 +2,7 @@
   Theme.xaml — L5Argentina Launcher (WPF / .NET)
   Rediseño visual: pergamino cálido (naranja), rojo lacado para acción/selección,
   oro decorativo, tipografía de marca (L5RTitles). Sin modo claro.
-  Tokens y plantillas según docs/design/Theme.xaml + PROMPT.md.
+  Tokens y plantillas según docs/design/visual/Theme.xaml + PROMPT.md.
 -->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"

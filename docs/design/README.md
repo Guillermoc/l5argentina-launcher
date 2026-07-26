@@ -1,22 +1,14 @@
-# Handoff — Rediseño visual del L5Argentina Launcher (WPF)
+# docs/design — decisiones técnicas transversales
 
-Capa visual del lanzador de *Sun and Moon*. El MVP ya funciona; esto es **sólo el XAML/estilos/estados**, no la lógica.
+Documentos que **atraviesan varios módulos**. Si algo aplica a un solo dominio, va en su índice
+([../index/](../index/)); si es una decisión puntual con su porqué, va como entrada en
+[../DECISIONS.md](../DECISIONS.md). Acá viven las reglas que hay que respetar desde varios lugares a
+la vez.
 
-## Archivos
-
-1. **`PROMPT.md`** — el prompt para Claude Code. Leelo primero: contexto, layout, los 8 estados, modales, componentes, qué NO hacer, criterio de aceptación.
-2. **`Theme.xaml`** — `ResourceDictionary` listo para pegar: tokens de color, fuentes y estilos de control (`PrimaryButton`, `GhostButton`, `InvertedTextBox`, `BaseCardRadio`, `LProgressBar`).
-3. **Mockup visual:** `../L5Argentina Launcher — Diseño.html` — canvas con todas las pantallas y estados (Sistema · Ventana principal · Primer arranque · Configuración · Componentes). Abrilo para ver el diseño objetivo.
-
-## Pendientes del lado tuyo
-
-- **Fuente de marca:** registrar el archivo real **L5RTitles** en `/Fonts/` y apuntar `BrushFont` ahí (hoy usa un fallback serif).
-- **Logo:** reemplazar el slot `L5x` por el ícono real (PNG/SVG).
-- **Texturas:** PNG de papel tileable (~10% opacidad) + sombra/viñeta para el fondo pergamino.
-
-## Decisiones
-
-- Estética: **pergamino cálido (naranja)** del MVP, refinado. Sin modo claro.
-- Ventana **fija 1080×720**, centrada, no redimensionable.
-- Inputs **invertidos** (pergamino claro, texto oscuro).
-- Title bar custom es **opcional** (la nativa de Windows sirve).
+| Documento | Cubre |
+|---|---|
+| [seguridad.md](seguridad.md) | Las seis reglas innegociables (solo datos, SHA-256, HTTPS, confinamiento de origen, zip-slip, link hardcodeado) y cómo se verifican. Aplica a red, descarga, extracción y escritura. |
+| [paridad-app-android.md](paridad-app-android.md) | Cómo se portan el Buscador y el deckbuilder desde la app: golden tests, semánticas de SQLite replicadas, bugs portados a propósito y divergencias deliberadas. |
+| [persistencia.md](persistencia.md) | Dónde vive cada archivo de estado, con qué criterio, y qué hacer al agregar estado nuevo. |
+| [style-guide.md](style-guide.md) | Guía visual de marca **de la app Android**, traída como referencia de criterio. Los tokens vigentes del launcher están en [../index/ui.md](../index/ui.md) y su fuente de verdad es `src/Themes/Theme.xaml`. |
+| [visual/](visual/) | Handoff original del rediseño visual (prompt, `Theme.xaml` de referencia y el mockup HTML con todas las pantallas). Material histórico: el tema vigente es `src/Themes/Theme.xaml`. |

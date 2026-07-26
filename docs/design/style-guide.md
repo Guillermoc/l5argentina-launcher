@@ -1,6 +1,17 @@
-# Guía de Estilos — L5Argentina
+# Guía de Estilos — L5Argentina (app Android)
 
-Referencia visual de la app Android para construir una app de escritorio con apariencia equivalente.
+> **Qué es esto (verificado 2026-07-26).** Es la guía visual **de la app Android**, traída como
+> referencia para construir el launcher con apariencia equivalente — no describe el tema vigente del
+> launcher. La fuente de verdad del launcher es [`src/Themes/Theme.xaml`](../../src/Themes/Theme.xaml),
+> indexada en [`../index/ui.md`](../index/ui.md).
+>
+> El rediseño de la v0.1.0 **refinó** estos valores en vez de copiarlos: el oro coincide exacto
+> (`#C9A961`), pero los marrones y el rojo se movieron (`Surface #2A1710` vs `#2A1008`,
+> `Red #7D1F1C` vs `#7B1C1C`, `Outline #5A3A22` vs `#5A3020`) y el launcher sumó una familia de
+> degradados de pergamino (`Parch*`) y un `RedAccent #C8161C` que acá no existen. Sigue valiendo
+> como referencia de **criterio** (qué es acento, qué es decorativo, jerarquía tipográfica); no como
+> tabla de colores a copiar.
+
 Estética: **pergamino oscuro / Rokugán feudal japonés** — fondo marrón muy oscuro, texto color marfil cálido, acentos en rojo lacado y oro.
 
 ---

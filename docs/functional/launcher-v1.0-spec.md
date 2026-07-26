@@ -1,4 +1,10 @@
-# Especificación — Launcher L5Argentina para Sun and Moon
+# Especificación funcional v1.0 — Launcher L5Argentina para Sun and Moon
+
+> **Spec congelada (2026-06-12).** Describe la *intención* con la que se arrancó el proyecto, no lo
+> que el launcher hace hoy. Para el estado actual: [`../index/OVERVIEW.md`](../index/OVERVIEW.md);
+> para lo que cambió y por qué: [`../DECISIONS.md`](../DECISIONS.md).
+> Se conserva sin editar porque el código y el resto de los documentos citan sus secciones
+> (`spec §7`, `§8`, `§9`…). Sus consideraciones técnicas son sugerencias, no instrucciones.
 
 > Documento de diseño para arrancar el proyecto del launcher en una carpeta nueva.
 > Autocontenido: se puede leer sin conocer el resto del ecosistema. Pensado también

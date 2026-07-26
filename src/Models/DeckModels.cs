@@ -5,7 +5,7 @@ namespace L5ArgentinaLauncher.Models
 {
     /// <summary>
     /// Mazo del deckbuilder — espejo de la tabla `decks` de la app Android
-    /// (docs/handoff/deckbuilder-launcher/MODELO-DATOS-MAZO.md §1), con dos diferencias
+    /// (docs/functional/deckbuilder-launcher/MODELO-DATOS-MAZO.md §1), con dos diferencias
     /// deliberadas del launcher: la persistencia es un .txt por mazo en la carpeta Decks de
     /// Sun and Moon (no Room), y las líneas del txt que no matchean el catálogo se conservan
     /// crudas en <see cref="Unknown"/> (equivalente launcher de las "huérfanas" ADR-013:
