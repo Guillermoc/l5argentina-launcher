@@ -86,12 +86,19 @@ espolvorea.
 - Después de tocar C#/XAML: `dotnet build -c Debug`. Es barato y atrapa lo que rompe de verdad.
 - **No** correr `--selftest` "por las dudas" después de cada edición, ni para ver si "sigue todo bien".
 
-**Al cerrar un desarrollo → `--selftest` obligatorio.** Cuenta como cierre cualquiera de estas:
+**Al cerrar un desarrollo → `--selftest`.** Cuenta como cierre cualquiera de estas:
 - el usuario dice que terminamos, o pasa a otro tema;
 - se va a commitear, taggear o publicar;
 - se terminó un cambio en el **área crítica** —red/descarga/extracción, `CardSearchEngine`,
   `CatalogImporter`, `DeckRepository`, `SelfTest.cs`, `AppConstants`, o mover `docs/functional/*`—:
   **una sola corrida al terminar ese cambio**, no una por edición.
+
+**El orden es: selftest → commit → push.** Primero se verifica, después se pide permiso para
+commitear. Si el cambio ameritaba selftest y no se corrió, **no lo corras por tu cuenta ni lo
+omitas**: avisale al usuario antes de commitear. Si él pide "commiteemos" y falta la corrida, la
+respuesta correcta es *"antes corro el selftest, ¿dale?"*, no commitear callado ni recordárselo
+después. Si no está claro si el cambio amerita la corrida, se decide **entre los dos**: proponé y
+esperá.
 
 **Nunca hace falta** para cambios que no tocan código compilado: documentación, README, comentarios,
 workflows. Para textos del `.resx` alcanza con compilar. **Esta exención gana sobre la regla de
@@ -172,7 +179,9 @@ Parar y esperar un sí explícito para:
   golden.
 - **Borrar checks del selftest** o bajar la cobertura de un área crítica (§5.2).
 - **Tocar cualquiera de las reglas de §4**, incluido relajar validaciones de origen, hash o zip-slip.
-- **Taggear o publicar un release.** (Commitear y pushear **no**: ver abajo.)
+- **Commitear. Siempre.** No hay commit sin un sí explícito, por chico que sea el cambio.
+- **Pushear. Siempre** — y antes de pushear, el chequeo de Dependabot de §7.1.
+- **Taggear o publicar un release.**
 - **Bumpear la versión** (`AppConstants.LauncherVersion` + `<Version>` del csproj).
 - **Borrar o mover archivos del usuario** en pruebas manuales. Para el estado propio del launcher
   alcanza con `L5A_DATA_ROOT`; **para los mazos NO alcanza**: viven en `<instalación>\Decks` y esa
@@ -181,21 +190,34 @@ Parar y esperar un sí explícito para:
 - **Reestructurar carpetas de `docs/`**, o mover/renombrar `tests/fixtures/*` (rompe las rutas que
   `SelfTest.cs` resuelve para los golden tests).
 
-### 7.1 Git: push directo a `main`, sin PRs
+### 7.1 Git: a `main` directo, sin PRs — pero preguntando siempre
 
-**Autorización permanente** ([ADR-034](docs/DECISIONS.md#adr-034)): commitear y pushear a `main` no
-requiere pedir permiso cada vez. El repo lo mantiene una sola persona y los PR están deshabilitados a
-propósito; no hay flujo de review que esperar.
+**El mecanismo** ([ADR-034](docs/DECISIONS.md#adr-034)): commits directos a `main`, sin ramas ni pull
+requests. El repo lo mantiene una sola persona y los PR están deshabilitados en GitHub; un PR sin
+revisor es ceremonia sin beneficio.
 
-- Commit al cerrar un trabajo, con mensaje que explique **por qué**, no solo qué.
-- Si son varios cambios independientes, **commits separados** (que el diff se pueda leer).
-- Push directo a `main`. Nada de ramas ni PRs salvo que se pidan explícitamente.
-- **Antes de pushear:** el checklist de §5 (build + selftest si corresponde). Un push a `main`
-  dispara el CI, así que romper `main` se ve enseguida — pero se ve *después*.
-- La branch protection de `main` sigue activa **contra force-push y borrado**, no contra vos: nunca
-  reescribas historia publicada (`--force`, `reset --hard` sobre lo pusheado, `commit --amend` de
-  algo ya remoto). Eso sí requiere confirmación, siempre.
-- Taggear, publicar releases y bumpear versión **siguen requiriendo confirmación** (arriba).
+**Eso no es autorización.** Commitear y pushear **siempre** requieren un sí explícito del usuario
+(§7). "Directo a `main`" describe adónde va el commit, no que se haga solo.
+
+Secuencia al cerrar un trabajo:
+
+1. Selftest si corresponde (§5). Reportar el resultado.
+2. **Proponer el commit** —qué entra y con qué mensaje— y esperar el sí.
+3. Commit. Si son varios cambios independientes, **commits separados** para que el diff se lea.
+   Mensaje que explique **por qué**, no solo qué.
+4. **Antes de pushear, chequear Dependabot** (no necesita `gh`):
+   ```sh
+   git ls-remote origin 'refs/heads/dependabot/*'
+   ```
+   Si hay ramas pendientes, **decírselo al usuario y preguntar**: ¿pusheamos igual, o primero
+   actualizamos lo que Dependabot está proponiendo? No decidirlo por cuenta propia.
+   (Ojo: esto lista los bumps de versión que el bot dejó como rama. Las *alertas de seguridad*
+   requieren autenticación y no se ven desde acá.)
+5. Push, con el sí del usuario.
+
+La branch protection de `main` sigue activa **contra force-push y borrado**. Nunca reescribir
+historia publicada (`--force`, `reset --hard` sobre lo pusheado, `commit --amend` de algo ya remoto):
+eso requiere confirmación aparte y explícita, aunque ya haya un sí para pushear.
 
 ## 8. Después de cambiar código — qué índice actualizar
 

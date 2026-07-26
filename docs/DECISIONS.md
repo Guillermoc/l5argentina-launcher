@@ -46,7 +46,7 @@ backlog; su fecha es la del momento en que se tomaron.
 | [031](#adr-031) | Documentación en cuatro capas + as-built | 2026-07-26 | Vigente |
 | [032](#adr-032) | El selftest se corre al cerrar, no durante | 2026-07-26 | Vigente |
 | [033](#adr-033) | Qué entra a la batería de verificación, y cómo se da de baja | 2026-07-26 | Vigente |
-| [034](#adr-034) | Push directo a `main`, sin pull requests | 2026-07-26 | Vigente |
+| [034](#adr-034) | A `main` directo y sin PRs, pero con confirmación siempre | 2026-07-26 | Vigente |
 
 ---
 
@@ -712,33 +712,47 @@ aceptación es autosostenido, así que la batería puede crecer sin romper la do
 ---
 
 <a id="adr-034"></a>
-## ADR-034 — Push directo a `main`, sin pull requests
+## ADR-034 — A `main` directo y sin pull requests, pero con confirmación siempre
 
 **Fecha:** 2026-07-26 · **Estado:** vigente.
+
+> **Corregido el mismo día.** La primera redacción de este ADR decía que commitear y pushear no
+> requerían confirmación. Fue un error de interpretación del agente, no la decisión del mantenedor:
+> "push directo" se refería a **adónde** va el commit (a `main`, sin PR), no a hacerlo sin permiso.
+> Se corrige en el cuerpo en vez de superseder, porque la decisión nunca cambió — lo que estaba mal
+> era el registro.
 
 **Contexto.** El repo es público (open source, MIT) pero lo mantiene **una sola persona**. Los pull
 requests están **deshabilitados** en la configuración de GitHub, así que el intento de abrir uno
 falla; `main` tiene branch protection desde que el repo se hizo público, aunque no exige PR.
 
-**Decisión.** El flujo de trabajo es **commit + push directo a `main`**, sin ramas ni PRs salvo
-pedido explícito. Los agentes tienen autorización permanente para commitear y pushear: no preguntan
-cada vez. La branch protection **se mantiene**, pero por otro motivo: impedir *force-push* y borrado
-de `main`.
+**Decisión.** Dos cosas separadas, que conviene no confundir:
+
+1. **Mecanismo:** commits directos a `main`, sin ramas ni pull requests (salvo pedido explícito).
+2. **Autorización:** ninguna. Commitear y pushear **siempre** requieren un sí explícito del
+   mantenedor, por chico que sea el cambio. El orden es selftest → pedir permiso → commit → chequear
+   Dependabot → pedir permiso → push.
+
+La branch protection **se mantiene**, pero por un motivo distinto del que parecía: impedir
+*force-push* y borrado de `main`.
 
 **Por qué.** Un PR sin nadie que lo revise es ceremonia sin beneficio: agrega pasos y no agrega una
-sola mirada. Pero la protección contra reescritura de historia sí vale, y no por prolijidad: el exe
-se distribuye por GitHub Releases justamente porque reemplazar algo ahí **deja historial y
+sola mirada. Pero la confirmación humana antes de cada commit sí agrega algo, y no es lo mismo que un
+review: es el punto donde el mantenedor decide **qué queda registrado en la historia del proyecto y
+cuándo**. Y la protección contra reescritura de historia vale por una razón concreta: el exe se
+distribuye por GitHub Releases justamente porque reemplazar algo ahí **deja historial y
 notificación** ([ADR-009](#adr-009)). Si `main` se pudiera reescribir en silencio, esa garantía —que
 es parte del modelo de seguridad— se caería. La protección no está para frenar al mantenedor, está
 para que el historial sea evidencia.
 
 **Consecuencias.** El CI (`build.yml`) corre **solo en push a `main`**: el trigger `pull_request` es
-configuración muerta mientras los PR estén deshabilitados. O sea que la verificación llega *después*
-de que el cambio entró, no antes — por eso el checklist local de [ADR-032](#adr-032) (build +
-selftest antes de cerrar) es la primera línea, y CI la segunda. Reescribir historia publicada
-(`--force`, `reset --hard` sobre lo pusheado, `amend` de algo remoto) sigue requiriendo confirmación
-explícita. Taggear, publicar releases y bumpear versión, también.
+configuración muerta mientras los PR estén deshabilitados. O sea que la verificación automática llega
+*después* de que el cambio entró — por eso el checklist local de [ADR-032](#adr-032) (build +
+selftest antes de cerrar) es la primera línea y CI la segunda, y por eso el selftest va **antes** del
+commit y no después.
 
 **Nota operativa:** con los PR deshabilitados, **Dependabot no puede abrir PRs**: solo empuja ramas
-`dependabot/*` que quedan invisibles salvo que alguien mire la lista de ramas. Si se quiere que sus
-avisos sean visibles, hay que revisar esas ramas a mano o rehabilitar los PR.
+`dependabot/*` que quedan invisibles salvo que alguien mire la lista de ramas (al 2026-07-26 hay 9
+esperando). Por eso el chequeo `git ls-remote origin 'refs/heads/dependabot/*'` es un paso previo al
+push: no para actuar por cuenta propia, sino para que el mantenedor decida si pushea igual o
+actualiza primero.
