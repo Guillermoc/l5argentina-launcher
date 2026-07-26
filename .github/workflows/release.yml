@@ -17,9 +17,9 @@ jobs:
     env:
       SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
 
@@ -37,14 +37,14 @@ jobs:
       - name: Upload unsigned artifact (para SignPath)
         if: env.SIGNPATH_API_TOKEN != ''
         id: unsigned
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unsigned-exe
           path: dist/L5ArgentinaLauncher.exe
 
       - name: Sign with SignPath
         if: env.SIGNPATH_API_TOKEN != ''
-        uses: signpath/github-action-submit-signing-request@v1
+        uses: signpath/github-action-submit-signing-request@v2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
@@ -65,7 +65,7 @@ jobs:
           Write-Host "SHA-256: $h"
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             dist/L5ArgentinaLauncher.exe

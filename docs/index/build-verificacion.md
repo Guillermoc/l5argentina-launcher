@@ -16,6 +16,14 @@ dotnet build src/L5ArgentinaLauncher.csproj -c Release    # exe único en src/bi
 - **Target `net48`** con csproj SDK-style: el runtime viene preinstalado en Windows 10/11, así que
   los usuarios no instalan nada ([ADR-002](../DECISIONS.md#adr-002)).
 - `Microsoft.NETFramework.ReferenceAssemblies` evita depender del Developer Pack del sistema.
+- ⚠️ **Fachadas del framework declaradas a mano.** El csproj referencia explícitamente
+  `System.Net.Http`, `System.IO.Compression` y `System.IO.Compression.FileSystem`. Los proyectos
+  SDK-style sobre .NET Framework **no** las referencian por defecto: hasta `System.Text.Json` 8.x
+  llegaban de arrastre por su cadena de dependencias, y al actualizar a 10.x dejaron de llegar. Sin
+  ellas no compilan `ManifestService`/`DownloadService` (`HttpClient`) ni
+  `ZipUtil`/`ImagePackService`/`CatalogStore` (`ZipArchive`, `ZipFile`). Si aparece un `CS1069` o un
+  `CS0012` hablando de un ensamblado "reenviado", es esto: se agrega la fachada, no se cambia el
+  código.
 - **Costura.Fody** embebe los DLLs → un solo `.exe` (~7 MB). Se distribuye **solo el exe**; los
   `.dll`/`.pdb`/`.exe.config` que quedan al lado no hacen falta ([ADR-003](../DECISIONS.md#adr-003)).
 - `nuget.config` (raíz) fija nuget.org explícitamente porque el config global de la máquina de dev
@@ -98,7 +106,30 @@ También bajo `#if DEBUG`: el escape hatch de esquemas de `ManifestService.Ensur
 | `.github/workflows/build.yml` | push/PR a `main` | Build Release + build Debug + `--selftest` (falla el job si el exit code no es 0). |
 | `.github/workflows/release.yml` | push de un tag `vX.Y.Z` | Build Release → (firma con SignPath **si** el secret está cargado) → SHA-256 del exe → publica exe + `.sha256.txt` en GitHub Releases. |
 
-`.github/dependabot.yml`: NuGet + GitHub Actions, semanal.
+`.github/dependabot.yml`: NuGet + GitHub Actions, semanal. **Con los PR deshabilitados en el repo, el
+bot no puede abrir ninguno**: solo empuja ramas `dependabot/*`, que no notifican nada. Para ver qué
+está proponiendo: `git ls-remote origin 'refs/heads/dependabot/*'` (es también el chequeo previo a
+cada push, [ADR-034](../DECISIONS.md#adr-034)). Esas ramas **no se cierran solas** cuando el bump se
+aplica a mano: quedan hasta que se borren.
+
+### Dependencias al día (2026-07-26)
+
+| Paquete / action | Versión |
+|---|---|
+| `System.Text.Json` | 10.0.10 |
+| `Costura.Fody` | 6.2.0 |
+| `Fody` | 6.9.3 |
+| `Microsoft.NETFramework.ReferenceAssemblies` | 1.0.3 |
+| `actions/checkout` | v6 |
+| `actions/setup-dotnet` | v5 (SDK `8.0.x`) |
+| `actions/upload-artifact` | v7 |
+| `signpath/github-action-submit-signing-request` | v2 |
+| `softprops/action-gh-release` | v3 |
+
+Las tres últimas viven **solo** en `release.yml`, que corre al pushear un tag: no las ejercita el CI
+de cada push, así que su primera prueba real será el próximo release. Se verificó contra el
+`action.yml` de cada una que los inputs y outputs que usamos siguen existiendo (en particular el
+output `artifact-id` de `upload-artifact`, que alimenta a SignPath).
 
 ---
 

@@ -32,16 +32,26 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Framework facades that SDK-style net48 projects do NOT reference by default.
+         System.Text.Json 8.x dragged them in transitively; 10.x does not, so sin esto no compilan
+         ManifestService/DownloadService (HttpClient) ni ZipUtil/ImagePackService/CatalogStore
+         (ZipArchive, ZipFile). -->
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- net48 reference assemblies so the build does not depend on a system-wide
          .NET Framework 4.8 Developer Pack being installed. -->
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
 
     <!-- Manifest/config parsing (Microsoft's current standard, chosen over Newtonsoft). -->
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="System.Text.Json" Version="10.0.10" />
 
     <!-- Single-exe packaging: embeds dependency DLLs as resources. -->
-    <PackageReference Include="Costura.Fody" Version="5.7.0" PrivateAssets="all" />
-    <PackageReference Include="Fody" Version="6.8.0" PrivateAssets="all" />
+    <PackageReference Include="Costura.Fody" Version="6.2.0" PrivateAssets="all" />
+    <PackageReference Include="Fody" Version="6.9.3" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>

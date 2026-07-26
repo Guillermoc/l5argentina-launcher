@@ -73,9 +73,16 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 - ✅ Secret scanning + push protection · ✅ Private vulnerability reporting · ✅ Dependabot ·
   ✅ Branch protection en `main` — se mantiene **contra force-push y borrado**, no como gate de
   review: el flujo es push directo, sin PRs ([ADR-034](DECISIONS.md#adr-034)).
-- ⬜ Decidir qué hacer con **Dependabot**: con los PR deshabilitados solo puede empujar ramas
-  `dependabot/*`, que no notifican nada. Hoy hay una esperando (`System.Text.Json` 8.0.5 → 10.0.10,
-  sin revisar). Opciones: revisar las ramas a mano cada tanto, o rehabilitar los PR solo para el bot.
+- ✅ **Dependabot al día (2026-07-26).** Se aplicaron a mano los 9 bumps pendientes (System.Text.Json
+  8.0.5 → 10.0.10, Costura.Fody 5.7.0 → 6.2.0, Fody 6.8.0 → 6.9.3 y las 5 GitHub Actions). El salto
+  de `System.Text.Json` **rompía la compilación** en net48 y hubo que declarar tres fachadas del
+  framework a mano — ver [index/build-verificacion.md](index/build-verificacion.md).
+- 🔁 **Revisar las ramas `dependabot/*` antes de cada push** (`git ls-remote origin
+  'refs/heads/dependabot/*'`): con los PR deshabilitados el bot no puede avisar de otra forma
+  ([ADR-034](DECISIONS.md#adr-034)). Las ramas ya aplicadas **no se borran solas**; conviene
+  limpiarlas para que la próxima revisión no muestre ruido viejo.
+- ⬜ Decidir si se rehabilitan los PR **solo** para que Dependabot pueda abrirlos (el flujo de trabajo
+  del mantenedor seguiría siendo push directo).
 - 🔁 **SHA-256 del exe en segundo canal** (web/Discord) — paso recurrente en **cada** release.
 
 ---
