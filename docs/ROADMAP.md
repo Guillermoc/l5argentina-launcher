@@ -71,7 +71,11 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 
 - ✅ **2FA** en GitHub **y** Cloudflare (riesgo dominante del threat model). Token R2 con scope mínimo.
 - ✅ Secret scanning + push protection · ✅ Private vulnerability reporting · ✅ Dependabot ·
-  ✅ Branch protection en `main`.
+  ✅ Branch protection en `main` — se mantiene **contra force-push y borrado**, no como gate de
+  review: el flujo es push directo, sin PRs ([ADR-034](DECISIONS.md#adr-034)).
+- ⬜ Decidir qué hacer con **Dependabot**: con los PR deshabilitados solo puede empujar ramas
+  `dependabot/*`, que no notifican nada. Hoy hay una esperando (`System.Text.Json` 8.0.5 → 10.0.10,
+  sin revisar). Opciones: revisar las ramas a mano cada tanto, o rehabilitar los PR solo para el bot.
 - 🔁 **SHA-256 del exe en segundo canal** (web/Discord) — paso recurrente en **cada** release.
 
 ---

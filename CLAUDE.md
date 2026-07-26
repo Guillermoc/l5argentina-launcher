@@ -172,7 +172,7 @@ Parar y esperar un sí explícito para:
   golden.
 - **Borrar checks del selftest** o bajar la cobertura de un área crítica (§5.2).
 - **Tocar cualquiera de las reglas de §4**, incluido relajar validaciones de origen, hash o zip-slip.
-- **Commitear, pushear, taggear o publicar un release.**
+- **Taggear o publicar un release.** (Commitear y pushear **no**: ver abajo.)
 - **Bumpear la versión** (`AppConstants.LauncherVersion` + `<Version>` del csproj).
 - **Borrar o mover archivos del usuario** en pruebas manuales. Para el estado propio del launcher
   alcanza con `L5A_DATA_ROOT`; **para los mazos NO alcanza**: viven en `<instalación>\Decks` y esa
@@ -180,6 +180,22 @@ Parar y esperar un sí explícito para:
   copia del juego o dejalo vacío (así caen en `%APPDATA%\...\Decks`).
 - **Reestructurar carpetas de `docs/`**, o mover/renombrar `tests/fixtures/*` (rompe las rutas que
   `SelfTest.cs` resuelve para los golden tests).
+
+### 7.1 Git: push directo a `main`, sin PRs
+
+**Autorización permanente** ([ADR-034](docs/DECISIONS.md#adr-034)): commitear y pushear a `main` no
+requiere pedir permiso cada vez. El repo lo mantiene una sola persona y los PR están deshabilitados a
+propósito; no hay flujo de review que esperar.
+
+- Commit al cerrar un trabajo, con mensaje que explique **por qué**, no solo qué.
+- Si son varios cambios independientes, **commits separados** (que el diff se pueda leer).
+- Push directo a `main`. Nada de ramas ni PRs salvo que se pidan explícitamente.
+- **Antes de pushear:** el checklist de §5 (build + selftest si corresponde). Un push a `main`
+  dispara el CI, así que romper `main` se ve enseguida — pero se ve *después*.
+- La branch protection de `main` sigue activa **contra force-push y borrado**, no contra vos: nunca
+  reescribas historia publicada (`--force`, `reset --hard` sobre lo pusheado, `commit --amend` de
+  algo ya remoto). Eso sí requiere confirmación, siempre.
+- Taggear, publicar releases y bumpear versión **siguen requiriendo confirmación** (arriba).
 
 ## 8. Después de cambiar código — qué índice actualizar
 
