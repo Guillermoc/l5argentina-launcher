@@ -4,7 +4,7 @@ Qué falta. **Se lee al empezar cualquier sesión**, junto con [index/OVERVIEW.m
 
 Leyenda: ⏳ en curso/esperando · 🔜 próximo · ⬜ pendiente · ⏸️ diferido · 🔁 recurrente · ✅ hecho.
 
-**Estado hoy:** v0.3.0 publicada (launcher + Buscador + Mazos), 177 checks en verde.
+**Estado hoy:** v0.3.0 publicada (launcher + Buscador + Mazos), batería de verificación en verde.
 **Foco actual:** SEC-6 (firma del exe con SignPath, esperando aprobación OSS).
 
 ---
@@ -95,14 +95,15 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 - ⬜ Renombrar listas.
 
 **Mazos** ([index/mazos.md](index/mazos.md))
-- ⏸️ Goldfish (sandbox de testeo) — fuera de alcance; la spec del contrato lo cubre si se quiere.
+- ⏸️ Goldfish (sandbox de testeo) — fuera de alcance; la spec del handoff lo cubre si se quiere.
 - ⏸️ Grupos de usuario (carpetas de mazos) y subgrupos dentro del mazo — no portados.
 - ⏸️ Export PDF — no portado.
 - ⬜ Buscador embebido en el editor (hoy el flujo es "Buscador `+`/`−` sobre el mazo activo").
 
 **URLs / operación**
-- ⬜ Confirmar que `DefaultManifestUrl` y `ReleasesPageUrl` de `AppConstants` son las definitivas
-  (los comentarios todavía las describen como placeholders `TODO(URL)` heredados de la spec v1.0).
+- ⬜ Confirmar con el mantenedor que `DefaultManifestUrl` y `ReleasesPageUrl` de `AppConstants` son
+  las definitivas de producción (el comentario que las llamaba placeholders `TODO(URL)` ya se
+  corrigió; falta la confirmación de que las URLs en sí son las finales).
 
 ---
 

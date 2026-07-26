@@ -20,16 +20,34 @@ agrega estado nuevo, se decide acá primero.
 | Base activa | `<SunAndMoon>\Sun and Moon_Data\StreamingAssets\Database\database.xml` | XML | `DatabaseService` |
 | Imágenes | `<SunAndMoon>\images\cards\<set>\` | JPG | `ImagePackService` |
 
-**Todas** las rutas salen de `AppConstants` (o de `InstallationService` para las del juego). Ninguna
-se arma a mano en otro lado.
+**Todas** las rutas salen de `AppConstants` (o de `InstallationService` / `DeckLibrary` para las del
+juego). Ninguna se arma a mano en otro lado. Las filas de `%APPDATA%`/`%LOCALAPPDATA%` respetan
+`L5A_DATA_ROOT`; las de `<SunAndMoon>` **no** (criterio 0).
 
 ---
 
 ## Criterios
 
-**1. `AppConstants` es la única fuente de rutas.** Porque `L5A_DATA_ROOT` redirige todo el árbol de
-estado a otra carpeta ([ADR-010](../DECISIONS.md#adr-010)): si una ruta se construye por fuera, el
-self-test deja de estar aislado y el modo portable se rompe en silencio.
+**0. Hay dos raíces y `L5A_DATA_ROOT` solo mueve una.** Lo que es **del launcher** (config, caché,
+backups, `usercards.json`, `presets.json`, `decksmeta.json`) cuelga del perfil del usuario y sí se
+redirige. Lo que es **del juego** (`database.xml`, `images\`, los `.txt` de `Decks\`) cuelga de la
+instalación configurada en `sunAndMoonPath` y **no** se redirige nunca: si `Decks` se moviera, el
+juego dejaría de leer el mazo y se perdería el sentido de [ADR-022](../DECISIONS.md#adr-022).
+Único fallback: `DeckLibrary.ResolveDecksDir` cae en `%APPDATA%\...\Decks` **solo** cuando no hay
+instalación configurada.
+
+> **Consecuencia para pruebas manuales:** `L5A_DATA_ROOT` **no** protege los mazos del usuario. Para
+> probar mazos a mano hay que apuntar `sunAndMoonPath` a una copia del juego, o dejarlo vacío para
+> caer en el fallback. El self-test no tiene este problema: le pasa la carpeta de mazos explícita.
+
+Ninguna de las dos raíces depende de dónde esté el `.exe`. Moverlo no cambia ninguna ruta: la única
+ruta relativa al ejecutable es el fallback de **lectura** de imágenes del Buscador (para el caso de
+que alguien lo haya copiado dentro de la carpeta del juego).
+
+**1. `AppConstants` es la única fuente de rutas.** Porque `L5A_DATA_ROOT` redirige el árbol de estado
+propio ([ADR-010](../DECISIONS.md#adr-010)): si una ruta se construye por fuera, el self-test deja de
+estar aislado y el modo portable se rompe en silencio. Las rutas del juego salen de
+`InstallationService` y de `DeckLibrary.ResolveDecksDir`, por el mismo motivo.
 
 **2. `%APPDATA%` = configuración del usuario; `%LOCALAPPDATA%` = datos regenerables.** Lo que se
 puede volver a bajar (caché) o lo que es un respaldo pesado (backups) no viaja con el perfil.

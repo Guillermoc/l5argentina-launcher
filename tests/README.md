@@ -6,7 +6,7 @@ poder ejercitar el pipeline real; acá están sus **datos**.
 
 ```sh
 dotnet build src/L5ArgentinaLauncher.csproj -c Debug
-src/bin/Debug/net48/L5ArgentinaLauncher.exe --selftest out.txt   # 177 checks hoy
+src/bin/Debug/net48/L5ArgentinaLauncher.exe --selftest out.txt   # pipeline + golden tests
 ```
 
 > El exe es WinExe: desde PowerShell esperarlo con `Start-Process -Wait` para leer el exit code

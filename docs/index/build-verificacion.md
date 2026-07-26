@@ -82,7 +82,7 @@ el reporte trae algún `SKIP:`** (señal de que no encontró las fixtures y se s
 | `--selftest [ruta]` | Corre el harness y termina con exit code 0/1. |
 | `--buscador` | Abre el Buscador directo, sin `MainWindow` ni first-run. |
 | `--mazos` | Abre el editor de Mazos directo. |
-| `L5A_DATA_ROOT` (env var) | Redirige config/caché/backups/`Decks` a otra carpeta. También en Release: es el hook de portabilidad ([ADR-010](../DECISIONS.md#adr-010)). |
+| `L5A_DATA_ROOT` (env var) | Redirige el estado **propio** (config, caché, backups, stores) a otra carpeta. También en Release: es el hook de portabilidad ([ADR-010](../DECISIONS.md#adr-010)). **No** redirige los archivos del juego, mazos incluidos — ver [../design/persistencia.md](../design/persistencia.md). |
 
 Los tres flags están bajo `#if DEBUG`. En Release no existen.
 

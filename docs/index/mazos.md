@@ -76,8 +76,8 @@ No hay motor de validación: paridad con la app. Solo existen los rechazos de `A
 
 ## Verificación
 
-`--selftest` = **177 checks** (91 del pipeline/Buscador + 53 golden Buscador + 33 del deckbuilder:
-25 golden + persistencia txt/DeckLibrary + resolución de nombres). Si se toca `DeckRepository` o el
+Del total de la batería, **33 checks** son del deckbuilder: los 25 golden + persistencia txt /
+`DeckLibrary` + resolución tolerante de nombres. Si se toca `DeckRepository` o el
 importer, correr `--selftest`; si se *cambia* una semántica golden, regenerar los expected con el
 harness del handoff (`../../tests/fixtures/deckbuilder/generator/`) y anotarlo.
 

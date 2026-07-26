@@ -63,8 +63,11 @@ src/bin/Debug/net48/L5ArgentinaLauncher.exe --mazos             # abre el editor
 1. **Solo datos, nunca código.** Sin auto-update del exe, sin plugins, sin WebView.
 2. **SHA-256** de todo lo descargado, verificado antes de usar (`DownloadService`).
 3. **HTTPS siempre.** `file://`/`localhost` solo bajo `#if DEBUG` (`ManifestService.EnsureAllowedScheme`).
-4. **Confinamiento al origen del manifest** (`ResolveFileUri` / `ResolveSameOriginUrl`): nunca seguir
-   URLs de terceros ni escapar del directorio del manifest.
+4. **Confinamiento al origen del manifest**: nunca seguir URLs de terceros ni escapar del directorio
+   del manifest. Dos variantes: `ResolveFileUri` para los `file` relativos del manifest del launcher
+   (mismo esquema+host+puerto **y** bajo su directorio) y `ResolveSameOriginUrl` para las URLs
+   absolutas del pool (mismo esquema+host+puerto, sin exigir directorio: el pool publica el manifest
+   en `/production/` y los archivos en `/pool/`).
 5. **Zip-slip** obligatorio al extraer (`ImagePackService`).
 6. **Link de update hardcodeado** (`AppConstants.ReleasesPageUrl`), nunca del manifest.
 7. **Paridad con la app Android**: la semántica portada (`CardSearchEngine`, `CatalogImporter`,
@@ -91,7 +94,9 @@ espolvorea.
   **una sola corrida al terminar ese cambio**, no una por edición.
 
 **Nunca hace falta** para cambios que no tocan código compilado: documentación, README, comentarios,
-workflows. Para textos del `.resx` alcanza con compilar.
+workflows. Para textos del `.resx` alcanza con compilar. **Esta exención gana sobre la regla de
+arriba**: un commit de solo documentación no dispara el selftest por el hecho de ser un commit. Si el
+cambio incluye aunque sea un `.cs`, aunque solo cambie un comentario, corré una vez y listo.
 
 **Si no se corrió, se dice.** Nunca reportar "listo" o "verificado" sin haberlo corrido. La frase
 correcta es: *"compilé; no corrí el selftest, corresponde al cerrar"*.
@@ -99,7 +104,8 @@ correcta es: *"compilé; no corrí el selftest, corresponde al cerrar"*.
 **Al correrlo, reportar poco:** la línea `RESULTADO: N PASS, M FAIL` y, si hay rojos, solo las líneas
 `FAIL`. No volcar el reporte entero. Un resultado válido es **0 FAIL y ningún SKIP** (un SKIP
 significa que no encontró las fixtures de `tests/fixtures/`). El total de checks **no es una
-constante**: sube a medida que la batería crece (hoy 177).
+constante**: sube a medida que la batería crece. El número al día vive en
+[`docs/index/build-verificacion.md`](docs/index/build-verificacion.md).
 
 **Red de seguridad:** `.github/workflows/build.yml` corre el selftest en cada push y PR a `main`, así
 que saltear una corrida local nunca llega a producción sin ser detectado.
@@ -160,13 +166,18 @@ Parar y esperar un sí explícito para:
 - **Implementar una feature no trivial sin spec funcional**: resumir el enfoque propuesto (qué
   archivos, qué estructura, qué riesgos) y **esperar confirmación** antes de escribir código.
 - **Cambiar una semántica cubierta por goldens** (Buscador o deckbuilder): implica regenerar
-  expected con el harness. Nunca "ajustar" el golden para que pase.
+  expected con el harness. Nunca "ajustar" el golden para que pase. *Agregar* un criterio nuevo sin
+  tocar los existentes **no** cuenta como cambio de semántica y no necesita confirmación — salvo que
+  toque los nombres JSON de `CardSearchCriteria`, de los que depende la deserialización de los
+  golden.
 - **Borrar checks del selftest** o bajar la cobertura de un área crítica (§5.2).
 - **Tocar cualquiera de las reglas de §4**, incluido relajar validaciones de origen, hash o zip-slip.
 - **Commitear, pushear, taggear o publicar un release.**
 - **Bumpear la versión** (`AppConstants.LauncherVersion` + `<Version>` del csproj).
-- **Borrar o mover archivos del usuario** en pruebas manuales (usar `L5A_DATA_ROOT`, nunca
-  `%APPDATA%` real).
+- **Borrar o mover archivos del usuario** en pruebas manuales. Para el estado propio del launcher
+  alcanza con `L5A_DATA_ROOT`; **para los mazos NO alcanza**: viven en `<instalación>\Decks` y esa
+  variable no los redirige (ver §10). Antes de probar mazos a mano, apuntá `sunAndMoonPath` a una
+  copia del juego o dejalo vacío (así caen en `%APPDATA%\...\Decks`).
 - **Reestructurar carpetas de `docs/`**, o mover/renombrar `tests/fixtures/*` (rompe las rutas que
   `SelfTest.cs` resuelve para los golden tests).
 
@@ -184,7 +195,7 @@ Al terminar un cambio, actualizar el índice correspondiente **en el mismo traba
 | Rutas/archivos de estado del usuario | `docs/design/persistencia.md` + `docs/index/OVERVIEW.md` |
 | Reglas de seguridad o su verificación | `docs/design/seguridad.md` |
 | Una divergencia nueva respecto de la app Android | `docs/design/paridad-app-android.md` + índice del dominio |
-| **Cantidad de checks del selftest** (agregaste o borraste checks) | `docs/index/build-verificacion.md`, `docs/index/mazos.md`, `docs/index/OVERVIEW.md`, `docs/ROADMAP.md`, `tests/README.md`, `README.md` y `docs/technical/technical-specification.md` |
+| **Cantidad de checks del selftest** (agregaste o borraste checks) | solo dos lugares: `docs/index/build-verificacion.md` (dueño del dato) y `README.md`. El resto de los docs dice "la batería en verde" a propósito; las menciones en `DECISIONS.md` son fotos fechadas y **no** se actualizan |
 | Agregaste/moviste archivos fuente | `docs/index/OVERVIEW.md` (mapa de archivos) |
 | **Tomaste una decisión no obvia** (tradeoff, camino descartado) | **entrada nueva en `docs/DECISIONS.md`** |
 
@@ -209,8 +220,15 @@ Todos los ítems pesan lo mismo; ninguno es opcional:
 
 - "Original" NO se hostea: es el backup local capturado en el primer arranque (`DatabaseService`).
   "Comunidad" se descarga del bucket.
-- `L5A_DATA_ROOT` redirige config/caché/backups/`Decks` a otra carpeta — hook de testing y de uso
-  portable. Está activo también en Release.
+- **Hay dos raíces de archivos y no se comportan igual.** (a) *Lo nuestro* —config, caché, backups,
+  `usercards.json`, `presets.json`, `decksmeta.json`— cuelga del perfil del usuario y **sí** lo
+  redirige `L5A_DATA_ROOT` (hook de testing y de uso portable, activo también en Release).
+  (b) *Lo del juego* —`database.xml`, `images\`, los `.txt` de `Decks\`— cuelga de la instalación
+  configurada (`sunAndMoonPath`) y **no** se redirige: si `Decks` se moviera, el juego dejaría de
+  leer el mazo, que es todo el punto de [ADR-022](docs/DECISIONS.md#adr-022). Único fallback:
+  sin instalación configurada, los mazos caen en `%APPDATA%\...\Decks`.
+- Nada de esto depende de dónde esté el `.exe`: moverlo no cambia ninguna ruta. La única ruta
+  relativa al exe es el fallback de lectura de imágenes del Buscador.
 - Empaquetado: Costura.Fody embebe los DLLs → exe único. Se distribuye **solo** el `.exe`.
 - Los mazos son `.txt` en la carpeta `Decks` **del juego**: nunca romper un archivo ajeno (las líneas
   no reconocidas se reescriben verbatim).

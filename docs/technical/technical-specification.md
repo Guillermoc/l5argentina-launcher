@@ -319,7 +319,7 @@ scope mínimo, secret scanning y branch protection.
 
 La verificación es un harness embebido, no un proyecto de tests: `--selftest`, compilado solo en
 DEBUG, setea `L5A_DATA_ROOT` a una carpeta temporal, monta un bucket y una instalación falsos en
-`%TEMP%`, corre el pipeline **real** y reporta PASS/FAIL con exit code. Son **177 checks**: el
+`%TEMP%`, corre el pipeline **real** y reporta PASS/FAIL con exit code. Son casi dos centenares de checks: el
 pipeline de descarga y aplicación (hash correcto, hash inválido que aborta sin dejar archivo, rechazo
 de origen ajeno y de `../`, zip-slip, base con un solo `.xml`, backups), los 53 golden del Buscador,
 los 25 del deckbuilder y la persistencia de mazos en `.txt`. Corre en CI en cada push y PR a `main`.
@@ -344,8 +344,8 @@ El **Goldfish** (sandbox de testeo de mazos), los grupos de usuario, los subgrup
 el export a PDF están en el handoff del deckbuilder pero no se portaron. En el Buscador falta el
 contador de cartas por lista y poder renombrar listas.
 
-Y sobre el propio launcher: sigue **sin firmar**, el manifest sigue **sin firmar**, y las constantes
-de URL de `AppConstants` todavía arrastran comentarios que las describen como placeholders `TODO(URL)`
-aunque apunten a producción — vale confirmarlas y limpiar el comentario.
+Y sobre el propio launcher: sigue **sin firmar** y el manifest sigue **sin firmar**. Las constantes
+de URL de `AppConstants` apuntan a producción; falta confirmar con el mantenedor que son las
+definitivas.
 
 Todo eso, con su estado y prioridad, está en [../ROADMAP.md](../ROADMAP.md).

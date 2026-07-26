@@ -4,10 +4,13 @@ using System.IO;
 namespace L5ArgentinaLauncher
 {
     /// <summary>
-    /// Constantes globales y rutas de la aplicación. Las URLs marcadas con TODO son
-    /// placeholders que hay que reemplazar por las definitivas (spec §15):
-    ///   - DefaultManifestUrl: prefijo del bucket R2 (origen del manifest por defecto).
-    ///   - ReleasesPageUrl: página de GitHub Releases (link de update, HARDCODEADO a propósito).
+    /// Constantes globales y rutas de la aplicación. Las tres URLs apuntan a producción:
+    ///   - DefaultManifestUrl: manifest del bucket R2 (editable por el usuario, default acá).
+    ///   - PoolManifestUrl: manifest del CDN de la app Android (HARDCODEADO).
+    ///   - ReleasesPageUrl: página de GitHub Releases (link de update, HARDCODEADO a propósito
+    ///     para que un manifest comprometido no pueda apuntar a un exe malicioso).
+    /// Las rutas de estado respetan L5A_DATA_ROOT; las del juego (database.xml, images, Decks)
+    /// NO — cuelgan de la instalación configurada. Ver docs/design/persistencia.md.
     /// </summary>
     public static class AppConstants
     {

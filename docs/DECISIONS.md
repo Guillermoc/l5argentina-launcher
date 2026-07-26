@@ -232,6 +232,13 @@ deja la puerta abierta a un uso portable (todo en un pendrive).
 **Consecuencias.** Ninguna ruta se arma a mano fuera de `AppConstants`: si se agrega estado nuevo,
 tiene que salir de ahí o se rompe el aislamiento del self-test.
 
+**Límite explícito:** la variable mueve el estado **propio** del launcher, no los archivos del juego.
+El `database.xml`, `images\` y los `.txt` de `Decks\` cuelgan de la instalación configurada y no se
+redirigen nunca — redirigir `Decks` rompería que el juego lea el mazo ([ADR-022](#adr-022)). O sea
+que `L5A_DATA_ROOT` **no** alcanza para aislar una prueba manual de mazos: para eso hay que apuntar
+`sunAndMoonPath` a una copia del juego o dejarlo vacío. (Aclarado el 2026-07-26, después de que un
+health check detectara que la documentación prometía una protección que no existía.)
+
 ---
 
 <a id="adr-011"></a>

@@ -17,7 +17,7 @@
 | **Arquitectura en una línea** | UI (WPF, 4 ventanas) → `LauncherEngine` coordina → `Services/` (red, hash, archivos) + motores portados 1:1 de la app Android (`Services/Search`, `Services/Deck`). |
 | **Datos** | Bucket Cloudflare R2 (dos manifests: el del launcher y el del pool/CDN de la app). El launcher **solo descarga datos, nunca código**. |
 | **Versión** | `AppConstants.LauncherVersion` = `0.3.0` (y `<Version>` del csproj — se bumpean juntos). |
-| **Verificación** | `--selftest`: **177 checks** en verde (incluye 53 golden del Buscador + 25 del deckbuilder). |
+| **Verificación** | `--selftest`: la batería completa en verde (pipeline + 53 golden del Buscador + 25 del deckbuilder). Conteo al día en [build-verificacion.md](build-verificacion.md). |
 | **Idioma de UI** | Español, 100 % en `src/Resources/Strings.resx` (i18n listo, sin segundo idioma hoy). |
 
 ```sh
@@ -59,9 +59,12 @@ Todo cuelga de `src/`. Los `.xaml.cs` de las ventanas grandes concentran la lóg
 |---|---|
 | `App.xaml(.cs)` | Arranque: fuerza **TLS 1.2**, rutea `--selftest` / `--buscador` / `--mazos` (solo DEBUG), decide primer arranque vs `MainWindow`. |
 | `AppConstants.cs` | Versión embebida, URLs de producción (manifest, pool, releases) y **todas** las rutas de estado (`%APPDATA%`, `%LOCALAPPDATA%`), con el override `L5A_DATA_ROOT`. |
-| `SelfTest.cs` | Harness de verificación (solo DEBUG): 177 checks sobre el pipeline real + golden tests. |
+| `SelfTest.cs` | Harness de verificación (solo DEBUG): corre el pipeline real + los golden tests de paridad. |
 
-### Ventanas (`Views/` y raíz)
+### UI: ventanas y piezas compartidas (`Views/` y raíz)
+
+Solo las cuatro primeras son ventanas (`Window`); el resto son controles y recursos compartidos.
+Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `MainWindow`.
 
 | Archivo | Qué hace |
 |---|---|
@@ -128,7 +131,7 @@ Todo cuelga de `src/`. Los `.xaml.cs` de las ventanas grandes concentran la lóg
 | Origen | Qué trae | Constante |
 |---|---|---|
 | Manifest del launcher (bucket R2) | Base Comunidad (`.zip`/`.xml`), pack de imágenes propio, versión del launcher, sección opcional `catalog`. | `AppConstants.DefaultManifestUrl` (editable por el usuario) |
-| Manifest del pool (CDN de la app Android, canal `production`) | Packs de imágenes oficiales por arco + catálogo del Buscador (`cards_db`/`rules`/`filters`). | `AppConstants.PoolManifestUrl` (**hardcodeado**) |
+| Manifest del pool (CDN de la app Android, canal `production`) | Packs de imágenes oficiales por arco + catálogo del Buscador (`cards_db`/`rules`/`filters`). **Fuente primaria del catálogo**; la sección `catalog` del manifest del launcher es solo respaldo ([ADR-021](../DECISIONS.md#adr-021)). | `AppConstants.PoolManifestUrl` (**hardcodeado**) |
 | Página de Releases | Link del aviso "hay versión nueva". | `AppConstants.ReleasesPageUrl` (**hardcodeado**, nunca del manifest) |
 
 Contrato de formato y ejemplo real: [../technical/contratos/manifest.example.json](../technical/contratos/manifest.example.json).
@@ -137,7 +140,13 @@ Contrato de formato y ejemplo real: [../technical/contratos/manifest.example.jso
 
 ## Dónde vive el estado del usuario
 
-Todo respeta la variable de entorno `L5A_DATA_ROOT` (hook de testing/portabilidad).
+**Dos raíces, con reglas distintas.** Lo que es del launcher cuelga del perfil del usuario y lo
+redirige `L5A_DATA_ROOT` (hook de testing/portabilidad). Lo que es del **juego** —`database.xml`,
+`images\` y los `.txt` de `Decks\`— cuelga de la instalación configurada (`sunAndMoonPath`) y **no**
+se redirige: moverlo rompería que el juego lea el mazo ([ADR-022](../DECISIONS.md#adr-022)). Único
+fallback: sin instalación configurada, los mazos caen en `%APPDATA%\...\Decks`.
+
+Nada depende de dónde esté el `.exe`: moverlo no cambia ninguna ruta.
 
 | Ruta | Contenido |
 |---|---|
@@ -147,7 +156,7 @@ Todo respeta la variable de entorno `L5A_DATA_ROOT` (hook de testing/portabilida
 | `%APPDATA%\...\decksmeta.json` | Sidecar de mazos (notas, orden, mazo activo). |
 | `%LOCALAPPDATA%\...\cache\` | Descargas verificadas (`catalog/`, `packs/`). |
 | `%LOCALAPPDATA%\...\backups\` | `database.original.xml` + copias con timestamp. |
-| `<SunAndMoon>\Decks\*.txt` | **Los mazos** (los mismos archivos que carga el juego). |
+| `<SunAndMoon>\Decks\*.txt` | **Los mazos** (los mismos archivos que carga el juego). **No** los redirige `L5A_DATA_ROOT`. |
 
 Detalle y criterios: [../design/persistencia.md](../design/persistencia.md).
 
@@ -158,5 +167,7 @@ Detalle y criterios: [../design/persistencia.md](../design/persistencia.md).
 - No se auto-actualiza (avisa y linkea, con URL hardcodeada).
 - No descarga ni ejecuta código; sin plugins, sin WebView.
 - No redistribuye Sun and Moon: lanza la instalación del usuario.
-- No genera ni parsea el `database.xml` (blob opaco; el Buscador usa otra fuente de datos).
+- No genera ni parsea el `database.xml` (blob opaco). El Buscador usa `cards.json`/`rules.json`/
+  `filters.json` porque el XML no tiene keywords editoriales ni legalidades por printing
+  ([ADR-016](../DECISIONS.md#adr-016)) — no unificar las fuentes.
 - No valida mazos más allá de lo que valida la app Android (paridad deliberada).
