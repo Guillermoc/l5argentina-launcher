@@ -6,7 +6,7 @@ existe para **regenerar** si corregís un ⚠️ o cambian los datos.
 
 ## Qué compila
 
-- **Reales (verbatim):** de `../../src/` los archivos de mazo (`DeckRepository`, entidades, DAOs,
+- **Reales (verbatim):** de `../../../docs/functional/deckbuilder-launcher/src/` los archivos de mazo (`DeckRepository`, entidades, DAOs,
   `DeckGroup`, `AddCardResult`, `ImportResult`, `DeckCardWithCard`) **más** los del catálogo que
   viven en el handoff del Buscador (`buscador-launcher/src/`): `CardEntity`, `UserCardDataEntity`,
   `CardType`, `CardJson`, `RulesJson`, `FiltersJson`, `CardImporter`, `RulesImporter`, `CardDao`.
@@ -28,7 +28,7 @@ kotlin-compiler **2.0.21** (+ `kotlinx-serialization-compiler-plugin.jar`),
 ## Comandos (Windows; `;`→`:` en Unix)
 
 ```bash
-# 1. real/ = .kt de mazo (../../src) + .kt de catálogo (../../../buscador-launcher/src listados arriba)
+# 1. real/ = .kt de mazo (../../../docs/functional/deckbuilder-launcher/src) + .kt de catálogo (../../../docs/functional/buscador-launcher/src, listados arriba)
 # 2. compilar
 kotlinc real stub driver \
   -cp "kotlinx-serialization-json-jvm-1.7.3.jar;kotlinx-serialization-core-jvm-1.7.3.jar;kotlinx-coroutines-core-jvm-1.9.0.jar;sqlite-jdbc-3.46.1.3.jar" \

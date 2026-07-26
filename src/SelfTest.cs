@@ -333,13 +333,13 @@ namespace L5ArgentinaLauncher
 
         /// <summary>
         /// Paridad del motor del Buscador contra los 53 golden tests generados con la lógica
-        /// real de la app Android (docs/handoff/buscador-launcher/fixtures/). Cada caso es un
+        /// real de la app Android (tests/fixtures/buscador/). Cada caso es un
         /// criteria serializado + los ids esperados; orderMatters decide secuencia vs conjunto.
         /// Si los fixtures no están (exe distribuido fuera del repo), se omite sin fallar.
         /// </summary>
         private static void RunGoldenSearchTests()
         {
-            var fixturesDir = FindRepoRelative(Path.Combine("docs", "handoff", "buscador-launcher", "fixtures"));
+            var fixturesDir = FindRepoRelative(Path.Combine("tests", "fixtures", "buscador"));
             if (fixturesDir == null)
             {
                 Line("SKIP: golden tests del Buscador (fixtures no encontrados junto al repo)");
@@ -417,14 +417,14 @@ namespace L5ArgentinaLauncher
 
         /// <summary>
         /// Paridad del DeckRepository portado contra los 25 golden tests del deckbuilder
-        /// (docs/handoff/deckbuilder-launcher/fixtures/), generados ejecutando el
+        /// (tests/fixtures/deckbuilder/), generados ejecutando el
         /// DeckRepository REAL de la app sobre SQLite. Se replica la secuencia exacta del
         /// driver (DeckRunner.kt): mismo orden de casos, mismos nombres "Golden N" (el string
         /// del export los incluye). Si los fixtures no están, se omite sin fallar.
         /// </summary>
         private static void RunGoldenDeckTests()
         {
-            var fixturesDir = FindRepoRelative(Path.Combine("docs", "handoff", "deckbuilder-launcher", "fixtures"));
+            var fixturesDir = FindRepoRelative(Path.Combine("tests", "fixtures", "deckbuilder"));
             if (fixturesDir == null)
             {
                 Line("SKIP: golden tests del deckbuilder (fixtures no encontrados junto al repo)");
@@ -639,7 +639,7 @@ namespace L5ArgentinaLauncher
         /// </summary>
         private static void RunDeckStoreTests(string tempRoot)
         {
-            var fixturesDir = FindRepoRelative(Path.Combine("docs", "handoff", "deckbuilder-launcher", "fixtures"));
+            var fixturesDir = FindRepoRelative(Path.Combine("tests", "fixtures", "deckbuilder"));
             if (fixturesDir == null) return;
 
             Line("");

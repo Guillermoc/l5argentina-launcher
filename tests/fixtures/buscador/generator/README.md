@@ -6,7 +6,7 @@ expected (p. ej. si el launcher decide arreglar un ⚠️ en vez de portarlo, o 
 
 ## Qué compila
 
-- **Reales (de `../../src/`, verbatim):** `CardSearchCriteria.kt`, `CardType.kt`,
+- **Reales (de `../../../docs/functional/buscador-launcher/src/`, verbatim):** `CardSearchCriteria.kt`, `CardType.kt`,
   `CardQueryCompiler.kt`, `CardEntity.kt`, `UserCardDataEntity.kt`, `CardDao.kt`, `CardJson.kt`,
   `RulesJson.kt`, `FiltersJson.kt`, `CardImporter.kt`, `RulesImporter.kt`.
   (No compilar los demás .kt de src/ — SearchViewModel/CardRepository/etc. dependen de Android.)
