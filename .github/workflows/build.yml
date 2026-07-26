@@ -30,3 +30,8 @@ jobs:
           $code = $LASTEXITCODE
           Get-Content $report
           if ($code -ne 0) { throw "Self-test falló" }
+          # Un SKIP significa que el harness no encontró las fixtures de tests/fixtures/ y se
+          # salteó los golden tests de paridad, SIN fallar (exit code 0). En CI el repo siempre
+          # está, así que un SKIP acá es un error de rutas que dejaría la batería a medias.
+          $skips = @(Select-String -Path $report -Pattern '^SKIP:')
+          if ($skips.Count -gt 0) { throw "Self-test incompleto: $($skips.Count) bloque(s) salteado(s) — revisar las rutas de tests/fixtures/ en SelfTest.cs" }
