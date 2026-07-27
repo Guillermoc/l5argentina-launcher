@@ -84,6 +84,7 @@ mazo inexistente" ([ADR-027](../DECISIONS.md#adr-027)).
 | Sin gracia de 2,5 s al llegar a 0 | Editor | Patrón táctil; el motor lo soporta igual ([ADR-025](../DECISIONS.md#adr-025)) |
 | Presets de filtros con nombre | Buscador | Superset del slot único de la app |
 | Resolución tolerante de nombres al leer `.txt` | Mazos | Los nombres del juego difieren del catálogo ([ADR-023](../DECISIONS.md#adr-023)) |
+| Sin marco del color del clan alrededor del arte | Detalle de carta | El marco del `CardViewerModal` de la app hacía resaltar las puntitas blancas del escaneo; acá el arte va redondeado y el marco quedó solo como placeholder ([ADR-037](../DECISIONS.md#adr-037)) |
 
 **Al agregar una divergencia nueva:** anotarla acá y en el índice del dominio, y verificar que no
 toque ninguna semántica cubierta por goldens.

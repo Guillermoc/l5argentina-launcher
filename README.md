@@ -5,7 +5,7 @@ Rings* en la app **Sun and Moon**. Resuelve el problema de mantener sincronizada
 nuestra base de cartas curada: en lugar de copiar archivos a mano, el launcher chequea si hay una base
 nueva en nuestro bucket, deja **elegir con qué base jugar**, la aplica de forma segura y lanza el juego.
 
-Versión actual: **0.3.0**.
+Versión actual: **0.4.0**.
 
 > **Documentación:** mapa completo en [docs/README.md](docs/README.md) · estado actual del código en
 > [docs/index/](docs/index/) (empezar por
@@ -30,6 +30,10 @@ Versión actual: **0.3.0**.
 | Packs de imágenes oficiales por arco (pool) | ✅ | v0.2.0 | [index/sincronizacion.md](docs/index/sincronizacion.md) |
 | Mazos / deckbuilder (editor + integración en el Buscador) | ✅ | v0.3.0 | [index/mazos.md](docs/index/mazos.md) |
 | Mazos guardados como `.txt` en la carpeta `Decks` del juego | ✅ | v0.3.0 | [DECISIONS ADR-022](docs/DECISIONS.md#adr-022) |
+| Un solo mazo activo, compartido por todas las ventanas | ✅ | v0.4.0 | [DECISIONS ADR-042](docs/DECISIONS.md#adr-042) |
+| `Ctrl+click` para agregar al mazo, con ayuda visual | ✅ | v0.4.0 | [DECISIONS ADR-041](docs/DECISIONS.md#adr-041) |
+| Copiar el arte de la carta al portapapeles | ✅ | v0.4.0 | [index/ui.md](docs/index/ui.md) |
+| Rediseño de controles (rieles, pestañas, menús, diálogos) | ✅ | v0.4.0 | [DECISIONS ADR-035](docs/DECISIONS.md#adr-035) |
 | Firma del ejecutable (SignPath) | ⏳ esperando aprobación OSS | — | [ROADMAP §1](docs/ROADMAP.md) |
 | Noticias y torneos | ⬜ placeholder en UI, sin implementar | — | [functional/noticias-v2-borrador.md](docs/functional/noticias-v2-borrador.md) |
 | Firma del `manifest.json` | ⏸️ diferido con criterio | — | [DECISIONS ADR-015](docs/DECISIONS.md#adr-015) |
@@ -72,9 +76,10 @@ Versión actual: **0.3.0**.
   carpeta `Decks` de Sun and Moon** — el mazo que armás acá se juega directo, sin exportar nada — con un
   sidecar (`decksmeta.json`) para lo que el formato del juego no representa (notas, orden, mazo activo).
   Ventana propia (crear/renombrar/duplicar/borrar mazos, importar/exportar por portapapeles, vista lista
-  o grilla, agrupado Starter/Dynasty/Fate) y también integrado en el Buscador (panel derecho con el mazo
-  activo y botones +/− por carta). A diferencia de la app, acá **sí se muestra** por qué una carta no
-  entró (baneada, slot cubierto, tope alcanzado).
+  o grilla, agrupado Starter/Dynasty/Fate). **El mazo seleccionado ahí es el mazo activo** de todas las
+  ventanas del Buscador, que muestran su nombre y sus conteos en la barra y agregan cartas con `+`,
+  doble click o **Ctrl+click** sobre la carta. A diferencia de la app, acá **sí se muestra** por qué una
+  carta no entró (baneada, slot cubierto, tope alcanzado).
 - **Avisa si hay un launcher nuevo.** Si el manifest indica una versión más nueva, muestra un banner con
   link a la página de descargas (el link va **hardcodeado en el exe**, nunca se toma del manifest).
 - **Configuración:** permite cambiar la carpeta de Sun and Moon y la URL del manifest (con default

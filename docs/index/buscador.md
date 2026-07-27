@@ -60,22 +60,37 @@ filtro de Edición activo muestra solo las de esos sets, y si ninguna coincide c
 para no perder la carta. Navegación por teclado en la grilla; `Ctrl+F` enfoca la búsqueda; `Ctrl+N`
 abre otra ventana del Buscador sobre el mismo catálogo (estado de filtros independiente por ventana).
 
-**Paneles colapsables** — chips "Filtros" (izquierda) y "Panel" (derecha); cada colapso libera ~1
-columna de cartas. Anchos calibrados para 1080p a 125 % (~1530 DIP útiles). La barra superior va en
-dos filas: búsqueda + contador + vista/orden arriba; toggles rápidos, lista activa y
-Limpiar/Mazos…/Panel abajo.
+**Paneles colapsables** — **rieles verticales** de altura completa entre cada panel y el centro
+(`PaneRail`, [ADR-035](../DECISIONS.md#adr-035)), con un chevron que apunta adónde se va el borde.
+Su columna (18 DIP) **nunca colapsa**: es la única forma de reabrir el panel. Cada colapso libera
+270 (Filtros) / 405 (Panel) DIP contra una celda de 226 → sigue sumando una columna de cartas.
+Anchos calibrados para 1080p a 125 % (~1530 DIP útiles).
+
+La barra superior va en dos filas: **caja de búsqueda + contador de resultados** pegados a la
+izquierda y vista/orden a la derecha arriba (sin título: ya lo muestra la barra de título propia);
+Limpiar filtros, toggles rápidos, **Solo lista + combo de listas + `+`/`🗑`** y **mazo activo +
+Mazos…** abajo. Crear y borrar listas salió del panel de filtros a esos dos íconos pegados al combo
+(el nombre se pide con `Dialogs.Prompt`, y borrar confirma): elegir lista es navegación, no un filtro más. El selector de mazo
+activo vive acá y no en el panel derecho: colapsar el panel no debe esconder el destino de los `+`/`−`.
 
 **Barra de acciones por celda** — `−`/`+` contra el mazo activo (con feedback del `AddCardResult`),
 `★` favorita, `⊘` ocultar, `≡` lista activa; badge con la cantidad en el mazo ("2/3").
 Doble click = agregar al mazo activo.
 
-**Panel derecho Carta | Mazo** — selector de mazo activo (+ `✎` abre el editor), detalle de carta
-(arte, texto renderizado, etiquetas UNIQUE/BANNED data-driven de `rules.json`) y contenido del mazo
-con conteos blandos y `−`/`+` por fila. Elegir una carta salta a Carta; tocar una fila del mazo
-actualiza el detalle sin cambiar de pestaña. Ver [mazos.md](mazos.md).
+**Ctrl+click = agregar**, sobre cualquier parte de la carta y sin apuntar al `+` chiquito. Con Ctrl
+apretado se prenden los bordes de **todas** las celdas (hay un modo activo) y la de abajo del mouse
+se cubre con un overlay "＋ Agregar al mazo", que además es el blanco del click. El estado vive en
+`SearchWindow.IsAddModifierDown`, una DP de la ventana: un solo cambio y todas las celdas realizadas
+reaccionan por binding, en vez de recorrer miles de VMs por tecla. Se limpia en `Deactivated` para
+que el modo no quede pegado si se suelta Ctrl fuera de la ventana.
 
-**Listas de cartas** — crear/borrar listas con nombre (el nombre **es** el id, como el seed de los
-golden), agregar/quitar desde el detalle o el botón `≡`, y filtro "Solo lista". Persisten en
+**Panel derecho** — **solo el detalle de carta** (arte, texto renderizado, etiquetas UNIQUE/BANNED
+data-driven de `rules.json`) más la fila de acciones sobre la carta seleccionada. Ya no hay pestañas
+ni contenido del mazo: eso vive en la ventana de Mazos ([ADR-042](../DECISIONS.md#adr-042)).
+
+**Listas de cartas** — crear/borrar listas con nombre desde la barra (el nombre **es** el id, como el
+seed de los golden), agregar/quitar desde el botón `≡ A la lista` del detalle o el `≡` de la celda, y
+filtro "Solo lista". Persisten en
 `usercards.json`. Son material de armado, **no** mazos ([ADR-028](../DECISIONS.md#adr-028)).
 
 **Presets de filtros** — guardar/cargar/borrar el criteria completo con nombre (superset del slot
@@ -84,7 +99,8 @@ golden), agregar/quitar desde el detalle o el botón `≡`, y filtro "Solo lista
 **Imágenes** — se leen de `<SunAndMoon>\images\...` con la cadena de fallback de la app
 (`imagePath` → `printing_images` → placeholder de texto) más la carpeta del propio exe como raíz
 alternativa (caso: launcher copiado dentro de la carpeta del juego). Si una imagen no aparece, el
-detalle muestra la ruta donde se buscó. Alias de carpeta: la DB referencia las promos como
+detalle muestra la ruta donde se buscó. El detalle tiene **Copiar imagen** (arte al portapapeles). El arte se dibuja con esquinas
+redondeadas y sin marco ([ADR-037](../DECISIONS.md#adr-037)). Alias de carpeta: la DB referencia las promos como
 `images/cards/P/…` y el juego las guarda en `images/cards/Promo/…` — se prueban ambas (solo afecta
 archivos; el filtro/orden por set sigue usando el código `P`). El Buscador es **100 % lectura**: no
 toca red ni la instalación.

@@ -20,8 +20,8 @@ fuentes Kotlin), que además sigue siendo la referencia viva de paridad vía sus
 | Formato txt | `Services/Deck/SunAndMoonDeckFile.cs` | Lee/escribe el formato de la carpeta `Decks` del juego (`Legality: X`, starter sin prefijo, `Nx Nombre`). El parser tolera también el formato de export de la app (`N Nombre`, líneas `#`). |
 | Biblioteca | `Services/Deck/DeckLibrary.cs` | Un `.txt` por mazo en `<SunAndMoon>\Decks\` + sidecar `decksmeta.json`. Instancia compartida por proceso (`GetOrLoad`): Buscador y editor operan sobre los mismos mazos y el mismo mazo activo. |
 | Slots | `CatalogImporter` → `CardCatalog.InitialHoldingSlots` | `filters.json → formats[].initialHoldingSlots` (id/label/required) — alimenta el aviso "Falta: {slot}". |
-| UI Buscador | `Views/SearchWindow.xaml(.cs)` | Panel derecho con mazo activo, cantidades y `+`/`−` (con feedback del `AddCardResult`). Doble click = agregar. |
-| UI editor | `Views/DeckWindow.xaml(.cs)` | Ventana única: mazos + filtros (izq., colapsable), cartas agrupadas Starter/Dynasty/Fate → tipo (centro, vistas Lista/Grilla), detalle/stats (der., colapsable). Importar/Exportar por portapapeles, notas con debounce de 1 s. |
+| UI Buscador | `Views/SearchWindow.xaml(.cs)` | Label del mazo activo + conteos en la barra; `+`/`−` por celda con feedback del `AddCardResult`. Doble click o **Ctrl+click** = agregar. No elige mazo ni muestra su contenido. |
+| UI editor | `Views/DeckWindow.xaml(.cs)` | Ventana única: mazos + filtros (izq., colapsable), cartas agrupadas Starter/Dynasty/Fate → tipo (centro, vistas Lista/Grilla), detalle/stats (der., colapsable). Barra: nombre del mazo + **Buscador** + menú `⋯` ([ADR-043](../DECISIONS.md#adr-043)). Notas con debounce de 1 s. Confirmaciones y avisos por `Dialogs`, no por `MessageBox`. |
 | Paridad | `SelfTest.RunGoldenDeckTests` + `RunDeckStoreTests` | **25 golden tests** replicando la secuencia exacta del harness (mismos mazos "Golden N", string exacto del export) + checks propios de persistencia txt. |
 
 ---
@@ -65,12 +65,18 @@ No hay motor de validación: paridad con la app. Solo existen los rechazos de `A
 
 ## Layout
 
-- **Buscador**: filtros a la izquierda y panel Carta|Mazo a la derecha, ambos colapsables. El mazo
-  activo se elige en el combo del panel derecho; la lista activa (material de armado) vive en la
-  barra superior. Los `+`/`−` van siempre contra el mazo activo.
-- **Editor**: mazos+filtros | cartas agrupadas | detalle/stats. El centro tiene dos vistas (chips
-  Lista/Grilla): filas compactas o cartas en imagen (~3 columnas, default como la app), ambas con
-  las secciones Starter/Dynasty/Fate → tipo y los controles `−`/qty/`+`/`✕`.
+- **Buscador**: filtros a la izquierda y panel Carta|Mazo a la derecha, ambos colapsables desde los
+  rieles verticales ([ADR-035](../DECISIONS.md#adr-035)). El mazo activo y la lista activa se eligen
+  en la barra superior (el selector de mazo salió del panel derecho para no perderse al colapsarlo). Los `+`/`−` van
+  siempre contra el mazo activo.
+- **Editor**: **seleccionar un mazo lo activa** — no hay botón "Activar" ni badge "● Activo".
+  La barra superior tiene solo el nombre del mazo, **Buscador** (abre otra ventana del Buscador sobre
+  el mismo catálogo, como el `Ctrl+N`) y el menú `⋯` con renombrar / duplicar / importar / exportar /
+  carpeta / eliminar ([ADR-043](../DECISIONS.md#adr-043)).
+  Layout: mazos+filtros | cartas agrupadas | detalle/stats, con los mismos rieles de colapso y
+  las mismas pestañas adosadas (Carta | Stats) que el Buscador. El centro tiene dos vistas
+  (segmentado Lista/Grilla): filas compactas o cartas en imagen (~3 columnas, default como la app),
+  ambas con las secciones Starter/Dynasty/Fate → tipo y los controles `−`/qty/`+`/`✕`.
 
 ---
 

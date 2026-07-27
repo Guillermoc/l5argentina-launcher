@@ -3,7 +3,7 @@
 Qué hace el launcher hoy y cómo está construido, en prosa y de corrido. Es el documento para leer
 entero: para consulta rápida están los índices ([../index/](../index/)), que son densos a propósito.
 
-**Versión descrita:** v0.3.0 · **Última pasada contra el código:** 2026-07-26.
+**Versión descrita:** v0.4.0 · **Última pasada contra el código:** 2026-07-26.
 Se actualiza en cada **cierre de fase o release**, sección por sección, contra el código real (o
 contra `docs/index/`, que debería estar al día). No en cada commit.
 
@@ -244,6 +244,11 @@ aparecen solos la primera vez. Lo que el formato del juego no puede representar 
 orden, fecha, orden en la lista, cuál es el mazo activo— va a un sidecar `decksmeta.json` indexado
 por nombre de archivo: si se pierde, no se pierde ningún mazo.
 
+**Hay un solo mazo activo y una sola forma de cambiarlo**: el seleccionado en la ventana de Mazos.
+`DeckLibrary` es un singleton de proceso, así que todas las ventanas del Buscador —incluidas las que
+abre `Ctrl+N`— comparten ese mazo y reaccionan a `ActiveDeckChanged`; el Buscador solo lo refleja con
+nombre y conteos, y agrega cartas con `+`, doble click o `Ctrl+click`.
+
 Esa decisión trae dos consecuencias que hubo que resolver. La primera es que **el nombre del mazo es
 el nombre del archivo**: se sanitizan los caracteres inválidos, los duplicados se desambiguan con
 `" (2)"`, renombrar mueve el archivo y borrar lo borra. La segunda es que Sun and Moon escribe los
@@ -269,11 +274,22 @@ Son cuatro ventanas con dos criterios distintos. `MainWindow` es la pantalla de 
 810×540 (3:2), no redimensionable, con chrome propio; el diseño se compone en un lienzo de 1080×720 y
 se escala con un `Viewbox`, así que todo lo que se agregue se dibuja en esas coordenadas.
 `FirstRunWindow` es un diálogo modal. `SearchWindow` y `DeckWindow`, en cambio, son ventanas de
-trabajo: 1470×840 por defecto, redimensionables y maximizables, con paneles laterales colapsables
-calibrados para que en 1080p a 125 % entren la mayor cantidad de cartas posible.
+trabajo: 1323×798 por defecto, redimensionables y maximizables, con paneles laterales colapsables
+calibrados para que en 1080p a 125 % entren la mayor cantidad de cartas posible. Ambas se acotan al
+**área de trabajo** del monitor al abrir y al maximizar (`WindowSizingFix`): con chrome propio,
+Windows maximiza contra el monitor completo y la barra de tareas tapa el borde inferior.
 
-No se usa ningún `MessageBox` del sistema: errores, confirmaciones, Configuración y el menú de packs
-son overlays dentro de la ventana, con el tema de la app. La estética —pergamino cálido, rojo lacado
+Los controles siguen una taxonomía explícita —una forma por rol— en vez del chip universal de la
+primera versión: rieles verticales para colapsar paneles, pestañas adosadas para cambiar el contenido
+de un panel, segmentados para selección exclusiva, píldoras solo para filtros on/off, y menús
+desplegables para las acciones ocasionales. El arte de carta se dibuja como `ImageBrush` sobre un
+borde redondeado, sin marco: los escaneos son rectangulares y las esquinas blancas asomaban.
+
+No se usa ningún `MessageBox` del sistema. En `MainWindow` los errores, confirmaciones, Configuración
+y el menú de packs son overlays dentro del lienzo escalado; el Buscador y el editor, que no tienen
+overlay propio, usan `Views/Dialogs.cs` (`Prompt`/`Confirm`/`Info`), ventanas modales con el tema.
+Cerrar `MainWindow` cierra la aplicación entera y por eso confirma primero; las otras ventanas se
+cierran solas. La estética —pergamino cálido, rojo lacado
 para la acción, oro decorativo, tipografía de marca L5RTitles— vive en `Themes/Theme.xaml`, que
 además tematiza hasta las scrollbars; los estilos que comparten el Buscador y el editor están en
 `Views/CardUiStyles.xaml`, y el panel de detalle de carta es un control compartido por las dos
@@ -283,7 +299,7 @@ El texto de las cartas viene en un HTML acotado que se renderiza a `Inline`s de 
 `CardTextRenderer`. No hay navegador embebido en ninguna parte, y no lo va a haber: sería convertir
 contenido descargado en superficie de ejecución.
 
-Todos los textos de UI —311 claves— viven en `Strings.resx`, usados con `{loc:Loc Clave}` en XAML y
+Todos los textos de UI —327 claves— viven en `Strings.resx`, usados con `{loc:Loc Clave}` en XAML y
 `Strings.Get/Format` en C#. No hay literales de UI en el código. Con eso, agregar un idioma es crear
 `Strings.<cultura>.resx` y setear `CurrentUICulture`, sin tocar una línea. Hasta los nombres de los
 packs de imágenes salen de claves `Pack_<id>` con fallback al id crudo, así un pack nuevo publicado

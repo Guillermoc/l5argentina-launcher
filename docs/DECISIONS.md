@@ -756,3 +756,319 @@ commit y no después.
 esperando). Por eso el chequeo `git ls-remote origin 'refs/heads/dependabot/*'` es un paso previo al
 push: no para actuar por cuenta propia, sino para que el mantenedor decida si pushea igual o
 actualiza primero.
+
+---
+
+## ADR-035 — Una forma de control por rol: la píldora deja de ser el control universal
+
+**Fecha:** 2026-07-26 · **Estado:** vigente.
+
+**Contexto.** La primera versión del Buscador (y por herencia la de Mazos) usaba el mismo estilo
+`FilterChip` —píldora redondeada, rojo cuando está activa— para cinco roles distintos: colapsar un
+panel lateral, cambiar el contenido del panel derecho, elegir entre dos vistas mutuamente
+excluyentes, prender/apagar un filtro y voltear la dirección de orden. La consecuencia era que todo
+se veía igualmente "encendible": "Grilla" y "Solo favoritas" eran visualmente el mismo control
+aunque uno seleccione y el otro filtre, y `↓` (descendente) se leía como "filtro activo" porque se
+pintaba de rojo igual que un filtro.
+
+**Decisión.** Cada rol tiene su forma, y la píldora queda reservada al único para el que es correcta
+(filtro on/off). Los estilos viven en `Views/CardUiStyles.xaml` y se aplican **igual en las dos
+ventanas**; la tabla completa está en [index/ui.md](index/ui.md). Los dos cambios de fondo:
+
+- **Colapso de paneles → `PaneRail`.** Riel vertical de altura completa entre el panel y el centro,
+  con un chevron que apunta adónde se va el borde. Reemplaza a los chips "Filtros"/"Panel" de la
+  barra superior. **Su columna (18 DIP) nunca colapsa**: es la única forma de reabrir el panel.
+- **Contenido del panel → `PanelTab`.** Pestaña adosada sobre una línea base de ancho completo: la
+  activa tapa la línea con su fondo opaco y no dibuja borde inferior, así se funde con el contenido.
+
+**Por qué.** La forma de un control es lo que comunica qué hace antes de leer la etiqueta. Un riel
+pegado al panel dice "esto abre y cierra *este* panel" sin texto; un chip en la barra superior
+llamado "Panel" no dice ni cuál panel ni qué le va a pasar. Lo mismo con las pestañas: dos caras del
+mismo panel no son dos filtros independientes, y adosarlas al contenido lo hace evidente.
+
+**Consecuencias.**
+- El colapso libera 270 (Filtros) / 405 (Panel) DIP en vez de 280 / 415, porque el riel se queda.
+  Contra una celda de 226 **sigue sumando una columna de cartas**: la calibración de anchos no se
+  rompe.
+- Se agregó trigger de `IsEnabled=False` a los chips (opacidad 0.4 + cursor `Arrow`). No estaba, y
+  por eso "Ver todas las impresiones" se veía habilitado en vista Lista aunque no hacía nada.
+- Cuatro claves del `.resx` quedaron huérfanas al desaparecer las etiquetas de los toggles
+  (`Search_PaneFilters`, `Search_PaneDetail`, `Deck_PaneDecks`, `Deck_PaneSide`) y se borraron; los
+  `*Tip` pasaron a ser el ToolTip del riel. El resx queda en 307 claves.
+- Es un cambio 100 % de presentación: no toca motor, criterios, persistencia ni atajos, y no agrega
+  checks al selftest ([ADR-033](#adr-033) excluye UI/XAML/layout de la batería).
+
+**Segunda pasada (mismo día).** Aplicando la taxonomía al resto de la barra aparecieron tres cosas
+más, que son la misma decisión y no una nueva:
+
+- **`ChipCombo`.** Los selectores de orden, lista activa y mazo activo usaban el ComboBox pergamino
+  claro, pensado para *campos de entrada*. Al lado de los chips pesaban más que ellos y se leían como
+  cajas de búsqueda. Se les dio la paleta de los toggles. Para no duplicar el template de ~50 líneas,
+  el `ControlTemplate` del ComboBox pasó a tomar fondo, borde, color de texto y `CornerRadius` (en
+  `Tag`) de **propiedades** en vez de recursos fijos; `ChipCombo` es un `BasedOn` que solo cambia
+  valores. Los combos que sí son entrada (keywords, texto de carta, filtro de mazo) no se tocaron.
+- **El selector de mazo activo salió del panel colapsable** a la barra superior, al lado de "Mazos…".
+  Estaba arriba de las pestañas, que es donde peor queda una vez que las pestañas son pestañas; y
+  sobre todo: es el destino de todos los `+`/`−`, así que colapsar el panel no debería esconderlo. Se
+  perdió el botón `✎` del panel, que hacía exactamente lo mismo que "Mazos…".
+- **Los quick filters pasaron a `FilterChipSmall`.** Son el rol de la píldora, pero no son lo más
+  importante de su fila; el tamaño ahora lo dice.
+
+**Descartado.** Pestañas verticales con texto rotado sobre el borde exterior del panel: más
+distintivas, pero comen ~26 DIP de ancho útil y el texto rotado se lee peor. Convertir los rieles en
+`GridSplitter` (colapsar *y* redimensionar) quedó fuera de alcance: el pedido era conservar el
+comportamiento, no agregarle uno nuevo.
+
+---
+
+## ADR-036 — Las ventanas grandes se acotan al área de trabajo, no a la pantalla
+
+**Fecha:** 2026-07-26 · **Estado:** vigente.
+
+**Problema.** El Buscador y Mazos quedaban parcialmente tapados por la barra de tareas, y por dos
+causas distintas que se veían igual:
+
+1. **Al maximizar.** Con `WindowStyle=None` + `WindowChrome`, Windows maximiza contra el monitor
+   completo en vez del área de trabajo: el marco que normalmente lo acota no existe. Había un parche
+   —`RootLayout.Margin = 7` al maximizar— que solo disimulaba el desborde recortando el contenido
+   por dentro; la ventana seguía siendo más grande que la pantalla útil.
+2. **Al abrir.** El alto de diseño (840 DIP) **no entra** en un 1080p a 125 %, que deja ~826 DIP
+   útiles, y `WindowStartupLocation=CenterScreen` centra contra la pantalla entera y no contra el
+   área de trabajo. El borde inferior caía debajo de la barra desde el primer arranque.
+
+**Decisión.** `Views/WindowSizingFix.cs`, enganchado desde el constructor de ambas ventanas:
+responde `WM_GETMINMAXINFO` con el `rcWork` del monitor donde está la ventana (para el maximizado) y
+recorta/reubica la ventana dentro de ese mismo rectángulo en `SourceInitialized` (para la apertura).
+Se trabaja en píxeles de dispositivo —lo que espera la API— y se convierte a DIP con
+`CompositionTarget.TransformFromDevice` recién al tocar el `Window`. El margen de 7 DIP se eliminó:
+con la ventana bien acotada, dejaría un hueco.
+
+**Por qué un helper compartido y no código en cada ventana.** Son las dos únicas ventanas
+redimensionables y tienen chrome idéntico; `MainWindow` es fija y no le aplica. Duplicar el
+P/Invoke en dos code-behinds que ya son largos no aporta nada.
+
+**Consecuencia con varios monitores:** el rectángulo sale de `MonitorFromWindow`, así que la ventana
+se acota al monitor donde efectivamente está, no al primario.
+
+---
+
+## ADR-037 — El arte de la carta se dibuja redondeado y sin marco; el marco es el placeholder
+
+**Fecha:** 2026-07-26 · **Estado:** vigente.
+
+**Contexto.** Las cartas de L5R que sirve el pool son **escaneos rectangulares de cartas físicas con
+esquinas redondeadas**: cada jpg trae cuatro puntitas blancas en las esquinas, restos de la mesa de
+escaneo. Se dibujaban con `<Image Stretch="Uniform">` sobre un `Border` con fondo oscuro y borde de
+2 px —el color del clan en el detalle, oro tenue en las celdas de grilla—. Resultado: un marco
+rectangular contra el que las puntitas blancas resaltaban, y una franja de fondo visible por el
+letterbox de `Uniform` (la celda es 226×322 = 0.702 y la carta ~0.716).
+
+**Decisión.** Donde hay arte, el arte **es** la celda:
+
+- Se dibuja como `ImageBrush` con `Stretch="UniformToFill"` sobre un `Border` con `CornerRadius`, no
+  como `Image`. Un `Border` **sí** recorta su propio `Background` con el radio; un `Image` hijo no se
+  recortaría. `UniformToFill` además elimina el letterbox (recorta ~2 % del ancho, invisible).
+- **El marco pasa a ser el placeholder**: borde y fondo solo se dibujan cuando no hay imagen, que es
+  cuando hay algo que enmarcar (el nombre de la carta como texto). En las celdas de grilla el borde
+  igual vuelve en *hover* y en selección, donde sí comunica estado.
+- En el detalle, el alto del `Border` lo calcula `SetArt` desde el aspecto real del bitmap
+  (`PixelHeight/PixelWidth`), así `UniformToFill` no recorta nada y las esquinas del radio caen
+  justo sobre las del escaneo.
+
+**Por qué no un `OpacityMask` o un `Clip`.** Ambos se aplican sobre los *bounds del elemento*, no
+sobre el rectángulo que la imagen ocupa realmente; con `Stretch="Uniform"` y letterbox, el radio
+habría caído en el aire y no sobre el borde de la carta. Un `VisualBrush` como máscara además cuesta
+más que un `ImageBrush` en una grilla virtualizada de miles de celdas.
+
+**Consecuencia sobre la paridad.** El marco del color del clan en el detalle era un port del
+`CardListItem`/`CardViewerModal` de la app Android. Esto **diverge a propósito**: la regla de paridad
+([ADR-018](#adr-018)) cubre la semántica de los motores portados, no el chrome visual, y la app corre
+en pantallas donde el problema no se ve igual. Queda anotado en la doc de paridad.
+
+---
+
+## ADR-038 — Las listas se manejan en la barra, no en el panel de filtros
+
+**Fecha:** 2026-07-26 · **Estado:** vigente.
+
+**Contexto.** El Buscador tenía las listas partidas en dos lugares: el combo de lista activa y el
+toggle "Solo lista" en la barra superior, pero **crear** y **borrar** listas vivían en una sección
+del panel de filtros, con un `TextBox` fijo "Nueva lista:" y un link "Borrar la lista seleccionada".
+Con el panel de filtros colapsado —que es el estado útil cuando estás armando— no había forma de
+crear una lista.
+
+**Decisión.** Todo el ciclo de vida de las listas vive en la barra, pegado al combo que las elige:
+`Solo lista` · combo · `+` · `🗑` (`IconButton`). El nombre de la lista nueva se pide con
+`TextPrompt`, el mismo diálogo de una línea que ya usaba `DeckWindow` para los mazos — extraído a
+`Views/TextPrompt.cs` en este cambio, en vez de duplicar sus ~70 líneas.
+
+**Por qué.** Elegir, crear y borrar una lista son la misma tarea, y ninguna es un filtro: son
+navegación sobre material de armado ([ADR-028](#adr-028)). Tenerlas en el panel de filtros las ataba
+a un panel que se colapsa, y obligaba a un `TextBox` siempre presente para una acción que se usa una
+vez cada tanto.
+
+**Consecuencia.** El botón de borrar se apaga cuando no hay lista elegida, en vez de avisar recién
+al hacer click. Lo mismo el `≡ A la lista` del detalle — que **antes no existía**: el `≡` estaba en
+las celdas de la grilla pero el panel de detalle no tenía cómo agregar a la lista.
+
+---
+
+## ADR-039 — Cerrar el launcher confirma y cierra todo; las demás ventanas no preguntan
+
+**Fecha:** 2026-07-26 · **Estado:** vigente.
+
+**Contexto.** `MainWindow`, el Buscador y el editor de Mazos son ventanas hermanas del mismo
+proceso. Cerrar cualquiera de ellas era instantáneo y sin aviso, y con el `ShutdownMode` por defecto
+(`OnLastWindowClose`) cerrar el launcher con el Buscador abierto dejaba la aplicación viva sin
+ventana principal: un estado raro, donde el usuario cree que cerró y sigue habiendo proceso.
+
+**Decisión.** Asimetría deliberada:
+
+- **`MainWindow` confirma y después llama a `Application.Current.Shutdown()`**, que se lleva Buscador
+  y Mazos. El mensaje cambia si hay una descarga o una aplicación de base en curso (`_busy`), donde
+  cerrar sí tiene consecuencia.
+- **Buscador y Mazos se cierran solos, sin preguntar.** Cerrar el Buscador no tiene consecuencia
+  sobre nada: no hay estado sin guardar (los mazos se persisten en cada cambio, favoritas y listas
+  también).
+
+**Detalle de implementación.** El overlay de confirmación de `MainWindow` es `async` y `Closing` es
+sincrónico, así que el handler **siempre cancela el cierre** (`e.Cancel = true`) y lo reintenta
+después de la respuesta, con un flag `_closeConfirmed` que evita re-preguntar cuando el `Shutdown`
+vuelve a pasar por `Closing`.
+
+**Por qué no confirmar en todas.** Una confirmación que aparece siempre deja de leerse. Se paga
+donde hay algo que perder —el proceso entero— y no donde no hay nada.
+
+---
+
+## ADR-040 — Los diálogos de Buscador y Mazos salen de un helper propio, no de `MessageBox`
+
+**Fecha:** 2026-07-26 · **Estado:** vigente.
+
+**Contexto.** [ADR-013](#adr-013) prohíbe los `MessageBox` del sistema, pero solo `MainWindow` tenía
+con qué reemplazarlos: su `DialogOverlay` vive dentro del lienzo de 1080×720 escalado por `Viewbox` y
+no es reutilizable desde otras ventanas. El editor de Mazos había quedado con **cuatro**
+`MessageBox.Show` (confirmar borrado de mazo, portapapeles vacío, resultado de importar) y el
+Buscador borraba listas **sin confirmar nada**.
+
+**Decisión.** `Views/Dialogs.cs`: `Prompt`, `Confirm` e `Info` como ventanas modales sin chrome, con
+el borde y el fondo del tema, compartidas por las dos ventanas grandes. Los cuatro `MessageBox`
+pasaron a usarlo y el borrado de lista ganó su confirmación.
+
+En `Confirm` el botón destructivo **no** es el default y va en `ErrorText`; el default es Cancelar.
+Un diálogo de borrado donde Enter borra es una trampa.
+
+**Por qué no extender el overlay de `MainWindow`.** Está atado a su `Viewbox` y a su lienzo fijo; una
+ventana modal chica es menos código y se comporta bien en ventanas redimensionables. `MainWindow`
+sigue con su overlay: ahí el overlay es parte del diseño de la pantalla, no un parche.
+
+**Efecto secundario que valía la pena:** crear una lista con un nombre que ya existe ya no es un
+no-op silencioso — deja esa lista como activa, que es lo que el usuario estaba pidiendo.
+
+---
+
+## ADR-041 — Ctrl+click agrega al mazo; el overlay es la ayuda visual y el blanco del click
+
+**Fecha:** 2026-07-26 · **Estado:** vigente.
+
+**Contexto.** Agregar una carta al mazo desde la grilla se hacía con el `+` de la barra de acciones
+(un botón de ~20 px que aparece al pasar el mouse) o con doble click, que no está anunciado en
+ningún lado. Armar un mazo es una acción repetitiva: merece un gesto de un solo click y un blanco
+grande.
+
+**Decisión.** **Ctrl+click sobre cualquier parte de la carta** agrega al mazo activo, con dos ayudas
+visuales:
+
+1. Con Ctrl apretado se prenden los bordes de **todas** las celdas visibles — comunica que hay un
+   modo activo, no solo que la celda de abajo del mouse hace algo.
+2. La celda bajo el mouse se cubre con un overlay oscuro con "＋ Agregar al mazo". Ese overlay va
+   **último** en el `Grid` de la celda, así que tapa también la barra de acciones: el Ctrl+click cae
+   siempre sobre él y burbujea al handler de la celda. La ayuda visual y el blanco del click son la
+   misma cosa.
+
+**Implementación.** `SearchWindow.IsAddModifierDown` es una `DependencyProperty` de la ventana, no un
+flag por celda: un solo `SetValue` y todas las celdas *realizadas* reaccionan por binding, contra
+recorrer los miles de `GridCell` del catálogo en cada `KeyDown`. Se sincroniza en `KeyDown`/`KeyUp` y
+se fuerza a `false` en `Deactivated`, porque un Alt+Tab con Ctrl apretado nunca entrega el `KeyUp` y
+el modo quedaría pegado.
+
+**Trampa de WPF que costó una vuelta.** El overlay tenía `Visibility="Collapsed"` como **atributo
+local** además del `Setter` en su `Style`. En WPF un valor local le gana a cualquier trigger de
+Style, así que el `MultiDataTrigger` no podía mostrarlo nunca. La barra de acciones de la celda
+—que funciona— no tiene el atributo local: la visibilidad va **solo** por el `Style`. Copiar ese
+patrón es la regla para cualquier pieza de la celda que aparezca por trigger.
+
+**Alcance.** Solo la grilla. En la tabla el doble click sigue siendo el gesto: no hay dónde poner un
+overlay que se lea, y una fila ya es un blanco grande.
+
+---
+
+## ADR-042 — Un solo mazo activo, y la ventana de Mazos es su única fuente de verdad
+
+**Fecha:** 2026-07-26 · **Estado:** vigente.
+
+**Contexto.** Había dos lugares para decidir sobre qué mazo se trabaja, y no eran el mismo:
+
+- En el **Buscador**, un combo de mazo activo en la barra: cambiarlo movía el destino de los `+`/`−`.
+- En **Mazos**, un mazo *seleccionado* (el que se ve y se edita) distinto del *activo*, con un botón
+  "Activar" y un badge "● Activo" para reconciliarlos.
+
+Dos selectores para un concepto que el usuario piensa como uno solo — "el mazo que estoy armando"—,
+y un paso extra ("Activar") cuya única razón de ser era que podían diferir. Además el Buscador tenía
+una pestaña "Mazo" que duplicaba, peor y más chica, lo que la ventana de Mazos ya muestra entero.
+
+**Decisión.** Un solo concepto:
+
+- **Seleccionar un mazo en la ventana de Mazos lo activa.** Se van "Activar", el badge "● Activo" y
+  el prefijo `●` del rail: la selección ya es la marca.
+- **El Buscador no elige mazo.** El combo pasa a ser un **label** con nombre + conteos blandos
+  (Total · D · F, en rojo si no llegan a 40; `!` con los slots faltantes en el tooltip). Clickearlo
+  abre la ventana de Mazos, que es donde se cambia.
+- **Se va la pestaña "Mazo"** del panel derecho, y con ella la tira de pestañas: el panel queda solo
+  con el detalle de carta. El contenido del mazo se ve en su ventana.
+
+**Sobre "todas las ventanas apuntan al mismo mazo": ya era así.** `DeckLibrary.GetOrLoad` devuelve un
+singleton de proceso y toda ventana del Buscador ya se suscribía a `ActiveDeckChanged`; `Ctrl+N`
+siempre compartió mazo activo. Lo que faltaba no era el mecanismo sino que hubiera **una sola manera
+de cambiarlo**.
+
+**Qué se pierde y por qué se acepta.** Ya no se ve el contenido del mazo mientras se busca, ni se
+cambia de mazo sin abrir la otra ventana. Lo primero lo cubre la ventana de Mazos, que muestra las
+cartas en grande y agrupadas; lo segundo es un click más en una acción que se hace una vez por
+sesión de armado, no una vez por carta. A cambio desaparece la clase de bug más molesta del modelo
+anterior: estar editando un mazo en una ventana y agregando cartas a otro distinto desde la otra.
+
+**Los conteos se conservan** en la barra, en una línea. Es el dato que se mira mientras se agrega
+("¿llegué a 40?") y no justificaba una pestaña.
+
+---
+
+## ADR-043 — La barra del editor de Mazos: una acción visible y el resto en un menú
+
+**Fecha:** 2026-07-26 · **Estado:** vigente.
+
+**Contexto.** La primera fila del editor tenía seis botones permanentes —Importar, Exportar,
+Duplicar, Renombrar, Eliminar, Carpeta— que ocupaban media barra, competían por atención con el
+nombre del mazo y, con etiquetas de una palabra, tampoco se entendían: "Carpeta" no dice qué
+carpeta, "Importar" no dice de dónde. Todas son acciones que se usan una vez cada tanto, o nunca.
+
+**Decisión.** La barra queda con **el nombre del mazo a la izquierda** y, a la derecha, dos cosas:
+
+- **Buscador** — visible y con peso. Es la acción frecuente del editor: las cartas nuevas se agregan
+  desde el Buscador, así que el camino de ida merece un botón. Abre otra ventana sobre el mismo
+  catálogo, igual que el `Ctrl+N` del Buscador.
+- **`⋯`** — un `IconButton` que abre un popup (`MenuRow`) con renombrar, duplicar, importar,
+  exportar, abrir carpeta y —separado y en rojo— eliminar.
+
+**Efecto lateral que era la mitad del problema:** en un menú hay lugar para etiquetas que se
+entienden. "Carpeta" pasó a "Abrir la carpeta Decks", "Importar" a "Importar del portapapeles…",
+y las que abren un diálogo llevan puntos suspensivos. Los nombres cortos siguen existiendo para los
+títulos de esos diálogos.
+
+**Por qué un `Popup` y no un `ContextMenu`.** El tema no tiene estilo de `MenuItem` y habría que
+escribirlo entero; el `Popup` con botones reusa el lenguaje del popup del `ComboBox`, que ya existe.
+Se cierra solo (`StaysOpen=False`) y además cada acción lo cierra antes de abrir su diálogo.
+
+**Detalle de posicionamiento:** el popup se ancla al botón con `HorizontalOffset` negativo para
+alinear por el borde derecho; con el offset original se pasaba del borde de la ventana y WPF lo
+corría solo, dejándolo desalineado.

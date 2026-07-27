@@ -3,7 +3,7 @@
 Índice raíz del launcher. **Se lee al empezar cualquier sesión**, junto con
 [../ROADMAP.md](../ROADMAP.md). Regla: leer los índices antes que el código fuente.
 
-Última actualización: **v0.3.0** (2026-07-26).
+Última actualización: **v0.4.0** (2026-07-26).
 
 ---
 
@@ -16,7 +16,7 @@
 | **Empaquetado** | **Costura.Fody** embebe los DLLs → un único `.exe` (~7 MB). Se distribuye solo el exe. |
 | **Arquitectura en una línea** | UI (WPF, 4 ventanas) → `LauncherEngine` coordina → `Services/` (red, hash, archivos) + motores portados 1:1 de la app Android (`Services/Search`, `Services/Deck`). |
 | **Datos** | Bucket Cloudflare R2 (dos manifests: el del launcher y el del pool/CDN de la app). El launcher **solo descarga datos, nunca código**. |
-| **Versión** | `AppConstants.LauncherVersion` = `0.3.0` (y `<Version>` del csproj — se bumpean juntos). |
+| **Versión** | `AppConstants.LauncherVersion` = `0.4.0` (y `<Version>` del csproj — se bumpean juntos). |
 | **Verificación** | `--selftest`: la batería completa en verde (pipeline + 53 golden del Buscador + 25 del deckbuilder). Conteo al día en [build-verificacion.md](build-verificacion.md). |
 | **Idioma de UI** | Español, 100 % en `src/Resources/Strings.resx` (i18n listo, sin segundo idioma hoy). |
 
@@ -75,6 +75,8 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 | `Views/CardDetailPanel.xaml(.cs)` | Detalle de carta compartido entre Buscador y editor (+ `CardImageResolver`). |
 | `Views/CardUiStyles.xaml` | Estilos XAML compartidos entre ambas ventanas (chips, checkboxes, celdas). |
 | `Views/CardTextRenderer.cs` | HTML acotado del texto de carta → `Inline`s de WPF. **Nunca** WebView. |
+| `Views/Dialogs.cs` | `Prompt` / `Confirm` / `Info` con la estética de la app, para Buscador y Mazos (que no tienen overlay propio). Nada de `MessageBox`. |
+| `Views/WindowSizingFix.cs` | Acota Buscador y Mazos al **área de trabajo** del monitor al abrir y al maximizar (`WM_GETMINMAXINFO`): sin esto quedaban debajo de la barra de tareas. |
 | `Themes/Theme.xaml` | Paleta, fuentes, fondo, scrollbar temática — estilos de toda la app. |
 
 ### Servicios de red / archivos (`Services/`)

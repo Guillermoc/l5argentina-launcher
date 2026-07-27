@@ -4,7 +4,7 @@ Qué falta. **Se lee al empezar cualquier sesión**, junto con [index/OVERVIEW.m
 
 Leyenda: ⏳ en curso/esperando · 🔜 próximo · ⬜ pendiente · ⏸️ diferido · 🔁 recurrente · ✅ hecho.
 
-**Estado hoy:** v0.3.0 publicada (launcher + Buscador + Mazos), batería de verificación en verde.
+**Estado hoy:** v0.4.0 publicada (launcher + Buscador + Mazos + pasada de UX), batería en verde.
 **Foco actual:** SEC-6 (firma del exe con SignPath, esperando aprobación OSS).
 
 ---
@@ -104,6 +104,8 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 **Buscador** ([index/buscador.md](index/buscador.md))
 - ⬜ Contador de cartas por lista en el selector.
 - ⬜ Renombrar listas.
+- ⬜ `Ctrl+click` para agregar también desde la vista de tabla (hoy solo en la grilla, donde el
+  overlay se puede leer; en la tabla sigue el doble click) — ver [ADR-041](DECISIONS.md#adr-041).
 
 **Mazos** ([index/mazos.md](index/mazos.md))
 - ⏸️ Goldfish (sandbox de testeo) — fuera de alcance; la spec del handoff lo cubre si se quiere.
@@ -126,3 +128,4 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 | v0.1.1 | 2026-06-14 | SEC-2 (TLS 1.2), SEC-4 (un solo `.xml`), ajustes de textos. |
 | v0.2.0 | 2026-07-07 | Buscador de cartas (MVP → V3), packs de imágenes y catálogo desde el pool. |
 | v0.3.0 | 2026-07-11 | Mazos (deckbuilder) + V4 del Buscador + fixes de rendimiento. |
+| v0.4.0 | 2026-07-26 | Pasada de UX: taxonomía de controles (rieles de colapso, pestañas adosadas, segmentados, menús), ventanas acotadas al área de trabajo, arte de carta redondeado y sin marco, listas manejadas desde la barra, diálogos propios (fuera los `MessageBox`), confirmación al cerrar, `Ctrl+click` para agregar al mazo, copiar imagen al portapapeles y **un solo mazo activo** con la ventana de Mazos como fuente de verdad. |
