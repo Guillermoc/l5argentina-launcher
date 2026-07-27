@@ -19,6 +19,9 @@ namespace L5ArgentinaLauncher
         private readonly LauncherEngine _engine;
         private bool _initializing = true;
         private bool _busy;
+        // true una vez que el usuario confirmó el cierre: evita re-preguntar cuando el Shutdown
+        // vuelve a pasar por Closing.
+        private bool _closeConfirmed;
 
         private string _settingsPath;
         private TaskCompletionSource<bool> _dialogTcs;
@@ -37,6 +40,31 @@ namespace L5ArgentinaLauncher
 
         private void MinButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+
+        /// <summary>
+        /// Cerrar el launcher cierra la aplicación entera, Buscador y Mazos incluidos, y por eso
+        /// pregunta. Las otras ventanas se cierran solas y sin confirmar: cerrar el Buscador no
+        /// tiene consecuencia sobre nada más.
+        ///
+        /// El overlay de confirmación es asíncrono y <c>Closing</c> es sincrónico, así que el
+        /// primer paso siempre cancela el cierre y lo reintenta después de la respuesta.
+        /// </summary>
+        private async void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            if (_closeConfirmed) return;
+            e.Cancel = true;
+
+            var message = _busy
+                ? Strings.Get("Close_ConfirmBusy")
+                : Strings.Get("Close_ConfirmMessage");
+            if (!await ShowDialogAsync(Strings.Get("Close_ConfirmTitle"), message,
+                                       Strings.Get("Close_ConfirmYes"), Strings.Get("Btn_Cancel"),
+                                       isError: _busy))
+                return;
+
+            _closeConfirmed = true;
+            Application.Current.Shutdown(); // se lleva Buscador y Mazos con él
+        }
 
         // ---------------- Carga inicial ----------------
 

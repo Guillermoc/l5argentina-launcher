@@ -100,8 +100,13 @@
         </Setter>
     </Style>
 
+    <!-- Fondo, borde, texto y CornerRadius (en Tag) salen de propiedades, no de recursos fijos:
+         así ChipCombo puede reusar este mismo template con la paleta oscura. -->
     <Style TargetType="ComboBox">
         <Setter Property="Foreground" Value="{StaticResource InputText}" />
+        <Setter Property="Background" Value="{StaticResource InputFieldBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource InputBorder}" />
+        <Setter Property="Tag" Value="6" />
         <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Height" Value="30" />
@@ -122,10 +127,12 @@
                                       IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
-                                    <Border x:Name="bd" CornerRadius="6" BorderThickness="1"
-                                            BorderBrush="{StaticResource InputBorder}"
-                                            Background="{StaticResource InputFieldBrush}">
-                                        <Path Data="M 0 0 L 4.5 4.5 L 9 0" Stroke="{StaticResource InputText}"
+                                    <Border x:Name="bd" BorderThickness="1"
+                                            CornerRadius="{Binding Tag, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                            BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                            Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ComboBox}}">
+                                        <Path Data="M 0 0 L 4.5 4.5 L 9 0"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ComboBox}}"
                                               StrokeThickness="1.6" HorizontalAlignment="Right"
                                               VerticalAlignment="Center" Margin="0,1,10,0" />
                                     </Border>
@@ -143,7 +150,7 @@
                         <ContentPresenter x:Name="selectedContent" Content="{TemplateBinding SelectionBoxItem}"
                                           ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                           Margin="11,0,26,0" VerticalAlignment="Center" IsHitTestVisible="False"
-                                          TextElement.Foreground="{StaticResource InputText}" />
+                                          TextElement.Foreground="{TemplateBinding Foreground}" />
                         <TextBox x:Name="PART_EditableTextBox" Style="{StaticResource ComboEditBox}"
                                  Margin="11,0,26,0" VerticalAlignment="Center" Visibility="Hidden"
                                  FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}" />
@@ -168,6 +175,20 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- Combo "de barra": mismo template, paleta de los toggles. Para selectores que conviven con
+         chips y botones (orden, lista activa, mazo activo) y no son campos de entrada: el pergamino
+         claro los hacía leer como cajas de búsqueda y pesaban más que los controles de al lado
+         ([ADR-035](../DECISIONS.md#adr-035)). -->
+    <Style x:Key="ChipCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="Background" Value="#452A1710" />
+        <Setter Property="BorderBrush" Value="{StaticResource OutlineSoft}" />
+        <Setter Property="Tag" Value="12" />
+        <Setter Property="Height" Value="26" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Cursor" Value="Hand" />
     </Style>
 
     <!-- ══ Expander con flecha oro (implícito; tipografía por instancia) ══ -->
@@ -258,6 +279,259 @@
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="{StaticResource Red}" />
                             <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+                        </Trigger>
+                        <!-- Sin esto, un chip deshabilitado (p.ej. Impresiones en vista Lista)
+                             se veía idéntico a uno activo y aceptaba el click sin efecto. -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Variante chica del chip: etiquetas largas que deben leerse como sub-opción y no
+         competir con los controles principales de la barra (ej. "Ver todas las impresiones"). -->
+    <Style x:Key="FilterChipSmall" TargetType="ToggleButton" BasedOn="{StaticResource FilterChip}">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Padding" Value="8,3" />
+    </Style>
+
+    <!-- ══ Segmentado (selección exclusiva: Lista | Grilla) ══
+         Un solo bloque con divisoria interna, en vez de dos chips sueltos que se leen
+         como filtros independientes. Se usan de a pares y sin margen entre sí. -->
+    <ControlTemplate x:Key="SegmentTemplate" TargetType="ToggleButton">
+        <Border x:Name="bd" CornerRadius="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
+                Background="#452A1710" BorderThickness="{TemplateBinding BorderThickness}"
+                BorderBrush="{StaticResource OutlineSoft}" Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource GoldDim}" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="bd" Property="Background" Value="{StaticResource Red}" />
+                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4" />
+                <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <Style x:Key="SegmentLeft" TargetType="ToggleButton">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Tag" Value="12,0,0,12" />
+        <Setter Property="Template" Value="{StaticResource SegmentTemplate}" />
+    </Style>
+
+    <!-- Sin borde izquierdo: comparte la divisoria con el segmento anterior. -->
+    <Style x:Key="SegmentRight" TargetType="ToggleButton" BasedOn="{StaticResource SegmentLeft}">
+        <Setter Property="BorderThickness" Value="0,1,1,1" />
+        <Setter Property="Tag" Value="0,12,12,0" />
+    </Style>
+
+    <!-- ══ Botón de ícono con estado en el glifo, no en el fondo ══
+         Para ↑/↓ de orden: "descendente" no es "filtro activo", así que no se pinta de rojo. -->
+    <Style x:Key="IconToggle" TargetType="ToggleButton">
+        <Setter Property="Foreground" Value="{StaticResource Gold}" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Width" Value="30" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="bd" CornerRadius="6" Background="#452A1710"
+                            BorderThickness="1" BorderBrush="{StaticResource OutlineSoft}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource GoldDim}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Versión Button del anterior: acciones puntuales de la barra (nueva lista, borrar lista). -->
+    <Style x:Key="IconButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource Gold}" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Width" Value="26" />
+        <Setter Property="Height" Value="26" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" CornerRadius="13" Background="#452A1710"
+                            BorderThickness="1" BorderBrush="{StaticResource OutlineSoft}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource GoldDim}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ══ Acción del detalle de carta ══
+         Glifo + etiqueta en una píldora chata: la fila de acciones del panel derecho tenía cuatro
+         GhostButton iguales y no se distinguía "+ Mazo" de "Ocultar". El glifo hace el trabajo. -->
+    <Style x:Key="DetailActionBtn" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Height" Value="26" />
+        <Setter Property="Margin" Value="2,2" />
+        <Setter Property="Padding" Value="9,0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" CornerRadius="13" Background="#452A1710"
+                            BorderThickness="1" BorderBrush="{StaticResource OutlineSoft}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Red}" />
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ══ Fila de menú desplegable ══
+         Acción de un popup: ancho completo, texto a la izquierda, hover rojo. Mismo lenguaje que
+         los ítems del ComboBox, que son el otro popup de la app. -->
+    <Style x:Key="MenuRow" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" Background="Transparent" Padding="14,7">
+                        <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Red}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ══ Riel de colapso de panel lateral ══
+         Manija de altura completa entre el panel y el centro. Reemplaza a los chips
+         "Filtros"/"Panel" de la barra superior. Su columna NUNCA colapsa: es la única
+         forma de reabrir el panel.
+         Content = glifo con el panel abierto; Tag = glifo con el panel colapsado.
+         El chevron apunta adónde se va el borde al hacer click. -->
+    <Style x:Key="PaneRail" TargetType="ToggleButton">
+        <Setter Property="Foreground" Value="{StaticResource GoldDim}" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="IsChecked" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="Transparent">
+                        <!-- Fondo opaco: con SurfaceGlassSoft solo se veían los bordes de 1px y
+                             el riel se leía como línea decorativa, no como control. -->
+                        <Border x:Name="bd" Width="14" HorizontalAlignment="Center" CornerRadius="7"
+                                Background="#99140A05" BorderThickness="1"
+                                BorderBrush="{StaticResource Outline}">
+                            <TextBlock x:Name="gl" Text="{TemplateBinding Content}"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       FontSize="{TemplateBinding FontSize}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource GoldDim}" />
+                            <Setter TargetName="gl" Property="Foreground" Value="{StaticResource Gold}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="False">
+                            <Setter TargetName="gl" Property="Text"
+                                    Value="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ══ Pestaña del panel derecho (Carta | Mazo, Carta | Stats) ══
+         Se usa sobre una línea base de ancho completo: la pestaña activa la tapa con su
+         fondo opaco y no dibuja borde inferior, así se funde con el contenido de abajo. -->
+    <Style x:Key="PanelTab" TargetType="ToggleButton">
+        <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Margin" Value="0,0,3,0" />
+        <Setter Property="Padding" Value="16,6" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="bd" CornerRadius="7,7,0,0" Background="Transparent"
+                            BorderThickness="1,1,1,0" BorderBrush="Transparent"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource OutlineSoft}" />
+                            <Setter Property="Foreground" Value="{StaticResource Text}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Red}" />
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+                            <Setter Property="Foreground" Value="{StaticResource Text}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

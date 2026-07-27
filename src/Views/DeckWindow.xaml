@@ -6,7 +6,7 @@
     xmlns:loc="clr-namespace:L5ArgentinaLauncher.Resources"
     xmlns:v="clr-namespace:L5ArgentinaLauncher.Views"
     Title="{loc:Loc Deck_WindowTitle}"
-    Width="1470" Height="840" MinWidth="1060" MinHeight="640"
+    Width="1323" Height="798" MinWidth="1060" MinHeight="640"
     WindowStartupLocation="CenterScreen"
     WindowStyle="None"
     Background="{StaticResource ParchmentBackground}"
@@ -73,52 +73,62 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
+                    <!-- El colapso de paneles vive ahora en los rieles laterales del cuerpo. -->
                     <Grid Grid.Row="0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <ToggleButton x:Name="DecksPaneBtn" Style="{StaticResource FilterChip}" Margin="0,0,12,0"
-                                      Padding="10,6" IsChecked="True" Content="{loc:Loc Deck_PaneDecks}"
-                                      ToolTip="{loc:Loc Deck_PaneDecksTip}" Click="PaneToggle_Click" />
-
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock x:Name="DeckTitle" Style="{StaticResource CardTitle}" FontSize="24"
                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                            <TextBlock x:Name="ActiveBadge" Style="{StaticResource BodySmall}"
-                                       Foreground="{StaticResource Gold}" Margin="12,4,0,0"
-                                       VerticalAlignment="Center" Visibility="Collapsed"
-                                       Text="{loc:Loc Deck_ActiveBadge}" />
-                            <Button x:Name="ActivateBtn" Style="{StaticResource DeckActionBtn}" Margin="12,0,0,0"
-                                    Content="{loc:Loc Deck_Activate}" ToolTip="{loc:Loc Deck_ActivateTip}"
-                                    Visibility="Collapsed" Click="ActivateBtn_Click" />
+                            <!-- Sin "Activar" ni badge "● Activo": el mazo seleccionado acá ES el
+                                 activo del Buscador (ADR-042). -->
                         </StackPanel>
 
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button x:Name="ImportBtn" Style="{StaticResource DeckActionBtn}"
-                                    Content="{loc:Loc Deck_Import}" ToolTip="{loc:Loc Deck_ImportTip}"
-                                    Click="ImportBtn_Click" />
-                            <Button x:Name="ExportBtn" Style="{StaticResource DeckActionBtn}"
-                                    Content="{loc:Loc Deck_Export}" ToolTip="{loc:Loc Deck_ExportTip}"
-                                    Click="ExportBtn_Click" />
-                            <Button x:Name="DuplicateBtn" Style="{StaticResource DeckActionBtn}"
-                                    Content="{loc:Loc Deck_Duplicate}" Click="DuplicateBtn_Click" />
-                            <Button x:Name="RenameBtn" Style="{StaticResource DeckActionBtn}"
-                                    Content="{loc:Loc Deck_Rename}" Click="RenameBtn_Click" />
-                            <Button x:Name="DeleteBtn" Style="{StaticResource DeckActionBtn}"
-                                    Content="{loc:Loc Deck_Delete}" Click="DeleteBtn_Click" />
-                            <Button x:Name="OpenFolderBtn" Style="{StaticResource DeckActionBtn}"
-                                    Content="{loc:Loc Deck_OpenFolder}" ToolTip="{loc:Loc Deck_OpenFolderTip}"
-                                    Click="OpenFolderBtn_Click" />
+                        <!-- Seis botones permanentes para acciones que se usan una vez cada
+                             tanto ocupaban toda la fila y competían con el nombre del mazo. Ahora
+                             queda visible lo frecuente (abrir el Buscador para agregar cartas) y
+                             el resto vive en el menú ⋯ (ADR-043). -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="OpenSearchBtn" Style="{StaticResource GhostButton}"
+                                    Height="32" FontSize="14" Padding="14,0"
+                                    Content="{loc:Loc Deck_OpenSearch}"
+                                    ToolTip="{loc:Loc Deck_OpenSearchTip}" Click="OpenSearchBtn_Click" />
+                            <Button x:Name="DeckMenuBtn" Style="{StaticResource IconButton}"
+                                    Margin="8,0,0,0" Content="⋯" FontSize="17"
+                                    ToolTip="{loc:Loc Deck_MenuTip}" Click="DeckMenuBtn_Click" />
                         </StackPanel>
 
-                        <ToggleButton x:Name="SidePaneBtn" Grid.Column="3" Style="{StaticResource FilterChip}"
-                                      Margin="12,0,0,0" Padding="10,6" IsChecked="True"
-                                      Content="{loc:Loc Deck_PaneSide}" ToolTip="{loc:Loc Deck_PaneSideTip}"
-                                      Click="PaneToggle_Click" />
+                        <Popup x:Name="DeckMenuPopup" PlacementTarget="{Binding ElementName=DeckMenuBtn}"
+                               Placement="Bottom" HorizontalOffset="-204" VerticalOffset="4"
+                               AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade">
+                            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource GoldDim}"
+                                    BorderThickness="1" CornerRadius="8" Width="230" Padding="0,5">
+                                <StackPanel>
+                                    <Button x:Name="RenameBtn" Style="{StaticResource MenuRow}"
+                                            Content="{loc:Loc Deck_RenameMenu}" Click="RenameBtn_Click" />
+                                    <Button x:Name="DuplicateBtn" Style="{StaticResource MenuRow}"
+                                            Content="{loc:Loc Deck_DuplicateMenu}" Click="DuplicateBtn_Click" />
+                                    <Rectangle Height="1" Margin="10,5" Fill="{StaticResource OutlineSoft}" />
+                                    <Button x:Name="ImportBtn" Style="{StaticResource MenuRow}"
+                                            Content="{loc:Loc Deck_ImportMenu}" ToolTip="{loc:Loc Deck_ImportTip}"
+                                            Click="ImportBtn_Click" />
+                                    <Button x:Name="ExportBtn" Style="{StaticResource MenuRow}"
+                                            Content="{loc:Loc Deck_ExportMenu}" ToolTip="{loc:Loc Deck_ExportTip}"
+                                            Click="ExportBtn_Click" />
+                                    <Button x:Name="OpenFolderBtn" Style="{StaticResource MenuRow}"
+                                            Content="{loc:Loc Deck_OpenFolderMenu}" ToolTip="{loc:Loc Deck_OpenFolderTip}"
+                                            Click="OpenFolderBtn_Click" />
+                                    <Rectangle Height="1" Margin="10,5" Fill="{StaticResource OutlineSoft}" />
+                                    <Button x:Name="DeleteBtn" Style="{StaticResource MenuRow}"
+                                            Foreground="{StaticResource ErrorText}"
+                                            Content="{loc:Loc Deck_DeleteMenu}" Click="DeleteBtn_Click" />
+                                </StackPanel>
+                            </Border>
+                        </Popup>
+
                     </Grid>
 
                     <Grid Grid.Row="1" Margin="0,8,0,0">
@@ -139,15 +149,15 @@
                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                             <!-- Vista del mazo: filas o cartas en imagen (secciones en ambas;
                                  la app muestra imágenes, así que Grilla es el default) -->
-                            <ToggleButton x:Name="ViewListBtn" Style="{StaticResource FilterChip}" Margin="0,0,4,0"
-                                          Padding="10,6" Content="{loc:Loc Search_ViewList}"
+                            <ToggleButton x:Name="ViewListBtn" Style="{StaticResource SegmentLeft}"
+                                          Content="{loc:Loc Search_ViewList}" Click="ViewToggle_Click" />
+                            <ToggleButton x:Name="ViewGridBtn" Style="{StaticResource SegmentRight}"
+                                          Margin="0,0,12,0" IsChecked="True" Content="{loc:Loc Search_ViewGrid}"
                                           Click="ViewToggle_Click" />
-                            <ToggleButton x:Name="ViewGridBtn" Style="{StaticResource FilterChip}" Margin="0,0,12,0"
-                                          Padding="10,6" IsChecked="True" Content="{loc:Loc Search_ViewGrid}"
-                                          Click="ViewToggle_Click" />
-                            <ComboBox x:Name="SortCombo" Width="130" SelectionChanged="Sort_Changed" />
-                            <ToggleButton x:Name="SortDirBtn" Style="{StaticResource FilterChip}"
-                                          Margin="8,0,0,0" Padding="10,6" IsChecked="False"
+                            <ComboBox x:Name="SortCombo" Style="{StaticResource ChipCombo}" Width="120"
+                                      SelectionChanged="Sort_Changed" />
+                            <ToggleButton x:Name="SortDirBtn" Style="{StaticResource IconToggle}"
+                                          Margin="8,0,0,0" IsChecked="False"
                                           Checked="Sort_Changed" Unchecked="Sort_Changed"
                                           ToolTip="{loc:Loc Search_SortDirTip}" Content="↑" />
                         </StackPanel>
@@ -157,13 +167,23 @@
                 <!-- ===== Cuerpo: mazos+filtros | cartas del mazo | detalle/stats ===== -->
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <!-- Anchos pensados para ~1200 DIP útiles (monitor 1080p a 125%) -->
+                        <!-- Anchos pensados para ~1200 DIP útiles (monitor 1080p a 125%).
+                             Las columnas de 16 son los rieles de colapso y NO colapsan nunca:
+                             son la única forma de reabrir el panel. -->
                         <ColumnDefinition x:Name="DecksCol" Width="260" />
-                        <ColumnDefinition x:Name="DecksGap" Width="10" />
+                        <ColumnDefinition Width="18" />
                         <ColumnDefinition Width="*" MinWidth="360" />
-                        <ColumnDefinition x:Name="SideGap" Width="10" />
+                        <ColumnDefinition Width="18" />
                         <ColumnDefinition x:Name="SideCol" Width="405" />
                     </Grid.ColumnDefinitions>
+
+                    <!-- Rieles: el chevron apunta adónde se va el borde al hacer click. -->
+                    <ToggleButton x:Name="DecksPaneBtn" Grid.Column="1" Style="{StaticResource PaneRail}"
+                                  Content="❮" Tag="❯" ToolTip="{loc:Loc Deck_PaneDecksTip}"
+                                  Click="PaneToggle_Click" />
+                    <ToggleButton x:Name="SidePaneBtn" Grid.Column="3" Style="{StaticResource PaneRail}"
+                                  Content="❯" Tag="❮" ToolTip="{loc:Loc Deck_PaneSideTip}"
+                                  Click="PaneToggle_Click" />
 
                     <!-- Panel izquierdo: lista de mazos + filtros del contenido -->
                     <Border x:Name="DecksPanel" Grid.Column="0" Background="{StaticResource SurfaceGlassSoft}"
@@ -302,13 +322,19 @@
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <ToggleButton x:Name="TabCardBtn" Style="{StaticResource FilterChip}"
-                                              Padding="12,6" Content="{loc:Loc Deck_TabCard}" Click="Tab_Click" />
-                                <ToggleButton x:Name="TabStatsBtn" Style="{StaticResource FilterChip}"
-                                              Padding="12,6" IsChecked="True" Content="{loc:Loc Deck_TabStats}"
-                                              Click="Tab_Click" />
-                            </StackPanel>
+                            <!-- Pestañas Carta / Stats: la activa tapa la línea base y no dibuja
+                                 borde inferior, así se funde con el contenido. -->
+                            <Grid Margin="0,0,0,8">
+                                <Border Height="1" VerticalAlignment="Bottom"
+                                        Background="{StaticResource OutlineSoft}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <ToggleButton x:Name="TabCardBtn" Style="{StaticResource PanelTab}"
+                                                  Content="{loc:Loc Deck_TabCard}" Click="Tab_Click" />
+                                    <ToggleButton x:Name="TabStatsBtn" Style="{StaticResource PanelTab}"
+                                                  IsChecked="True" Content="{loc:Loc Deck_TabStats}"
+                                                  Click="Tab_Click" />
+                                </StackPanel>
+                            </Grid>
 
                             <v:CardDetailPanel x:Name="Detail" Grid.Row="1" Visibility="Collapsed" />
                             <ScrollViewer x:Name="StatsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">

@@ -6,12 +6,14 @@
     xmlns:loc="clr-namespace:L5ArgentinaLauncher.Resources"
     xmlns:v="clr-namespace:L5ArgentinaLauncher.Views"
     Title="{loc:Loc Search_Title}"
-    Width="1470" Height="840" MinWidth="1060" MinHeight="640"
+    Width="1323" Height="798" MinWidth="1060" MinHeight="640"
     WindowStartupLocation="CenterScreen"
     WindowStyle="None"
     Background="{StaticResource ParchmentBackground}"
     Icon="pack://application:,,,/Assets/icon.png"
     KeyDown="Window_KeyDown"
+    KeyUp="Window_KeyUp"
+    Deactivated="Window_Deactivated"
     StateChanged="Window_StateChanged">
 
     <!-- Chrome custom (como MainWindow) pero redimensionable y con maximizar -->
@@ -64,13 +66,28 @@
         <!-- Celda de la grilla de miniaturas: nombre de fondo (placeholder) + imagen encima
              + barra de acciones al pie (hover/selección), como la HalfCardCell de la app -->
         <DataTemplate x:Key="GridCellTemplate">
-            <Border x:Name="cellRoot" Width="226" Height="322" Margin="5" CornerRadius="7" Background="#4D140A05"
+            <Border x:Name="cellRoot" Width="226" Height="322" Margin="5" CornerRadius="11"
                     BorderThickness="2" Cursor="Hand" MouseLeftButtonUp="GridCell_Click"
                     MouseLeftButtonDown="GridCell_MouseDown">
+                <!-- El marco (borde + fondo) es el *placeholder*: solo se ve cuando no hay imagen.
+                     Con arte, la celda es el arte y nada más; el borde vuelve al pasar el mouse o
+                     al seleccionar, que es donde sí comunica algo. -->
                 <Border.Style>
                     <Style TargetType="Border">
-                        <Setter Property="BorderBrush" Value="#33C9A961" />
+                        <Setter Property="BorderBrush" Value="Transparent" />
+                        <Setter Property="Background" Value="Transparent" />
                         <Style.Triggers>
+                            <DataTrigger Binding="{Binding Background.ImageSource, ElementName=cellArt}"
+                                         Value="{x:Null}">
+                                <Setter Property="BorderBrush" Value="#33C9A961" />
+                                <Setter Property="Background" Value="#4D140A05" />
+                            </DataTrigger>
+                            <!-- Segunda ayuda visual: con Ctrl apretado se prenden TODAS las celdas,
+                                 no solo la de abajo del mouse. Comunica que hay un modo activo. -->
+                            <DataTrigger Binding="{Binding IsAddModifierDown, RelativeSource={RelativeSource AncestorType=Window}}"
+                                         Value="True">
+                                <Setter Property="BorderBrush" Value="#66C9A961" />
+                            </DataTrigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="BorderBrush" Value="{StaticResource GoldDim}" />
                             </Trigger>
@@ -84,7 +101,15 @@
                     <TextBlock Text="{Binding Card.Name}" TextWrapping="Wrap" TextAlignment="Center"
                                VerticalAlignment="Center" Margin="10" FontFamily="{StaticResource BodyFont}"
                                FontSize="12" Foreground="{StaticResource TextDim}" />
-                    <Image Source="{Binding Thumb, IsAsync=True}" Stretch="Uniform" />
+                    <!-- ImageBrush sobre un Border en vez de un Image: así el arte respeta el
+                         CornerRadius y se comen las puntitas blancas del escaneo (las cartas de
+                         L5R son escaneos rectangulares de cartas con esquinas redondeadas).
+                         UniformToFill llena la celda entera: sin letterbox no hay marco que asome. -->
+                    <Border x:Name="cellArt" CornerRadius="9">
+                        <Border.Background>
+                            <ImageBrush ImageSource="{Binding Thumb, IsAsync=True}" Stretch="UniformToFill" />
+                        </Border.Background>
+                    </Border>
                     <!-- Pastilla de estado compacta (BANNED/UNIQUE…): fondo claro fijo para que
                          se lea sobre el arte; borde/texto del color de rules.json -->
                     <Border CornerRadius="8" Padding="7,2" Margin="0,7,7,0" BorderThickness="1"
@@ -196,6 +221,37 @@
                             </Button>
                         </StackPanel>
                     </Border>
+
+                    <!-- Overlay de "Ctrl = agregar": va último para quedar encima de todo, así
+                         tapa también la barra de acciones y el Ctrl+click cae siempre acá.
+                         Es a la vez la ayuda visual y el blanco del click. -->
+                    <!-- Ojo: la visibilidad va SOLO por el Style, como la botonera de arriba.
+                         Un Visibility="Collapsed" local le gana a cualquier trigger (precedencia
+                         de WPF: valor local > Style trigger) y el overlay no aparecería nunca. -->
+                    <Border x:Name="AddOverlay" CornerRadius="9" Background="#CC140A05"
+                            BorderThickness="2" BorderBrush="{StaticResource Gold}">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding IsMouseOver, ElementName=cellRoot}" Value="True" />
+                                            <Condition Binding="{Binding IsAddModifierDown, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock Text="+" FontFamily="{StaticResource BodyFont}" FontSize="46"
+                                       Foreground="{StaticResource Gold}" HorizontalAlignment="Center" />
+                            <TextBlock Text="{loc:Loc Cell_CtrlAddOverlay}" FontFamily="{StaticResource BodyFont}"
+                                       FontSize="14" Foreground="{StaticResource Text}" Margin="0,4,0,0"
+                                       TextAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
         </DataTemplate>
@@ -270,18 +326,17 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
+                    <!-- Sin título acá: ya lo muestra la barra de título propia (Window.Title).
+                         La caja crece hasta 480 y el contador queda pegado a su derecha. -->
                     <Grid Grid.Row="0">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MaxWidth="480" MinWidth="260" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Column="0" Text="{loc:Loc Search_Title}" Style="{StaticResource CardTitle}"
-                                   VerticalAlignment="Center" Margin="0,0,18,0" />
-
-                        <Grid Grid.Column="1" MaxWidth="480" HorizontalAlignment="Left" MinWidth="260">
+                        <Grid Grid.Column="0">
                             <TextBox x:Name="NameBox" Style="{StaticResource InvertedTextBox}"
                                      ToolTip="{loc:Loc Search_BarOperatorsTip}"
                                      TextChanged="FilterText_Changed" KeyDown="NameBox_KeyDown" />
@@ -300,25 +355,27 @@
                             </TextBlock>
                         </Grid>
 
-                        <TextBlock x:Name="ResultCount" Grid.Column="2" Style="{StaticResource Body}"
-                                   Foreground="{StaticResource Gold}" VerticalAlignment="Center" Margin="18,0,18,0" />
+                        <TextBlock x:Name="ResultCount" Grid.Column="1" Style="{StaticResource Body}"
+                                   Foreground="{StaticResource Gold}" VerticalAlignment="Center" Margin="14,0,18,0" />
 
                         <!-- Vista + orden (a la derecha de la fila 1 para que la fila 2 no desborde) -->
                         <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                            <ToggleButton x:Name="ViewListBtn" Style="{StaticResource FilterChip}" Margin="0,0,4,0"
-                                          Padding="10,6" Content="{loc:Loc Search_ViewList}"
+                            <ToggleButton x:Name="ViewListBtn" Style="{StaticResource SegmentLeft}"
+                                          Content="{loc:Loc Search_ViewList}" Click="ViewToggle_Click" />
+                            <ToggleButton x:Name="ViewGridBtn" Style="{StaticResource SegmentRight}"
+                                          IsChecked="True" Content="{loc:Loc Search_ViewGrid}"
                                           Click="ViewToggle_Click" />
-                            <ToggleButton x:Name="ViewGridBtn" Style="{StaticResource FilterChip}" Margin="0"
-                                          Padding="10,6" IsChecked="True" Content="{loc:Loc Search_ViewGrid}"
-                                          Click="ViewToggle_Click" />
-                            <ToggleButton x:Name="ExpandPrintsBtn" Style="{StaticResource FilterChip}" Margin="10,0,0,0"
-                                          Padding="10,6" Content="{loc:Loc Search_ExpandPrints}"
+                            <!-- Sub-opción de la grilla (se deshabilita en vista Lista): chip chico
+                                 para que la etiqueta larga no compita con el segmentado. -->
+                            <ToggleButton x:Name="ExpandPrintsBtn" Style="{StaticResource FilterChipSmall}"
+                                          Margin="8,0,0,0" VerticalAlignment="Center"
+                                          Content="{loc:Loc Search_ExpandPrints}"
                                           ToolTip="{loc:Loc Search_ExpandPrintsTip}"
                                           Checked="ExpandPrints_Changed" Unchecked="ExpandPrints_Changed" />
-                            <ComboBox x:Name="SortCombo" Width="130" Margin="10,0,0,0"
+                            <ComboBox x:Name="SortCombo" Style="{StaticResource ChipCombo}" Width="120" Margin="12,0,0,0"
                                       SelectionChanged="Filter_Changed" />
-                            <ToggleButton x:Name="SortDirBtn" Style="{StaticResource FilterChip}"
-                                          Margin="8,0,0,0" Padding="10,6" IsChecked="False"
+                            <ToggleButton x:Name="SortDirBtn" Style="{StaticResource IconToggle}"
+                                          Margin="8,0,0,0" IsChecked="False"
                                           Checked="Filter_Changed" Unchecked="Filter_Changed"
                                           ToolTip="{loc:Loc Search_SortDirTip}" Content="↑" />
                         </StackPanel>
@@ -333,18 +390,19 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <!-- Colapso del panel de filtros -->
-                        <ToggleButton x:Name="FiltersPaneBtn" Style="{StaticResource FilterChip}" Margin="0,0,12,0"
-                                      Padding="10,6" IsChecked="True" Content="{loc:Loc Search_PaneFilters}"
-                                      ToolTip="{loc:Loc Search_PaneFiltersTip}" Click="PaneToggle_Click" />
+                        <!-- Limpiar va primero: es el reset de la fila de filtros que sigue.
+                             (El colapso de paneles vive ahora en los rieles laterales.) -->
+                        <Button x:Name="ClearFiltersBtn" Grid.Column="0" Content="{loc:Loc Search_ClearFilters}"
+                                Style="{StaticResource GhostButton}" FontSize="14" Height="32"
+                                Margin="0,0,14,0" Click="ClearFilters_Click" />
 
                         <!-- Toggles rápidos (antes enterrados en el panel de filtros) -->
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <ToggleButton x:Name="QuickFavBtn" Style="{StaticResource FilterChip}" Margin="0,0,6,0"
-                                          Padding="10,6" Content="{loc:Loc Search_OnlyFavorites}"
+                            <ToggleButton x:Name="QuickFavBtn" Style="{StaticResource FilterChipSmall}"
+                                          Margin="0,0,6,0" Content="{loc:Loc Search_OnlyFavorites}"
                                           Checked="Filter_Changed" Unchecked="Filter_Changed" />
-                            <ToggleButton x:Name="QuickHiddenBtn" Style="{StaticResource FilterChip}" Margin="0,0,12,0"
-                                          Padding="10,6" Content="{loc:Loc Search_ShowHidden}"
+                            <ToggleButton x:Name="QuickHiddenBtn" Style="{StaticResource FilterChipSmall}"
+                                          Margin="0,0,12,0" Content="{loc:Loc Search_ShowHidden}"
                                           Checked="Filter_Changed" Unchecked="Filter_Changed" />
                         </StackPanel>
 
@@ -352,26 +410,41 @@
                              filtra los resultados a sus cartas (armar el mazo de ninjas desde
                              la lista de ninjas) -->
                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                            <ComboBox x:Name="ListFilterCombo" Width="160" Height="30"
-                                      ToolTip="{loc:Loc Search_ListFilterTip}"
-                                      SelectionChanged="ListFilterCombo_Changed" />
-                            <ToggleButton x:Name="QuickListBtn" Style="{StaticResource FilterChip}" Margin="8,0,0,0"
-                                          Padding="10,6" Content="{loc:Loc Search_OnlyListShort}"
+                            <ToggleButton x:Name="QuickListBtn" Style="{StaticResource FilterChipSmall}"
+                                          Margin="0,0,6,0" Content="{loc:Loc Search_OnlyListShort}"
                                           ToolTip="{loc:Loc Search_OnlyListTip}"
                                           Checked="Filter_Changed" Unchecked="Filter_Changed" />
+                            <ComboBox x:Name="ListFilterCombo" Style="{StaticResource ChipCombo}" Width="150"
+                                      ToolTip="{loc:Loc Search_ListFilterTip}"
+                                      SelectionChanged="ListFilterCombo_Changed" />
+                            <!-- Crear/borrar lista: salieron del panel de filtros a íconos discretos
+                                 pegados al combo, que es donde se elige la lista. -->
+                            <Button x:Name="ListNewBtn" Style="{StaticResource IconButton}" Margin="6,0,0,0"
+                                    Content="+" ToolTip="{loc:Loc Search_ListCreateTip}"
+                                    Click="ListCreate_Click" />
+                            <Button x:Name="ListDeleteBtn" Style="{StaticResource IconButton}" Margin="3,0,0,0"
+                                    Content="🗑" FontSize="12" ToolTip="{loc:Loc Search_ListDeleteTip}"
+                                    Click="ListDelete_Click" />
                         </StackPanel>
 
+                        <!-- Mazo activo: destino de todos los +/−. Es un LABEL, no un selector: el
+                             mazo activo es el que está seleccionado en la ventana de Mazos, y esa
+                             es la única fuente de verdad (ADR-042). Clickearlo abre esa ventana. -->
                         <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button x:Name="ClearFiltersBtn" Content="{loc:Loc Search_ClearFilters}"
-                                    Style="{StaticResource GhostButton}" FontSize="14" Height="32"
-                                    Margin="0,0,14,0" Click="ClearFilters_Click" />
+                            <TextBlock Text="{loc:Loc Search_ActiveDeckLabel}" Style="{StaticResource BodySmall}"
+                                       FontSize="11" VerticalAlignment="Center" Margin="0,0,7,0" />
+                            <TextBlock x:Name="ActiveDeckName" Style="{StaticResource Body}" FontSize="13"
+                                       Foreground="{StaticResource Gold}" VerticalAlignment="Center"
+                                       Cursor="Hand" TextTrimming="CharacterEllipsis" MaxWidth="220"
+                                       ToolTip="{loc:Loc Search_ActiveDeckTip}"
+                                       MouseLeftButtonUp="DecksBtn_Click" />
+                            <TextBlock x:Name="ActiveDeckCounts" Style="{StaticResource BodySmall}" FontSize="11"
+                                       VerticalAlignment="Center" Margin="10,0,0,0"
+                                       ToolTip="{loc:Loc Search_ActiveDeckCountsTip}" />
                             <Button x:Name="DecksBtn" Content="{loc:Loc Search_DecksBtn}"
                                     Style="{StaticResource GhostButton}" Height="32" FontSize="14" Padding="12,0"
+                                    Margin="10,0,0,0"
                                     ToolTip="{loc:Loc Search_DecksBtnTip}" Click="DecksBtn_Click" />
-                            <!-- Colapso del panel de detalle/mazo -->
-                            <ToggleButton x:Name="DetailPaneBtn" Style="{StaticResource FilterChip}" Margin="12,0,0,0"
-                                          Padding="10,6" IsChecked="True" Content="{loc:Loc Search_PaneDetail}"
-                                          ToolTip="{loc:Loc Search_PaneDetailTip}" Click="PaneToggle_Click" />
                         </StackPanel>
                     </Grid>
                 </Grid>
@@ -380,13 +453,25 @@
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
                         <!-- Anchos pensados para ~1200 DIP útiles (monitor 1080p a 125%):
-                             con ambos paneles entran 2 columnas de cartas; cada colapso suma una. -->
+                             con ambos paneles entran 2 columnas de cartas; cada colapso suma una
+                             (libera 270 / 405 DIP contra una celda de 226).
+                             Las columnas de 16 son los rieles de colapso y NO colapsan nunca:
+                             son la única forma de reabrir el panel. -->
                         <ColumnDefinition x:Name="FiltersCol" Width="270" />
-                        <ColumnDefinition x:Name="FiltersGap" Width="10" />
+                        <ColumnDefinition Width="18" />
                         <ColumnDefinition Width="*" MinWidth="320" />
-                        <ColumnDefinition x:Name="DetailGap" Width="10" />
+                        <ColumnDefinition Width="18" />
                         <ColumnDefinition x:Name="DetailCol" Width="405" />
                     </Grid.ColumnDefinitions>
+
+                    <!-- Rieles: el chevron apunta adónde se va el borde al hacer click.
+                         Content = glifo con el panel abierto; Tag = glifo con el panel colapsado. -->
+                    <ToggleButton x:Name="FiltersPaneBtn" Grid.Column="1" Style="{StaticResource PaneRail}"
+                                  Content="❮" Tag="❯" ToolTip="{loc:Loc Search_PaneFiltersTip}"
+                                  Click="PaneToggle_Click" />
+                    <ToggleButton x:Name="DetailPaneBtn" Grid.Column="3" Style="{StaticResource PaneRail}"
+                                  Content="❯" Tag="❮" ToolTip="{loc:Loc Search_PaneDetailTip}"
+                                  Click="PaneToggle_Click" />
 
                     <!-- Panel de filtros (colapsable; aplican en vivo) -->
                     <Border x:Name="FiltersPanel" Grid.Column="0" Background="{StaticResource SurfaceGlassSoft}" CornerRadius="9"
@@ -497,29 +582,10 @@
                                     </StackPanel>
                                 </Expander>
 
-                                <!-- 10. Listas de cartas (la selección va en el panel derecho) -->
-                                <Expander Header="{loc:Loc Search_Section_Lists}" Style="{StaticResource FilterExpander}">
-                                    <StackPanel>
-                                        <TextBlock Text="{loc:Loc Search_ListCreateLabel}" Style="{StaticResource BodySmall}"
-                                                   FontSize="12" Margin="0,2,0,4" />
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBox x:Name="NewListBox" Style="{StaticResource InvertedTextBox}"
-                                                     Height="28" FontSize="13" KeyDown="NewListBox_KeyDown" />
-                                            <Button Grid.Column="1" Content="+" Style="{StaticResource GhostButton}"
-                                                    Height="28" FontSize="16" Padding="10,0" Margin="6,0,0,0"
-                                                    ToolTip="{loc:Loc Search_ListCreateTip}" Click="ListCreate_Click" />
-                                        </Grid>
-                                        <Button Content="{loc:Loc Search_ListDelete}" Style="{StaticResource GoldLink}"
-                                                Margin="2,10,0,0" ToolTip="{loc:Loc Search_ListDeleteTip}"
-                                                Click="ListDelete_Click" />
-                                    </StackPanel>
-                                </Expander>
+                                <!-- Las listas se crean, eligen y borran en la barra superior
+                                     (combo + iconos), no acá: son navegación, no un filtro más. -->
 
-                                <!-- 11. Presets de filtros -->
+                                <!-- 10. Presets de filtros -->
                                 <Expander Header="{loc:Loc Search_Section_Presets}" Style="{StaticResource FilterExpander}">
                                     <StackPanel>
                                         <Grid>
@@ -613,55 +679,34 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
 
-                    <!-- Panel derecho: mazo activo arriba; abajo, toggle Carta | Mazo -->
+                    <!-- Panel derecho: acciones sobre la carta seleccionada + su detalle -->
                     <Border x:Name="DetailPanelBorder" Grid.Column="4" Background="{StaticResource SurfaceGlass}" CornerRadius="9"
                             BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1" Padding="14">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
-                            <!-- Mazo activo (destino de los + / −) + abrir el editor -->
-                            <Grid Grid.Row="0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="{loc:Loc Search_ActiveDeckLabel}" Style="{StaticResource BodySmall}"
-                                           VerticalAlignment="Center" Margin="0,0,8,0" />
-                                <ComboBox x:Name="DeckCombo" Grid.Column="1" SelectionChanged="DeckCombo_Changed" />
-                                <Button Grid.Column="2" Content="✎" Style="{StaticResource GhostButton}"
-                                        Height="30" FontSize="15" Padding="10,0" Margin="6,0,0,0"
-                                        ToolTip="{loc:Loc Search_EditDeckTip}" Click="DecksBtn_Click" />
-                            </Grid>
-
-                            <!-- Toggle Carta / Mazo -->
-                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,10,0,0">
-                                <ToggleButton x:Name="TabCardBtn" Style="{StaticResource FilterChip}"
-                                              Padding="12,6" Content="{loc:Loc Deck_TabCard}" Click="Tab_Click" />
-                                <ToggleButton x:Name="TabDeckBtn" Style="{StaticResource FilterChip}"
-                                              Padding="12,6" IsChecked="True" Content="{loc:Loc Search_TabDeck}"
-                                              Click="Tab_Click" />
-                            </StackPanel>
+                            <!-- Sin pestañas: el contenido del mazo vive en la ventana de Mazos
+                                 (ADR-042). Acá queda solo el detalle de la carta seleccionada. -->
 
                             <!-- Acciones sobre la carta seleccionada + feedback de AddCardResult -->
-                            <StackPanel Grid.Row="2" Margin="0,4,0,6">
+                            <StackPanel Grid.Row="0" Margin="0,0,0,6">
                                 <WrapPanel HorizontalAlignment="Center">
-                                    <Button x:Name="AddToDeckBtn" Style="{StaticResource GhostButton}" Height="28"
-                                            FontSize="13" Padding="10,0" Margin="3,2"
+                                    <Button x:Name="AddToDeckBtn" Style="{StaticResource DetailActionBtn}"
                                             Content="{loc:Loc Search_AddToDeck}"
                                             ToolTip="{loc:Loc Search_AddToDeckTip}" Click="AddToDeckBtn_Click" />
-                                    <Button x:Name="RemoveFromDeckBtn" Style="{StaticResource GhostButton}" Height="28"
-                                            FontSize="13" Padding="10,0" Margin="3,2"
+                                    <Button x:Name="RemoveFromDeckBtn" Style="{StaticResource DetailActionBtn}"
                                             Content="{loc:Loc Search_RemoveFromDeck}" Click="RemoveFromDeckBtn_Click" />
-                                    <Button x:Name="FavBtn" Style="{StaticResource GhostButton}" Height="28"
-                                            FontSize="13" Padding="10,0" Margin="3,2" Click="FavBtn_Click" />
-                                    <Button x:Name="HideBtn" Style="{StaticResource GhostButton}" Height="28"
-                                            FontSize="13" Padding="10,0" Margin="3,2" Click="HideBtn_Click" />
+                                    <Button x:Name="FavBtn" Style="{StaticResource DetailActionBtn}"
+                                            Click="FavBtn_Click" />
+                                    <Button x:Name="HideBtn" Style="{StaticResource DetailActionBtn}"
+                                            Click="HideBtn_Click" />
+                                    <!-- Faltaba: agregar/quitar de la lista activa, que en las celdas
+                                         ya existía como ≡ pero en el detalle no estaba. -->
+                                    <Button x:Name="ListBtn" Style="{StaticResource DetailActionBtn}"
+                                            ToolTip="{loc:Loc Search_ListBtnTip}" Click="ListBtn_Click" />
                                 </WrapPanel>
                                 <TextBlock x:Name="DeckFeedback" Style="{StaticResource BodySmall}" FontSize="12"
                                            HorizontalAlignment="Center" Margin="0,5,0,0" Visibility="Collapsed"
@@ -669,59 +714,7 @@
                             </StackPanel>
 
                             <!-- Contenido según el toggle -->
-                            <v:CardDetailPanel x:Name="Detail" Grid.Row="3" Visibility="Collapsed" />
-                            <DockPanel x:Name="DeckPane" Grid.Row="3" LastChildFill="True">
-                                <!-- Conteos del mazo (Dynasty/Fate en rojo si <40, indicador blando) -->
-                                <TextBlock x:Name="DeckCounts" DockPanel.Dock="Top" Style="{StaticResource BodySmall}"
-                                           Margin="2,0,0,6" TextWrapping="Wrap" />
-                                <ListBox x:Name="DeckCardsList"
-                                         Background="#40140A05" BorderBrush="{StaticResource OutlineSoft}"
-                                         BorderThickness="1" HorizontalContentAlignment="Stretch"
-                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                         SelectionChanged="DeckCardsList_SelectionChanged">
-                                    <ListBox.ItemContainerStyle>
-                                        <Style TargetType="ListBoxItem">
-                                            <Setter Property="Foreground" Value="{StaticResource Text}" />
-                                            <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
-                                            <Setter Property="FontSize" Value="12" />
-                                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="ListBoxItem">
-                                                        <Border x:Name="bd" Background="Transparent" Padding="6,2">
-                                                            <ContentPresenter />
-                                                        </Border>
-                                                        <ControlTemplate.Triggers>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="bd" Property="Background" Value="#22C9A961" />
-                                                            </Trigger>
-                                                            <Trigger Property="IsSelected" Value="True">
-                                                                <Setter TargetName="bd" Property="Background" Value="#CC7D1F1C" />
-                                                            </Trigger>
-                                                        </ControlTemplate.Triggers>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                        </Style>
-                                    </ListBox.ItemContainerStyle>
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <DockPanel LastChildFill="True">
-                                                <Button DockPanel.Dock="Right" Content="+" Style="{StaticResource GhostButton}"
-                                                        Height="20" FontSize="12" Padding="7,0" Margin="4,0,0,0"
-                                                        Click="DeckRowPlus_Click" />
-                                                <Button DockPanel.Dock="Right" Content="−" Style="{StaticResource GhostButton}"
-                                                        Height="20" FontSize="12" Padding="7,0" Margin="6,0,0,0"
-                                                        Click="DeckRowMinus_Click" />
-                                                <TextBlock DockPanel.Dock="Right" Text="{Binding QtyText}" Margin="8,0,0,0"
-                                                           VerticalAlignment="Center" Foreground="{StaticResource Gold}" />
-                                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"
-                                                           VerticalAlignment="Center" />
-                                            </DockPanel>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                            </DockPanel>
+                            <v:CardDetailPanel x:Name="Detail" Grid.Row="1" />
                         </Grid>
                     </Border>
                 </Grid>

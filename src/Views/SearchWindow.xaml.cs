@@ -73,7 +73,6 @@ namespace L5ArgentinaLauncher.Views
         private List<string> _allKwCodes = new List<string>();
         private bool _initializing = true;
         private bool _kwUpdating;
-        private bool _deckComboSyncing;
         private bool _listComboSyncing;
 
         private List<Card> _results = new List<Card>();
@@ -103,14 +102,6 @@ namespace L5ArgentinaLauncher.Views
             public override string ToString() => Label;
         }
 
-        /// <summary>Ítem del selector de mazo activo del panel derecho.</summary>
-        private class DeckChoice
-        {
-            public string Id;
-            public string Label;
-            public override string ToString() => Label;
-        }
-
         /// <summary>Ítem del selector de lista activa de la barra (null = todas las cartas).</summary>
         private class ListChoice
         {
@@ -119,17 +110,10 @@ namespace L5ArgentinaLauncher.Views
             public override string ToString() => Label;
         }
 
-        /// <summary>Fila del contenido del mazo/lista en el panel derecho.</summary>
-        public class DeckRowVm
-        {
-            public Card Card { get; set; }
-            public string Label { get; set; }
-            public string QtyText { get; set; }
-        }
-
         public SearchWindow(CardCatalog catalog, string installPath)
         {
             InitializeComponent();
+            WindowSizingFix.Attach(this); // maximizado y apertura acotados al área de trabajo
             _engine = new CardSearchEngine(catalog);
             _catalogRef = catalog;
             _installPathRef = installPath;
@@ -210,7 +194,7 @@ namespace L5ArgentinaLauncher.Views
             };
 
             RefreshListFilterCombo();
-            RefreshDeckCombo();
+            RefreshActiveDeckLabel();
             RefreshPresetCombo(null);
             UpdateDetailActions();
 
@@ -230,10 +214,9 @@ namespace L5ArgentinaLauncher.Views
 
         private void Window_StateChanged(object sender, EventArgs e)
         {
-            // Con WindowStyle=None, maximizado desborda el borde de resize: compensar con margen.
-            var maximized = WindowState == WindowState.Maximized;
-            RootLayout.Margin = new Thickness(maximized ? 7 : 0);
-            MaxButton.Content = maximized ? "❐" : "□";
+            // El maximizado ya lo acota WindowSizingFix al área de trabajo del monitor, así que
+            // no hace falta el margen que antes compensaba el desborde del borde de resize.
+            MaxButton.Content = WindowState == WindowState.Maximized ? "❐" : "□";
         }
 
         // ------------------------------------------------------------------ armado de controles
@@ -515,18 +498,19 @@ namespace L5ArgentinaLauncher.Views
 
         // ------------------------------------------------------------------ paneles colapsables
 
-        /// <summary>Colapsa/expande los paneles laterales; el centro absorbe el ancho liberado.</summary>
+        /// <summary>
+        /// Colapsa/expande los paneles laterales desde los rieles; el centro absorbe el ancho
+        /// liberado. Las columnas de los rieles no se tocan: son la única forma de reabrir.
+        /// </summary>
         private void PaneToggle_Click(object sender, RoutedEventArgs e)
         {
             var filtersOn = FiltersPaneBtn.IsChecked == true;
             FiltersPanel.Visibility = filtersOn ? Visibility.Visible : Visibility.Collapsed;
             FiltersCol.Width = new GridLength(filtersOn ? 270 : 0);
-            FiltersGap.Width = new GridLength(filtersOn ? 10 : 0);
 
             var detailOn = DetailPaneBtn.IsChecked == true;
             DetailPanelBorder.Visibility = detailOn ? Visibility.Visible : Visibility.Collapsed;
             DetailCol.Width = new GridLength(detailOn ? 405 : 0);
-            DetailGap.Width = new GridLength(detailOn ? 10 : 0);
         }
 
         // ------------------------------------------------------------------ vista lista / grilla
@@ -618,6 +602,31 @@ namespace L5ArgentinaLauncher.Views
             if (cols != _gridCols) ChunkGrid();
         }
 
+        /// <summary>
+        /// True mientras se mantiene Ctrl: las celdas de la grilla se prenden y la de abajo del
+        /// mouse muestra el overlay "Agregar al mazo". Es una DP de la ventana y no un flag por
+        /// celda a propósito: un solo cambio y todas las celdas realizadas reaccionan por binding,
+        /// en vez de recorrer miles de VMs en cada tecla.
+        /// </summary>
+        public static readonly DependencyProperty IsAddModifierDownProperty =
+            DependencyProperty.Register(nameof(IsAddModifierDown), typeof(bool), typeof(SearchWindow),
+                new PropertyMetadata(false));
+
+        public bool IsAddModifierDown
+        {
+            get => (bool)GetValue(IsAddModifierDownProperty);
+            set => SetValue(IsAddModifierDownProperty, value);
+        }
+
+        private void SyncAddModifier() =>
+            IsAddModifierDown = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+
+        private void Window_KeyUp(object sender, KeyEventArgs e) => SyncAddModifier();
+
+        // Sin esto el modo queda pegado si se suelta Ctrl con la ventana en segundo plano
+        // (p.ej. Alt+Tab con Ctrl apretado): el KeyUp nunca llega.
+        private void Window_Deactivated(object sender, EventArgs e) => IsAddModifierDown = false;
+
         private void GridCell_Click(object sender, MouseButtonEventArgs e)
         {
             var cell = (sender as FrameworkElement)?.DataContext as GridCell;
@@ -626,13 +635,21 @@ namespace L5ArgentinaLauncher.Views
             CardGrid.Focus(); // habilita la navegación por flechas
         }
 
-        /// <summary>Doble click en una celda = agregar la carta al mazo/lista activa.</summary>
+        /// <summary>
+        /// Doble click en una celda = agregar la carta al mazo activo. **Ctrl+click** hace lo mismo
+        /// con un solo click y sin apuntar al `+` chiquito de la barra de acciones: mientras Ctrl
+        /// está apretado el overlay tapa la celda entera, así que el click cae siempre acá.
+        /// </summary>
         private void GridCell_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.ClickCount != 2) return;
             var cell = (sender as FrameworkElement)?.DataContext as GridCell;
             if (cell == null) return;
+
+            var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+            if (!ctrl && e.ClickCount != 2) return;
+
             SelectGridCell(cell);
+            CardGrid.Focus();
             ApplyDeckDelta(cell.Card, +1);
             e.Handled = true;
         }
@@ -803,6 +820,7 @@ namespace L5ArgentinaLauncher.Views
 
         private void Window_KeyDown(object sender, KeyEventArgs e)
         {
+            SyncAddModifier();
             if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
             {
                 NameBox.Focus();
@@ -986,141 +1004,68 @@ namespace L5ArgentinaLauncher.Views
 
         private void OnActiveDeckChanged()
         {
-            var active = _library.ActiveDeckId;
-            var current = DeckCombo.SelectedItem as DeckChoice;
-            if (active != null && (current == null || current.Id != active))
-                SelectDeckInCombo(active);
-            RefreshDeckPanel();
-            RefreshCellStates();
-        }
-
-        private void OnDeckListChanged() => RefreshDeckCombo();
-
-        private void OnDeckContentChanged(Models.Deck deck)
-        {
-            if (deck.Id != _library.ActiveDeckId) return;
-            RefreshDeckPanel();
-            RefreshCellStates();
-        }
-
-        /// <summary>Rearma el selector de mazo activo preservando la selección.</summary>
-        private void RefreshDeckCombo()
-        {
-            var previous = (DeckCombo.SelectedItem as DeckChoice)?.Id;
-            var items = _library.Repo.Decks
-                .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
-                .Select(d => new DeckChoice { Id = d.Id, Label = d.Name })
-                .ToList();
-
-            _deckComboSyncing = true;
-            DeckCombo.ItemsSource = items;
-            DeckCombo.SelectedItem =
-                items.FirstOrDefault(i => i.Id == (_library.ActiveDeckId ?? previous))
-                ?? items.FirstOrDefault(i => i.Id == previous);
-            _deckComboSyncing = false;
-
-            RefreshDeckPanel();
-            RefreshCellStates();
-        }
-
-        private void SelectDeckInCombo(string deckId)
-        {
-            var match = (DeckCombo.ItemsSource as IEnumerable<DeckChoice>)
-                ?.FirstOrDefault(i => i.Id == deckId);
-            if (match == null) return;
-            _deckComboSyncing = true;
-            DeckCombo.SelectedItem = match;
-            _deckComboSyncing = false;
-        }
-
-        private void DeckCombo_Changed(object sender, SelectionChangedEventArgs e)
-        {
-            if (_initializing || _deckComboSyncing) return;
-            var choice = DeckCombo.SelectedItem as DeckChoice;
-            if (choice != null) _library.ActiveDeckId = choice.Id; // dispara ActiveDeckChanged
-            RefreshDeckPanel();
+            RefreshActiveDeckLabel();
             RefreshCellStates();
             UpdateDetailActions();
         }
 
-        /// <summary>Toggle del panel derecho: detalle de carta o contenido del mazo activo.</summary>
-        private void Tab_Click(object sender, RoutedEventArgs e)
+        private void OnDeckListChanged() => RefreshActiveDeckLabel();
+
+        private void OnDeckContentChanged(Models.Deck deck)
         {
-            var deckTab = !ReferenceEquals(sender, TabCardBtn);
-            TabDeckBtn.IsChecked = deckTab;
-            TabCardBtn.IsChecked = !deckTab;
-            DeckPane.Visibility = deckTab ? Visibility.Visible : Visibility.Collapsed;
-            Detail.Visibility = deckTab ? Visibility.Collapsed : Visibility.Visible;
+            if (deck.Id != _library.ActiveDeckId) return;
+            RefreshActiveDeckLabel();
+            RefreshCellStates();
         }
 
-        /// <summary>Redibuja conteos + contenido del mazo activo (pestaña Mazo).</summary>
-        private void RefreshDeckPanel()
+        /// <summary>
+        /// Nombre + conteos del mazo activo en la barra. El Buscador ya no elige mazo: el activo es
+        /// el que está seleccionado en la ventana de Mazos, y acá solo se refleja (ADR-042).
+        /// Los conteos son los blandos de la app: Dynasty/Fate en rojo si &lt; 40, sin bloquear nada.
+        /// </summary>
+        private void RefreshActiveDeckLabel()
         {
             var deckId = _library.ActiveDeckId;
             var deck = deckId != null ? _library.Repo.GetDeckById(deckId) : null;
-            DeckCounts.Inlines.Clear();
+            ActiveDeckCounts.Inlines.Clear();
+
             if (deck == null)
             {
-                DeckCounts.Inlines.Add(new System.Windows.Documents.Run(Strings.Get("Search_NoDeckSelected")));
-                DeckCardsList.ItemsSource = null;
+                ActiveDeckName.Text = Strings.Get("Search_NoDeckSelected");
+                ActiveDeckName.Foreground = (Brush)FindResource("TextFaint");
                 return;
             }
 
-            var rows = _library.Repo.GetCardsWithCards(deckId)
-                .Where(x => x.Entry.Quantity > 0)
-                .OrderBy(x => DeckGroups.GroupOrder(x.Card.DeckGroup))
-                .ThenBy(x => DeckGroups.TypeOrderInGroup(x.Card.DeckGroup, x.Card.Type))
-                .ThenBy(x => x.Card.Name, StringComparer.Ordinal)
-                .Select(x => new DeckRowVm
-                {
-                    Card = x.Card,
-                    Label = x.Card.Name,
-                    QtyText = x.Entry.Quantity + "/" + (deck.Type == "list" ? 1 : x.Card.MaxCopies),
-                })
-                .ToList();
+            ActiveDeckName.Text = deck.Name;
+            ActiveDeckName.Foreground = (Brush)FindResource("Gold");
 
-            // Conteos blandos de la app: Dynasty/Fate en rojo si < 40 (no bloquean nada)
+            var red = (Brush)FindResource("ErrorText");
             var total = _library.Repo.TotalCardCount(deckId);
             var dynasty = _library.Repo.DynastyCount(deckId);
             var fate = _library.Repo.FateCount(deckId);
-            var red = (Brush)FindResource("ErrorText");
-            DeckCounts.Inlines.Add(new System.Windows.Documents.Run(
+
+            ActiveDeckCounts.Inlines.Add(new System.Windows.Documents.Run(
                 Strings.Format("Fmt_DeckTotal", total) + "  ·  "));
             var dynastyRun = new System.Windows.Documents.Run(
-                $"Dynasty {dynasty}/{Services.Deck.DeckRepository.SideTarget}");
+                $"D {dynasty}/{Services.Deck.DeckRepository.SideTarget}");
             if (dynasty < Services.Deck.DeckRepository.SideTarget) dynastyRun.Foreground = red;
-            DeckCounts.Inlines.Add(dynastyRun);
-            DeckCounts.Inlines.Add(new System.Windows.Documents.Run("  ·  "));
+            ActiveDeckCounts.Inlines.Add(dynastyRun);
+            ActiveDeckCounts.Inlines.Add(new System.Windows.Documents.Run("  ·  "));
             var fateRun = new System.Windows.Documents.Run(
-                $"Fate {fate}/{Services.Deck.DeckRepository.SideTarget}");
+                $"F {fate}/{Services.Deck.DeckRepository.SideTarget}");
             if (fate < Services.Deck.DeckRepository.SideTarget) fateRun.Foreground = red;
-            DeckCounts.Inlines.Add(fateRun);
+            ActiveDeckCounts.Inlines.Add(fateRun);
 
+            // Los slots sin cubrir van al tooltip: en una barra de una línea no entran, pero
+            // perderlos del todo sería perder el aviso de "te falta el stronghold".
             var uncovered = _library.Repo.UncoveredRequiredSlots(deckId);
-            if (uncovered.Count > 0)
-            {
-                var missing = new System.Windows.Documents.Run(
-                    "\n" + Strings.Format("Fmt_DeckMissingSlots",
-                        string.Join(", ", uncovered.Select(s => s.Label ?? s.SlotId))))
-                { Foreground = red };
-                DeckCounts.Inlines.Add(missing);
-            }
-            DeckCardsList.ItemsSource = rows;
+            ActiveDeckCounts.ToolTip = uncovered.Count > 0
+                ? Strings.Format("Fmt_DeckMissingSlots",
+                    string.Join(", ", uncovered.Select(x => x.Label ?? x.SlotId)))
+                : Strings.Get("Search_ActiveDeckCountsTip");
+            if (uncovered.Count > 0) ActiveDeckCounts.Inlines.Add(
+                new System.Windows.Documents.Run("  ·  !") { Foreground = red });
         }
-
-        private void DeckCardsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            // Muestra la carta en la pestaña Carta SIN cambiar de pestaña (los +/- de la
-            // fila también seleccionan; saltar de pestaña en cada click sería molesto).
-            var row = DeckCardsList.SelectedItem as DeckRowVm;
-            if (row?.Card != null) ShowDetailSilent(row.Card);
-        }
-
-        private void DeckRowPlus_Click(object sender, RoutedEventArgs e) =>
-            ApplyDeckDelta(((sender as FrameworkElement)?.DataContext as DeckRowVm)?.Card, +1);
-
-        private void DeckRowMinus_Click(object sender, RoutedEventArgs e) =>
-            ApplyDeckDelta(((sender as FrameworkElement)?.DataContext as DeckRowVm)?.Card, -1);
 
         private void AddToDeckBtn_Click(object sender, RoutedEventArgs e) => ApplyDeckDelta(_detailCard, +1);
         private void RemoveFromDeckBtn_Click(object sender, RoutedEventArgs e) => ApplyDeckDelta(_detailCard, -1);
@@ -1210,6 +1155,7 @@ namespace L5ArgentinaLauncher.Views
             ListFilterCombo.ItemsSource = items;
             ListFilterCombo.SelectedItem = items.FirstOrDefault(i => i.Name == previous) ?? items[0];
             _listComboSyncing = false;
+            ListDeleteBtn.IsEnabled = SelectedListName != null;
         }
 
         private void SelectListInFilterCombo(string name)
@@ -1247,23 +1193,18 @@ namespace L5ArgentinaLauncher.Views
             if (QuickListBtn.IsChecked == true) Recompute();
         }
 
-        private void ListCreate_Click(object sender, RoutedEventArgs e) => CreateListFromBox();
-        private void NewListBox_KeyDown(object sender, KeyEventArgs e)
+        /// <summary>Nueva lista: el nombre se pide con el prompt de la app, no con un campo fijo.</summary>
+        private void ListCreate_Click(object sender, RoutedEventArgs e)
         {
-            if (e.Key == Key.Enter) { CreateListFromBox(); e.Handled = true; }
-        }
-
-        private void CreateListFromBox()
-        {
-            var name = (NewListBox.Text ?? "").Trim();
+            var name = (Dialogs.Prompt(this, Strings.Get("Search_ListCreateTitle"),
+                                       Strings.Get("Search_ListCreatePrompt"), "") ?? "").Trim();
             if (name.Length == 0) return;
-            if (_store.CreateList(name))
-            {
-                NewListBox.Text = "";
-                // queda como lista activa para ir cargándola con el botón de las celdas
-                RefreshListFilterCombo(name);
-                RefreshCellStates();
-            }
+            // Si ya existía, CreateList devuelve false: en vez de no hacer nada en silencio,
+            // la dejamos activa igual — el usuario pidió trabajar sobre esa lista.
+            _store.CreateList(name);
+            // queda como lista activa para ir cargándola con el botón de las celdas
+            RefreshListFilterCombo(name);
+            RefreshCellStates();
         }
 
         /// <summary>Borra la lista activa (la elegida en la barra).</summary>
@@ -1271,6 +1212,9 @@ namespace L5ArgentinaLauncher.Views
         {
             var list = SelectedListName;
             if (list == null) return;
+            if (!Dialogs.Confirm(this, Strings.Get("Search_ListDeleteTitle"),
+                                 Strings.Format("Fmt_ListDeleteConfirm", list),
+                                 Strings.Get("Btn_Delete"))) return;
             _store.DeleteList(list);
             RefreshListFilterCombo();
             RefreshCellStates();
@@ -1333,14 +1277,25 @@ namespace L5ArgentinaLauncher.Views
         private void UpdateDetailActions()
         {
             var hasCard = _detailCard != null;
+            var list = SelectedListName;
             FavBtn.IsEnabled = hasCard;
             HideBtn.IsEnabled = hasCard;
             AddToDeckBtn.IsEnabled = hasCard && _library.ActiveDeckId != null;
             RemoveFromDeckBtn.IsEnabled = AddToDeckBtn.IsEnabled;
+            // sin lista activa no hay a dónde agregar: el botón se apaga en vez de avisar al clickear
+            ListBtn.IsEnabled = hasCard && list != null;
             FavBtn.Content = hasCard && _store.Data.Favorites.Contains(_detailCard.Id)
                 ? Strings.Get("Search_Fav_Remove") : Strings.Get("Search_Fav_Add");
             HideBtn.Content = hasCard && _store.Data.Hidden.Contains(_detailCard.Id)
                 ? Strings.Get("Search_Unhide") : Strings.Get("Search_Hide");
+            ListBtn.Content = hasCard && list != null && _store.ListContains(list, _detailCard.Id)
+                ? Strings.Get("Search_ListRemove") : Strings.Get("Search_ListAdd");
+        }
+
+        private void ListBtn_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleInActiveList(_detailCard);
+            UpdateDetailActions();
         }
 
         // ------------------------------------------------------------------ detalle
@@ -1362,7 +1317,6 @@ namespace L5ArgentinaLauncher.Views
         private void ShowDetail(Card card, string preferredPath = null)
         {
             ShowDetailSilent(card, preferredPath);
-            Tab_Click(TabCardBtn, null);
         }
 
         /// <summary>Actualiza el detalle sin cambiar la pestaña (filas del panel de mazo).</summary>

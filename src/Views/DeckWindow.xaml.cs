@@ -46,6 +46,9 @@ namespace L5ArgentinaLauncher.Views
 
         private readonly DeckLibrary _library;
         private readonly CardImageResolver _resolver;
+        // Para abrir un Buscador desde el editor (mismo catálogo, misma instalación).
+        private readonly CardCatalog _catalog;
+        private readonly string _installPath;
         private readonly DispatcherTimer _notesTimer;
         private readonly DispatcherTimer _statusTimer;
         // VMs de imagen por carta (GridCell del Buscador: decode lazy + weak ref); el caché
@@ -81,8 +84,11 @@ namespace L5ArgentinaLauncher.Views
         public DeckWindow(CardCatalog catalog, string installPath)
         {
             InitializeComponent();
+            WindowSizingFix.Attach(this); // maximizado y apertura acotados al área de trabajo
             _library = DeckLibrary.GetOrLoad(catalog, installPath);
             _resolver = new CardImageResolver(installPath);
+            _catalog = catalog;
+            _installPath = installPath;
 
             SortCombo.ItemsSource = new[]
             {
@@ -129,24 +135,25 @@ namespace L5ArgentinaLauncher.Views
 
         private void Window_StateChanged(object sender, EventArgs e)
         {
-            var maximized = WindowState == WindowState.Maximized;
-            RootLayout.Margin = new Thickness(maximized ? 7 : 0);
-            MaxButton.Content = maximized ? "❐" : "□";
+            // Ver SearchWindow: el área de trabajo la acota WindowSizingFix, no un margen.
+            MaxButton.Content = WindowState == WindowState.Maximized ? "❐" : "□";
         }
 
         // ------------------------------------------------------------------ paneles colapsables
 
+        /// <summary>
+        /// Colapsa/expande los paneles laterales desde los rieles; el centro absorbe el ancho
+        /// liberado. Las columnas de los rieles no se tocan: son la única forma de reabrir.
+        /// </summary>
         private void PaneToggle_Click(object sender, RoutedEventArgs e)
         {
             var decksOn = DecksPaneBtn.IsChecked == true;
             DecksPanel.Visibility = decksOn ? Visibility.Visible : Visibility.Collapsed;
             DecksCol.Width = new GridLength(decksOn ? 260 : 0);
-            DecksGap.Width = new GridLength(decksOn ? 10 : 0);
 
             var sideOn = SidePaneBtn.IsChecked == true;
             SidePanel.Visibility = sideOn ? Visibility.Visible : Visibility.Collapsed;
             SideCol.Width = new GridLength(sideOn ? 405 : 0);
-            SideGap.Width = new GridLength(sideOn ? 10 : 0);
         }
 
         // ------------------------------------------------------------------ lista de mazos
@@ -158,7 +165,7 @@ namespace L5ArgentinaLauncher.Views
                 .Select(d => new DeckItemVm
                 {
                     Id = d.Id,
-                    Title = (d.Id == _library.ActiveDeckId ? "● " : "") + d.Name,
+                    Title = d.Name,
                     Subtitle = DeckSubtitle(d),
                 })
                 .ToList();
@@ -172,6 +179,9 @@ namespace L5ArgentinaLauncher.Views
             _syncing = false;
 
             _selectedDeckId = select?.Id;
+            // Seleccionar ES activar (ADR-042): el mazo elegido acá es el destino de los +/− del
+            // Buscador, sin un paso de "Activar" aparte.
+            if (_selectedDeckId != null) _library.ActiveDeckId = _selectedDeckId;
             RefreshAll();
         }
 
@@ -193,6 +203,7 @@ namespace L5ArgentinaLauncher.Views
         {
             if (_syncing) return;
             _selectedDeckId = (DeckList.SelectedItem as DeckItemVm)?.Id;
+            if (_selectedDeckId != null) _library.ActiveDeckId = _selectedDeckId;
             RefreshAll();
         }
 
@@ -215,6 +226,18 @@ namespace L5ArgentinaLauncher.Views
 
         private void OnActiveDeckChanged() => RefreshDeckList(_selectedDeckId);
 
+        // ------------------------------------------------------------------ barra de acciones
+
+        /// <summary>
+        /// Abre otra ventana del Buscador sobre el mismo catálogo, como el Ctrl+N del Buscador.
+        /// Es el camino de ida del editor: las cartas nuevas se agregan desde ahí.
+        /// </summary>
+        private void OpenSearchBtn_Click(object sender, RoutedEventArgs e) =>
+            new SearchWindow(_catalog, _installPath).Show();
+
+        private void DeckMenuBtn_Click(object sender, RoutedEventArgs e) =>
+            DeckMenuPopup.IsOpen = !DeckMenuPopup.IsOpen;
+
         // ------------------------------------------------------------------ refresco general
 
         private void RefreshAll()
@@ -225,9 +248,6 @@ namespace L5ArgentinaLauncher.Views
                 btn.IsEnabled = hasDeck;
 
             DeckTitle.Text = hasDeck ? deck.Name : Strings.Get("Deck_NoDeckSelected");
-            var isActive = hasDeck && _library.ActiveDeckId == deck.Id;
-            ActiveBadge.Visibility = isActive ? Visibility.Visible : Visibility.Collapsed;
-            ActivateBtn.Visibility = hasDeck && !isActive ? Visibility.Visible : Visibility.Collapsed;
 
             RefreshCounts(deck);
             RebuildDeckBody(deck);
@@ -518,12 +538,8 @@ namespace L5ArgentinaLauncher.Views
                 Width = 213,
                 Height = 330,
                 Margin = new Thickness(4),
-                CornerRadius = new CornerRadius(7),
-                Background = new SolidColorBrush(Color.FromArgb(0x4D, 0x14, 0x0A, 0x05)),
+                CornerRadius = new CornerRadius(9),
                 BorderThickness = new Thickness(2),
-                BorderBrush = card.Id == _selectedCardId
-                    ? (Brush)FindResource("Gold")
-                    : new SolidColorBrush(Color.FromArgb(0x33, 0xC9, 0xA9, 0x61)),
                 Cursor = Cursors.Hand,
             };
             cell.MouseLeftButtonUp += (s, e) => SelectCard(card);
@@ -544,10 +560,18 @@ namespace L5ArgentinaLauncher.Views
                 FontSize = 12,
                 Foreground = (Brush)FindResource("TextDim"),
             });
-            var img = new Image { Stretch = Stretch.Uniform, DataContext = vm };
-            img.SetBinding(Image.SourceProperty, new Binding(nameof(GridCell.Thumb)) { IsAsync = true });
-            imgHost.Children.Add(img);
+            // Igual que la grilla del Buscador: ImageBrush sobre un Border para que el arte
+            // respete el CornerRadius (el escaneo es rectangular y le asoman las puntitas
+            // blancas), y el marco de la celda solo se dibuja cuando NO hay imagen.
+            var art = new Border { CornerRadius = new CornerRadius(7), DataContext = vm };
+            var artBrush = new ImageBrush { Stretch = Stretch.UniformToFill };
+            BindingOperations.SetBinding(artBrush, ImageBrush.ImageSourceProperty,
+                new Binding(nameof(GridCell.Thumb)) { Source = vm, IsAsync = true });
+            art.Background = artBrush;
+            imgHost.Children.Add(art);
             layout.Children.Add(imgHost);
+
+            ApplyCellFrame(cell, art, card.Id == _selectedCardId);
 
             var bar = new Border
             {
@@ -848,13 +872,10 @@ namespace L5ArgentinaLauncher.Views
             RefreshDeckList(id);
         }
 
-        private void ActivateBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (_selectedDeckId != null) _library.ActiveDeckId = _selectedDeckId;
-        }
 
         private void RenameBtn_Click(object sender, RoutedEventArgs e)
         {
+            DeckMenuPopup.IsOpen = false;
             var deck = _selectedDeckId != null ? Repo.GetDeckById(_selectedDeckId) : null;
             if (deck == null) return;
             var name = Prompt(Strings.Get("Deck_Rename"), Strings.Get("Deck_RenamePrompt"), deck.Name);
@@ -864,6 +885,7 @@ namespace L5ArgentinaLauncher.Views
 
         private void DuplicateBtn_Click(object sender, RoutedEventArgs e)
         {
+            DeckMenuPopup.IsOpen = false;
             if (_selectedDeckId == null) return;
             var copyId = _library.DuplicateDeck(_selectedDeckId);
             if (copyId != null) RefreshDeckList(copyId);
@@ -871,12 +893,12 @@ namespace L5ArgentinaLauncher.Views
 
         private void DeleteBtn_Click(object sender, RoutedEventArgs e)
         {
+            DeckMenuPopup.IsOpen = false;
             var deck = _selectedDeckId != null ? Repo.GetDeckById(_selectedDeckId) : null;
             if (deck == null) return;
-            var confirm = MessageBox.Show(this,
-                Strings.Format("Fmt_DeckDeleteConfirm", deck.Name),
-                Strings.Get("Deck_Delete"), MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (confirm != MessageBoxResult.Yes) return;
+            if (!Dialogs.Confirm(this, Strings.Get("Deck_Delete"),
+                                 Strings.Format("Fmt_DeckDeleteConfirm", deck.Name),
+                                 Strings.Get("Btn_Delete"))) return;
             _library.DeleteDeck(deck.Id);
             _selectedDeckId = null;
             RefreshDeckList(null);
@@ -884,13 +906,13 @@ namespace L5ArgentinaLauncher.Views
 
         private void ImportBtn_Click(object sender, RoutedEventArgs e)
         {
+            DeckMenuPopup.IsOpen = false;
             if (_selectedDeckId == null) return;
             string text = null;
             try { text = Clipboard.GetText(); } catch { }
             if (string.IsNullOrWhiteSpace(text))
             {
-                MessageBox.Show(this, Strings.Get("Deck_ImportEmptyClipboard"),
-                    Strings.Get("Deck_Import"), MessageBoxButton.OK, MessageBoxImage.Information);
+                Dialogs.Info(this, Strings.Get("Deck_Import"), Strings.Get("Deck_ImportEmptyClipboard"));
                 return;
             }
             var result = Repo.ImportCards(_selectedDeckId, text);
@@ -901,12 +923,12 @@ namespace L5ArgentinaLauncher.Views
                 message += "\n" + string.Join("\n", names);
                 if (result.NotFoundNames.Count > names.Count) message += "\n…";
             }
-            MessageBox.Show(this, message, Strings.Get("Deck_Import"),
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            Dialogs.Info(this, Strings.Get("Deck_Import"), message);
         }
 
         private void ExportBtn_Click(object sender, RoutedEventArgs e)
         {
+            DeckMenuPopup.IsOpen = false;
             if (_selectedDeckId == null) return;
             try
             {
@@ -921,6 +943,7 @@ namespace L5ArgentinaLauncher.Views
 
         private void OpenFolderBtn_Click(object sender, RoutedEventArgs e)
         {
+            DeckMenuPopup.IsOpen = false;
             try
             {
                 Directory.CreateDirectory(_library.DecksDir);
@@ -929,76 +952,38 @@ namespace L5ArgentinaLauncher.Views
             catch { }
         }
 
+        /// <summary>
+        /// Marco de la celda: es el placeholder, así que solo se ve mientras el arte no cargó.
+        /// La selección se pone como valor local y por eso gana siempre sobre el Style.
+        /// </summary>
+        private void ApplyCellFrame(Border cell, Border art, bool selected)
+        {
+            if (selected)
+            {
+                cell.BorderBrush = (Brush)FindResource("Gold");
+                cell.Background = Brushes.Transparent;
+                return;
+            }
+            var style = new Style(typeof(Border));
+            style.Setters.Add(new Setter(Border.BorderBrushProperty, Brushes.Transparent));
+            style.Setters.Add(new Setter(Border.BackgroundProperty, Brushes.Transparent));
+            var noArt = new DataTrigger
+            {
+                Binding = new Binding("Background.ImageSource") { Source = art },
+                Value = null,
+            };
+            noArt.Setters.Add(new Setter(Border.BorderBrushProperty,
+                new SolidColorBrush(Color.FromArgb(0x33, 0xC9, 0xA9, 0x61))));
+            noArt.Setters.Add(new Setter(Border.BackgroundProperty,
+                new SolidColorBrush(Color.FromArgb(0x4D, 0x14, 0x0A, 0x05))));
+            style.Triggers.Add(noArt);
+            cell.Style = style;
+        }
+
         // ------------------------------------------------------------------ prompt mínimo
 
-        /// <summary>Diálogo modal chico de una línea (nombre de mazo), con la estética de la app.</summary>
-        private string Prompt(string title, string label, string initial)
-        {
-            var box = new TextBox
-            {
-                Text = initial ?? "",
-                Style = (Style)FindResource("InvertedTextBox"),
-                Height = 32,
-                FontSize = 14,
-                Margin = new Thickness(0, 8, 0, 14),
-            };
-            var ok = new Button
-            {
-                Content = Strings.Get("Deck_PromptOk"),
-                Style = (Style)FindResource("GhostButton"),
-                Height = 30,
-                Padding = new Thickness(14, 0, 14, 0),
-                IsDefault = true,
-            };
-            var cancel = new Button
-            {
-                Content = Strings.Get("Deck_PromptCancel"),
-                Style = (Style)FindResource("GhostButton"),
-                Height = 30,
-                Padding = new Thickness(14, 0, 14, 0),
-                Margin = new Thickness(8, 0, 0, 0),
-                IsCancel = true,
-            };
-            var buttons = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Right,
-            };
-            buttons.Children.Add(ok);
-            buttons.Children.Add(cancel);
-            var panel = new StackPanel { Margin = new Thickness(18) };
-            panel.Children.Add(new TextBlock
-            {
-                Text = label,
-                FontFamily = (FontFamily)FindResource("BodyFont"),
-                FontSize = 14,
-                Foreground = (Brush)FindResource("Text"),
-            });
-            panel.Children.Add(box);
-            panel.Children.Add(buttons);
-
-            var dialog = new Window
-            {
-                Title = title,
-                Owner = this,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                SizeToContent = SizeToContent.WidthAndHeight,
-                MinWidth = 340,
-                WindowStyle = WindowStyle.None,
-                ResizeMode = ResizeMode.NoResize,
-                Background = (Brush)FindResource("Surface"),
-                Content = new Border
-                {
-                    BorderBrush = (Brush)FindResource("GoldDim"),
-                    BorderThickness = new Thickness(1),
-                    Child = panel,
-                },
-            };
-            dialog.MouseLeftButtonDown += (s, e) => { try { dialog.DragMove(); } catch { } };
-            ok.Click += (s, e) => { dialog.DialogResult = true; };
-            dialog.Loaded += (s, e) => { box.Focus(); box.SelectAll(); };
-            return dialog.ShowDialog() == true ? box.Text : null;
-        }
+        private string Prompt(string title, string label, string initial) =>
+            Dialogs.Prompt(this, title, label, initial);
 
         private static string Capitalize(string s) =>
             string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s.Substring(1);

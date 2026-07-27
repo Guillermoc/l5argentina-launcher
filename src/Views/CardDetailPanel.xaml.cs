@@ -21,6 +21,10 @@ namespace L5ArgentinaLauncher.Views
     {
         public Card Card { get; private set; }
 
+        /// <summary>Arte resuelto de la carta actual, o null. Fuente de verdad del panel: el
+        /// XAML solo lo pinta como <see cref="ImageBrush"/> sobre un Border redondeado.</summary>
+        private BitmapSource _art;
+
         public CardDetailPanel()
         {
             InitializeComponent();
@@ -42,7 +46,7 @@ namespace L5ArgentinaLauncher.Views
             DetailScroll.Visibility = Visibility.Visible;
 
             candidates = candidates ?? new List<string>();
-            CardImage.Source = LoadFromCandidates(candidates);
+            SetArt(LoadFromCandidates(candidates) as BitmapSource);
             UpdateImageDiagnostic(card, candidates);
 
             DetailName.Text = card.Name;
@@ -90,7 +94,7 @@ namespace L5ArgentinaLauncher.Views
             // Marco alrededor de la imagen (highlightColor): relleno al 12% + borde sólido de 2
             // + padding 3 — mismo patrón que CardListItem/CardViewerModal de la app.
             var highlightColor = ColorUtil.ParseColor(card.HighlightColor);
-            if (highlightColor != null)
+            if (highlightColor != null && _art == null)
             {
                 CardImageFrame.BorderBrush = ColorUtil.SolidBrush(highlightColor.Value);
                 CardImageFrame.Background = ColorUtil.SolidBrush(ColorUtil.WithAlpha(highlightColor.Value, 0.12));
@@ -104,7 +108,57 @@ namespace L5ArgentinaLauncher.Views
                 CardImageFrame.Padding = new Thickness(0);
             }
 
+            CopyImageBtn.IsEnabled = _art != null;
+            CopyImageFeedback.Visibility = Visibility.Collapsed;
+
             DetailScroll.ScrollToTop();
+        }
+
+        /// <summary>
+        /// Copia el arte de la carta al portapapeles. Se copia el bitmap ya cargado (no el archivo):
+        /// el panel es solo lectura y no vuelve a tocar el disco. El portapapeles de Windows falla
+        /// de forma intermitente si otro proceso lo tiene tomado, así que el error se reporta en el
+        /// panel y no se propaga.
+        /// </summary>
+        private void CopyImageBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var source = _art;
+            if (source == null) return;
+            try
+            {
+                Clipboard.SetImage(source);
+                ShowCopyFeedback("Detail_CopyImageOk", (Brush)FindResource("Gold"));
+            }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException
+                                       || ex is InvalidOperationException)
+            {
+                ShowCopyFeedback("Detail_CopyImageFail", (Brush)FindResource("ErrorText"));
+            }
+        }
+
+        private void ShowCopyFeedback(string key, Brush brush)
+        {
+            CopyImageFeedback.Text = Strings.Get(key);
+            CopyImageFeedback.Foreground = brush;
+            CopyImageFeedback.Visibility = Visibility.Visible;
+        }
+
+        /// <summary>
+        /// Pinta el arte como <see cref="ImageBrush"/> sobre el Border redondeado. El alto sale del
+        /// aspecto real del bitmap: con el alto correcto, UniformToFill no recorta nada y las
+        /// esquinas redondeadas caen justo sobre las del escaneo.
+        /// </summary>
+        private void SetArt(BitmapSource art)
+        {
+            _art = art;
+            if (art == null || art.PixelWidth <= 0)
+            {
+                CardArt.Background = null;
+                CardArt.Height = double.NaN;
+                return;
+            }
+            CardArt.Background = new ImageBrush(art) { Stretch = Stretch.UniformToFill };
+            CardArt.Height = CardArt.Width * art.PixelHeight / art.PixelWidth;
         }
 
         private static string BuildStatsLine(Card card)
@@ -160,7 +214,7 @@ namespace L5ArgentinaLauncher.Views
         /// </summary>
         private void UpdateImageDiagnostic(Card card, List<string> candidates)
         {
-            if (CardImage.Source != null)
+            if (_art != null)
             {
                 DetailImageMiss.Visibility = Visibility.Collapsed;
                 return;

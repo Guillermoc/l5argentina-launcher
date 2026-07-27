@@ -22,8 +22,12 @@
                      (pantallas a 125%/150% de escala). -->
                 <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Center">
                     <Grid>
+                        <!-- El marco del color del clan es el placeholder: con arte no se dibuja y
+                             el arte lleva sus propias esquinas redondeadas (el escaneo es
+                             rectangular y le asoman las puntitas blancas). Alto y pincel los pone
+                             ShowCard, que conoce el aspecto real del bitmap. -->
                         <Border x:Name="CardImageFrame" BorderThickness="0" CornerRadius="6">
-                            <Image x:Name="CardImage" Width="428" MaxHeight="612" Stretch="Uniform" />
+                            <Border x:Name="CardArt" Width="428" CornerRadius="17" />
                         </Border>
                         <Border x:Name="BannedPill" CornerRadius="11" Padding="10,3" Margin="0,10,10,0"
                                 HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed"
@@ -37,6 +41,15 @@
                         </Border>
                     </Grid>
                 </Viewbox>
+
+                <!-- Copiar el arte al portapapeles (se deshabilita si no se resolvió la imagen) -->
+                <Button x:Name="CopyImageBtn" Style="{StaticResource GhostButton}" Height="26"
+                        FontSize="12" Padding="10,0" Margin="0,7,0,0" HorizontalAlignment="Center"
+                        Content="{loc:Loc Detail_CopyImage}" ToolTip="{loc:Loc Detail_CopyImageTip}"
+                        Click="CopyImageBtn_Click" />
+                <TextBlock x:Name="CopyImageFeedback" Style="{StaticResource BodySmall}" FontSize="11"
+                           Foreground="{StaticResource Gold}" HorizontalAlignment="Center"
+                           Margin="0,4,0,0" Visibility="Collapsed" />
 
                 <!-- Diagnóstico: dónde se buscó la imagen que no apareció -->
                 <TextBlock x:Name="DetailImageMiss" Style="{StaticResource BodySmall}"

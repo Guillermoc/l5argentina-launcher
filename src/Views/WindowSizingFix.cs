@@ -1,0 +1,130 @@
+using System;
+using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Interop;
+
+namespace L5ArgentinaLauncher.Views
+{
+    /// <summary>
+    /// Corrige el dimensionado de las ventanas con <c>WindowStyle=None</c> + <c>WindowChrome</c>
+    /// (Buscador y Mazos), que sin esto quedan tapadas por la barra de tareas en dos momentos:
+    ///
+    /// <list type="bullet">
+    /// <item>Al <b>maximizar</b>: Windows maximiza contra el monitor completo, no contra el área
+    /// de trabajo, porque el chrome propio le saca el marco que normalmente lo acota. Se responde
+    /// <c>WM_GETMINMAXINFO</c> con el rectángulo de trabajo del monitor donde está la ventana.</item>
+    /// <item>Al <b>abrir</b>: el alto de diseño (840 DIP) supera el área de trabajo de un 1080p a
+    /// 125 % (~826 DIP), y <c>CenterScreen</c> centra contra la pantalla entera, así que el borde
+    /// inferior cae debajo de la barra. Se recorta y se reubica la ventana dentro del área útil.</item>
+    /// </list>
+    ///
+    /// Todo el trabajo se hace en píxeles de dispositivo (lo que espera la API de Win32) y recién
+    /// se convierte a DIP para tocar <see cref="Window"/>.
+    /// </summary>
+    internal static class WindowSizingFix
+    {
+        private const int WM_GETMINMAXINFO = 0x0024;
+        private const int MONITOR_DEFAULTTONEAREST = 0x00000002;
+
+        public static void Attach(Window window)
+        {
+            window.SourceInitialized += (s, e) =>
+            {
+                var source = PresentationSource.FromVisual(window) as HwndSource;
+                if (source == null) return;
+                source.AddHook(Hook);
+                ClampToWorkArea(window, source);
+            };
+        }
+
+        private static IntPtr Hook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg != WM_GETMINMAXINFO) return IntPtr.Zero;
+
+            RECT work, monitor;
+            if (!TryGetMonitorRects(hwnd, out work, out monitor)) return IntPtr.Zero;
+
+            var info = (MINMAXINFO)Marshal.PtrToStructure(lParam, typeof(MINMAXINFO));
+            // ptMaxPosition es relativo al origen del monitor, no al escritorio.
+            info.ptMaxPosition.X = work.Left - monitor.Left;
+            info.ptMaxPosition.Y = work.Top - monitor.Top;
+            info.ptMaxSize.X = work.Right - work.Left;
+            info.ptMaxSize.Y = work.Bottom - work.Top;
+            info.ptMaxTrackSize.X = info.ptMaxSize.X;
+            info.ptMaxTrackSize.Y = info.ptMaxSize.Y;
+            Marshal.StructureToPtr(info, lParam, true);
+
+            handled = true;
+            return IntPtr.Zero;
+        }
+
+        private static void ClampToWorkArea(Window window, HwndSource source)
+        {
+            RECT work, monitor;
+            if (!TryGetMonitorRects(source.Handle, out work, out monitor)) return;
+
+            var toDip = source.CompositionTarget.TransformFromDevice;
+            var topLeft = toDip.Transform(new Point(work.Left, work.Top));
+            var bottomRight = toDip.Transform(new Point(work.Right, work.Bottom));
+            var maxWidth = bottomRight.X - topLeft.X;
+            var maxHeight = bottomRight.Y - topLeft.Y;
+
+            // MinWidth/MinHeight ganan si el área útil es más chica que el mínimo de la ventana:
+            // preferimos una ventana usable aunque desborde a una inutilizablemente comprimida.
+            if (window.Width > maxWidth) window.Width = Math.Max(window.MinWidth, maxWidth);
+            if (window.Height > maxHeight) window.Height = Math.Max(window.MinHeight, maxHeight);
+
+            if (window.Left < topLeft.X) window.Left = topLeft.X;
+            if (window.Top < topLeft.Y) window.Top = topLeft.Y;
+            if (window.Left + window.Width > bottomRight.X) window.Left = bottomRight.X - window.Width;
+            if (window.Top + window.Height > bottomRight.Y) window.Top = bottomRight.Y - window.Height;
+        }
+
+        private static bool TryGetMonitorRects(IntPtr hwnd, out RECT work, out RECT monitor)
+        {
+            work = default(RECT);
+            monitor = default(RECT);
+
+            var handle = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+            if (handle == IntPtr.Zero) return false;
+
+            var info = new MONITORINFO { cbSize = Marshal.SizeOf(typeof(MONITORINFO)) };
+            if (!GetMonitorInfo(handle, ref info)) return false;
+
+            work = info.rcWork;
+            monitor = info.rcMonitor;
+            return true;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(IntPtr hwnd, int flags);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT { public int X; public int Y; }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MONITORINFO
+        {
+            public int cbSize;
+            public RECT rcMonitor;
+            public RECT rcWork;
+            public int dwFlags;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MINMAXINFO
+        {
+            public POINT ptReserved;
+            public POINT ptMaxSize;
+            public POINT ptMaxPosition;
+            public POINT ptMinTrackSize;
+            public POINT ptMaxTrackSize;
+        }
+    }
+}

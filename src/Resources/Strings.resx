@@ -80,6 +80,13 @@
   <data name="Fmt_Downloading" xml:space="preserve"><value>Descargando… {0:0.0} MB</value></data>
 
   <!-- ══════════ Diálogos ══════════ -->
+  <data name="Btn_Delete" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="Close_ConfirmTitle" xml:space="preserve"><value>Cerrar el launcher</value></data>
+  <data name="Close_ConfirmMessage" xml:space="preserve"><value>Se van a cerrar también el Buscador y el editor de Mazos si están abiertos. Los mazos ya guardados no se pierden.</value></data>
+  <data name="Close_ConfirmBusy" xml:space="preserve"><value>Hay una descarga o una actualización de la base en curso. Si cerrás ahora se interrumpe y puede quedar a medio aplicar.</value></data>
+  <data name="Close_ConfirmYes" xml:space="preserve"><value>Cerrar</value></data>
+  <data name="Search_ListDeleteTitle" xml:space="preserve"><value>Borrar lista</value></data>
+  <data name="Fmt_ListDeleteConfirm" xml:space="preserve"><value>¿Borrar la lista "{0}"? Las cartas no se tocan, solo se pierde la lista.</value></data>
   <data name="Dlg_InstallNotFoundTitle" xml:space="preserve"><value>Instalación no encontrada</value></data>
   <data name="Dlg_InstallNotFoundMsg" xml:space="preserve"><value>La carpeta de Sun and Moon no es válida. Revisala en Configuración.</value></data>
   <data name="Err_NoManifestForCommunity" xml:space="preserve"><value>No hay conexión al manifest, así que no puedo bajar ni actualizar la base Comunidad. Reintentá con internet, o jugá con la base Original.</value></data>
@@ -138,15 +145,15 @@
   <data name="Search_KwAdvanced" xml:space="preserve"><value>Opciones avanzadas</value></data>
   <data name="Search_ViewList" xml:space="preserve"><value>Lista</value></data>
   <data name="Search_ViewGrid" xml:space="preserve"><value>Grilla</value></data>
-  <data name="Search_ExpandPrints" xml:space="preserve"><value>Impresiones</value></data>
+  <data name="Search_ExpandPrints" xml:space="preserve"><value>Ver todas las impresiones</value></data>
   <data name="Search_ExpandPrintsTip" xml:space="preserve"><value>Mostrar cada impresión de la carta como una entrada aparte (solo en la grilla)</value></data>
   <data name="Search_OnlyFavorites" xml:space="preserve"><value>Solo favoritas</value></data>
   <data name="Search_ShowHidden" xml:space="preserve"><value>Ver ocultas</value></data>
   <data name="Search_OnlyHidden" xml:space="preserve"><value>Solo ocultas</value></data>
   <data name="Search_Fav_Add" xml:space="preserve"><value>☆ Favorita</value></data>
-  <data name="Search_Fav_Remove" xml:space="preserve"><value>★ Quitar favorita</value></data>
-  <data name="Search_Hide" xml:space="preserve"><value>Ocultar</value></data>
-  <data name="Search_Unhide" xml:space="preserve"><value>Mostrar</value></data>
+  <data name="Search_Fav_Remove" xml:space="preserve"><value>★ Favorita</value></data>
+  <data name="Search_Hide" xml:space="preserve"><value>⊘ Ocultar</value></data>
+  <data name="Search_Unhide" xml:space="preserve"><value>⊙ Mostrar</value></data>
   <!-- Arcos del selector de Edición (términos de juego, en inglés) -->
   <data name="Arc_Lotus" xml:space="preserve"><value>Lotus</value></data>
   <data name="Arc_Samurai" xml:space="preserve"><value>Samurai</value></data>
@@ -162,11 +169,8 @@
   <data name="Search_PresetDeleteTip" xml:space="preserve"><value>Borrar el preset seleccionado</value></data>
   <data name="Search_PresetSaveLabel" xml:space="preserve"><value>Guardar los filtros actuales como:</value></data>
   <data name="Search_PresetSave" xml:space="preserve"><value>Guardar</value></data>
-  <data name="Search_Section_Lists" xml:space="preserve"><value>Listas</value></data>
   <data name="Search_OnlyList" xml:space="preserve"><value>Solo la lista seleccionada</value></data>
-  <data name="Search_ListCreateLabel" xml:space="preserve"><value>Nueva lista:</value></data>
   <data name="Search_ListCreateTip" xml:space="preserve"><value>Crear lista (Enter)</value></data>
-  <data name="Search_ListDelete" xml:space="preserve"><value>Borrar la lista seleccionada</value></data>
   <data name="Search_ListBtnNoList" xml:space="preserve"><value>Lista…</value></data>
   <data name="Fmt_ListAdd" xml:space="preserve"><value>+ {0}</value></data>
   <data name="Fmt_ListRemove" xml:space="preserve"><value>− {0}</value></data>
@@ -199,6 +203,10 @@
   <data name="Search_Col_PHonor" xml:space="preserve"><value>HP</value></data>
   <data name="Search_Col_Sets" xml:space="preserve"><value>Ediciones</value></data>
   <data name="Search_NoSelection" xml:space="preserve"><value>Elegí una carta para ver el detalle.</value></data>
+  <data name="Detail_CopyImage" xml:space="preserve"><value>Copiar imagen</value></data>
+  <data name="Detail_CopyImageTip" xml:space="preserve"><value>Copia el arte de la carta al portapapeles</value></data>
+  <data name="Detail_CopyImageOk" xml:space="preserve"><value>Imagen copiada al portapapeles</value></data>
+  <data name="Detail_CopyImageFail" xml:space="preserve"><value>No se pudo copiar (el portapapeles está en uso)</value></data>
   <data name="Fmt_DetailSets" xml:space="preserve"><value>Ediciones: {0}</value></data>
   <data name="Fmt_DetailLegality" xml:space="preserve"><value>Legalidad: {0}</value></data>
   <data name="Fmt_DetailArtist" xml:space="preserve"><value>Arte: {0}</value></data>
@@ -251,9 +259,7 @@
   <data name="Dlg_NoCatalogMsg" xml:space="preserve"><value>Todavía no hay catálogo de cartas descargado. Se sincroniza automáticamente desde el manifest cuando el bucket lo publica (Buscar actualizaciones con conexión).</value></data>
 
   <!-- ═══════ Buscador v4: paneles colapsables, toggles rápidos, orden por cabecera ═══════ -->
-  <data name="Search_PaneFilters" xml:space="preserve"><value>Filtros</value></data>
   <data name="Search_PaneFiltersTip" xml:space="preserve"><value>Mostrar u ocultar el panel de filtros (colapsado entra una columna más de cartas)</value></data>
-  <data name="Search_PaneDetail" xml:space="preserve"><value>Panel</value></data>
   <data name="Search_PaneDetailTip" xml:space="preserve"><value>Mostrar u ocultar el panel de mazo y detalle (colapsado entra una columna más de cartas)</value></data>
   <data name="Search_OnlyActive" xml:space="preserve"><value>Solo mazo/lista</value></data>
   <data name="Search_OnlyActiveTip" xml:space="preserve"><value>Mostrar solo las cartas del mazo o lista seleccionada en el panel derecho</value></data>
@@ -265,18 +271,22 @@
   <data name="Search_Sort_Focus" xml:space="preserve"><value>Foco</value></data>
   <data name="Search_DecksBtn" xml:space="preserve"><value>Mazos…</value></data>
   <data name="Search_DecksBtnTip" xml:space="preserve"><value>Abrir el editor de mazos (los mazos viven como .txt en la carpeta Decks de Sun and Moon)</value></data>
-  <data name="Search_EditDeckTip" xml:space="preserve"><value>Editar este mazo en la ventana de Mazos</value></data>
   <data name="Search_DeckContents" xml:space="preserve"><value>Contenido</value></data>
+  <data name="Search_ListAdd" xml:space="preserve"><value>≡ A la lista</value></data>
+  <data name="Search_ListRemove" xml:space="preserve"><value>≡ Quitar de la lista</value></data>
+  <data name="Search_ListBtnTip" xml:space="preserve"><value>Agregar o quitar esta carta de la lista activa</value></data>
+  <data name="Search_ListCreateTitle" xml:space="preserve"><value>Nueva lista</value></data>
+  <data name="Search_ListCreatePrompt" xml:space="preserve"><value>Nombre de la lista</value></data>
   <data name="Search_AddToDeck" xml:space="preserve"><value>+ Mazo</value></data>
   <data name="Search_AddToDeckTip" xml:space="preserve"><value>Agregar la carta seleccionada al mazo/lista activa (doble click en una carta hace lo mismo)</value></data>
   <data name="Search_RemoveFromDeck" xml:space="preserve"><value>− Mazo</value></data>
-  <data name="Search_NoDeckSelected" xml:space="preserve"><value>Elegí un mazo o lista arriba para usar + / −.</value></data>
+  <data name="Search_NoDeckSelected" xml:space="preserve"><value>(ninguno)</value></data>
   <data name="Search_ListDeleteTip" xml:space="preserve"><value>Borra la lista elegida en el selector del panel derecho</value></data>
   <data name="Fmt_ListChoice" xml:space="preserve"><value>{0} (lista)</value></data>
   <data name="Fmt_ListCount" xml:space="preserve"><value>{0} cartas</value></data>
   <data name="Fmt_DeckTotal" xml:space="preserve"><value>Total {0}</value></data>
   <data name="Fmt_DeckMissingSlots" xml:space="preserve"><value>Falta: {0}</value></data>
-  <data name="Deck_NoSelection" xml:space="preserve"><value>No hay mazo/lista seleccionada</value></data>
+  <data name="Deck_NoSelection" xml:space="preserve"><value>No hay mazo activo — elegí uno en la ventana de Mazos</value></data>
   <data name="Deck_AddBanned" xml:space="preserve"><value>Baneada: no se puede agregar</value></data>
   <data name="Fmt_DeckLimit" xml:space="preserve"><value>Tope de copias alcanzado ({0})</value></data>
   <data name="Deck_AddSlotCovered" xml:space="preserve"><value>Ese slot de holding inicial ya está cubierto</value></data>
@@ -289,21 +299,25 @@
 
   <!-- ═══════ Editor de mazos ═══════ -->
   <data name="Deck_WindowTitle" xml:space="preserve"><value>Mazos</value></data>
-  <data name="Deck_PaneDecks" xml:space="preserve"><value>Mazos</value></data>
   <data name="Deck_PaneDecksTip" xml:space="preserve"><value>Mostrar u ocultar la lista de mazos y los filtros</value></data>
-  <data name="Deck_PaneSide" xml:space="preserve"><value>Panel</value></data>
   <data name="Deck_PaneSideTip" xml:space="preserve"><value>Mostrar u ocultar el detalle de carta / stats del mazo</value></data>
   <data name="Deck_ListHeader" xml:space="preserve"><value>Mazos</value></data>
   <data name="Deck_NewTip" xml:space="preserve"><value>Crear un mazo nuevo (queda activo)</value></data>
   <data name="Deck_New" xml:space="preserve"><value>Nuevo mazo</value></data>
   <data name="Deck_NewNamePrompt" xml:space="preserve"><value>Nombre del mazo (es el nombre del archivo .txt):</value></data>
-  <data name="Deck_Activate" xml:space="preserve"><value>Activar</value></data>
-  <data name="Deck_ActivateTip" xml:space="preserve"><value>Los + / − del Buscador operan sobre el mazo activo</value></data>
-  <data name="Deck_ActiveBadge" xml:space="preserve"><value>● Activo</value></data>
+  <data name="Deck_OpenSearch" xml:space="preserve"><value>Buscador</value></data>
+  <data name="Deck_OpenSearchTip" xml:space="preserve"><value>Abre el Buscador para agregar cartas a este mazo</value></data>
+  <data name="Deck_MenuTip" xml:space="preserve"><value>Renombrar, duplicar, importar, exportar, carpeta, eliminar</value></data>
   <data name="Deck_Import" xml:space="preserve"><value>Importar</value></data>
   <data name="Deck_ImportTip" xml:space="preserve"><value>Importa el texto del portapapeles al mazo (formato de la app Android / export)</value></data>
   <data name="Deck_Export" xml:space="preserve"><value>Exportar</value></data>
   <data name="Deck_ExportTip" xml:space="preserve"><value>Copia el mazo al portapapeles en el formato de la app Android</value></data>
+  <data name="Deck_ImportMenu" xml:space="preserve"><value>Importar del portapapeles…</value></data>
+  <data name="Deck_ExportMenu" xml:space="preserve"><value>Exportar al portapapeles</value></data>
+  <data name="Deck_OpenFolderMenu" xml:space="preserve"><value>Abrir la carpeta Decks</value></data>
+  <data name="Deck_RenameMenu" xml:space="preserve"><value>Renombrar el mazo…</value></data>
+  <data name="Deck_DuplicateMenu" xml:space="preserve"><value>Duplicar el mazo</value></data>
+  <data name="Deck_DeleteMenu" xml:space="preserve"><value>Eliminar el mazo…</value></data>
   <data name="Deck_Duplicate" xml:space="preserve"><value>Duplicar</value></data>
   <data name="Deck_Rename" xml:space="preserve"><value>Renombrar</value></data>
   <data name="Deck_RenamePrompt" xml:space="preserve"><value>Nuevo nombre:</value></data>
@@ -336,16 +350,18 @@
   <data name="Deck_Stats_AvgFocus" xml:space="preserve"><value>Foco promedio (Fate)</value></data>
 
   <!-- ═══════ Buscador v4.1: lista activa como filtro, tabs Carta/Mazo, acciones en celda ═══════ -->
-  <data name="Search_ActiveDeckLabel" xml:space="preserve"><value>Mazo activo</value></data>
-  <data name="Search_TabDeck" xml:space="preserve"><value>Mazo</value></data>
+  <data name="Search_ActiveDeckTip" xml:space="preserve"><value>Es el mazo seleccionado en la ventana de Mazos. Click para abrirla y cambiarlo.</value></data>
+  <data name="Search_ActiveDeckCountsTip" xml:space="preserve"><value>Total de cartas · Dynasty · Fate (en rojo si no llegan a 40)</value></data>
+  <data name="Search_ActiveDeckLabel" xml:space="preserve"><value>Mazo activo:</value></data>
   <data name="Search_ListFilterAll" xml:space="preserve"><value>Lista: (ninguna)</value></data>
   <data name="Search_ListFilterTip" xml:space="preserve"><value>Lista activa: el botón ≡ de las cartas agrega/quita de esta lista, y "Solo lista" filtra los resultados a sus cartas (p. ej. armá una lista de ninjas y filtrá por ella al armar el mazo)</value></data>
   <data name="Search_OnlyListShort" xml:space="preserve"><value>Solo lista</value></data>
   <data name="Search_OnlyListTip" xml:space="preserve"><value>Mostrar solo las cartas de la lista activa (elegila en el selector de al lado)</value></data>
   <data name="Search_NoListSelected" xml:space="preserve"><value>Elegí una lista activa en la barra (o creá una en Filtros → Listas)</value></data>
-  <data name="Cell_PlusTip" xml:space="preserve"><value>Agregar al mazo activo</value></data>
+  <data name="Cell_PlusTip" xml:space="preserve"><value>Agregar al mazo activo (Ctrl+click sobre la carta hace lo mismo)</value></data>
   <data name="Cell_MinusTip" xml:space="preserve"><value>Quitar del mazo activo</value></data>
   <data name="Cell_FavTip" xml:space="preserve"><value>Favorita</value></data>
   <data name="Cell_HideTip" xml:space="preserve"><value>Ocultar / mostrar</value></data>
+  <data name="Cell_CtrlAddOverlay" xml:space="preserve"><value>Agregar al mazo</value></data>
   <data name="Cell_ListTip" xml:space="preserve"><value>Agregar/quitar de la lista activa</value></data>
 </root>
