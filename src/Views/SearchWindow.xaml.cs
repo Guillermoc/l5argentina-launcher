@@ -57,7 +57,24 @@ namespace L5ArgentinaLauncher.Views
             "Arc_TwentyFestivals", "Arc_SamuraiExtended", "Arc_Promo",
         };
 
-        private const double GridCellOuterWidth = 240; // 226 + margen 5+5 + borde
+        /// <summary>
+        /// Cuatro tamaños de celda para la grilla. 226×322 es el histórico y sigue siendo el
+        /// default; el grande sirve para mirar el arte y los dos chicos para barrer muchas cartas
+        /// de un vistazo. La proporción es la de una carta escaneada (≈1.4248), así que solo se
+        /// elige el ancho.
+        ///
+        /// El más chico (124) **no entra la barra de acciones de la celda**, que mide ~160 con sus
+        /// cinco botones: en ese nivel se esconde (ver <see cref="IsTinyZoom"/>). No se pierde
+        /// nada — Ctrl+click, click derecho, Alt y el panel de detalle siguen haciendo todo.
+        /// </summary>
+        private static readonly double[] ZoomWidths = { 124, 168, 226, 302 };
+        private const double CardAspect = 322.0 / 226.0;
+        private const double CellMargin = 14; // margen 5+5 + borde 2+2
+
+        private int _zoom = 2; // 226, el histórico
+
+        private double CellWidthFor(int zoom) => ZoomWidths[zoom];
+        private double GridCellOuterWidth => CellWidthFor(_zoom) + CellMargin;
 
         private readonly CardSearchEngine _engine;
         private readonly CardImageResolver _resolver;
@@ -110,7 +127,7 @@ namespace L5ArgentinaLauncher.Views
         /// Qué es el conjunto activo del selector de la barra. Las dos últimas no son conjuntos:
         /// son las entradas que cambian de nivel el desplegable (listas ⇄ mazos).
         /// </summary>
-        private enum SetKind { None, List, Deck, Favorites, Hidden, ShowDecks, BackToLists }
+        private enum SetKind { None, List, Deck, Hidden, ShowDecks, BackToLists }
 
         /// <summary>Ítem del selector de conjunto activo de la barra.</summary>
         private class SetChoice
@@ -150,6 +167,11 @@ namespace L5ArgentinaLauncher.Views
             BuildChips(DesignatorChips, DesignatorValues.Select(d => Tuple.Create(d, d)));
             BuildSetChecks(catalog);
             BuildStatsRows();
+
+            // El chip de holdings iniciales solo existe si el catálogo trae cartas elegibles
+            // (hasInitialHoldings de la app): sin filters.json no hay ninguna y sobraría.
+            QuickHoldingsBtn.Visibility = catalog.Cards.Any(c => c.InitialHoldingSlot != null)
+                ? Visibility.Visible : Visibility.Collapsed;
 
             _allKwCodes = catalog.KeywordCodes.OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
             KwCombo.ItemsSource = _allKwCodes;
@@ -399,6 +421,7 @@ namespace L5ArgentinaLauncher.Views
             var selectedId = (ResultsList.SelectedItem as Card)?.Id ?? _selectedCell?.Card.Id;
             ResultsList.ItemsSource = _results;
             ResultCount.Text = Strings.Format("Fmt_SearchResults", _results.Count);
+            RefreshFilterSummary();
             UpdateSortDirLabel();
 
             _gridDirty = true;
@@ -467,6 +490,7 @@ namespace L5ArgentinaLauncher.Views
                 IncludeActionKeywords = KwActionBox.IsChecked == true,
                 IncludeSubtitleKeywords = KwSubtitleBox.IsChecked == true,
                 IncludeBanned = IncludeBannedBox.IsChecked == true,
+                OnlyInitialHoldings = QuickHoldingsBtn.IsChecked == true,
                 OnlyFavorites = QuickFavBtn.IsChecked == true,
                 IncludeHidden = QuickHiddenBtn.IsChecked == true,
                 OnlyHidden = OnlyHiddenBox.IsChecked == true,
@@ -504,6 +528,74 @@ namespace L5ArgentinaLauncher.Views
             return null;
         }
 
+        // ------------------------------------------------------------------ resumen de filtros
+
+        /// <summary>
+        /// Compacto de los criterios activos al lado del contador (`summaryOf` de la app). Sin
+        /// esto, con el panel de filtros colapsado no hay forma de saber qué está filtrando.
+        /// </summary>
+        private void RefreshFilterSummary()
+        {
+            var parts = SummaryParts(_lastCriteria);
+            FilterSummary.Text = parts.Count == 0 ? "" : "· " + string.Join(" · ", parts);
+            // en compacto el resumen no entra; el chip de "Solo lista" y los toggles siguen a la vista
+            FilterSummary.Visibility = parts.Count == 0 || _compact
+                ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        /// <summary>Click en el resumen: el texto completo, porque en la barra va recortado.</summary>
+        private void FilterSummary_Click(object sender, MouseButtonEventArgs e)
+        {
+            var parts = SummaryParts(_lastCriteria);
+            if (parts.Count == 0) return;
+            Dialogs.Info(this, Strings.Get("Search_FilterSummaryTitle"), string.Join("\n", parts));
+        }
+
+        private List<string> SummaryParts(CardSearchCriteria c)
+        {
+            var parts = new List<string>();
+            void Add(string s) { if (!string.IsNullOrWhiteSpace(s)) parts.Add(s); }
+
+            if (!string.IsNullOrWhiteSpace(c.Name)) Add("\"" + c.Name.Trim() + "\"");
+            if (!string.IsNullOrWhiteSpace(c.Text)) Add(Strings.Get("Search_Sum_Text") + " \"" + c.Text.Trim() + "\"");
+            if (c.Types.Any()) Add(string.Join("/", c.Types));
+            // las rarezas van duplicadas en mayúscula+minúscula por el bug portado: se muestran una vez
+            if (c.Clans.Any()) Add(string.Join("/", c.Clans.Select(x => Strings.Get("Clan_" + x))));
+            if (c.Rarities.Any())
+                Add(string.Join("/", c.Rarities.Select(r => r.ToUpperInvariant()).Distinct()));
+            if (c.Sets.Any())
+                Add(c.Sets.Count <= 3
+                    ? string.Join("/", c.Sets)
+                    : Strings.Format("Fmt_Sum_Sets", c.Sets.Count));
+            if (c.Designators.Any()) Add(string.Join("/", c.Designators));
+            if (c.Keywords.Any())
+                Add((c.KeywordMatchAll ? "" : Strings.Get("Search_Sum_AnyKw") + " ") + string.Join("+", c.Keywords));
+            if (c.NegativeKeywords.Any()) Add("−" + string.Join(" −", c.NegativeKeywords));
+
+            Add(Range("F", c.ForceMin, c.ForceMax));
+            Add(Range("Chi", c.ChiMin, c.ChiMax));
+            Add(Range("©", c.CostMin, c.CostMax));
+            Add(Range("H", c.HonorReqMin, c.HonorReqMax));
+            Add(Range("HP", c.PersonalHonorMin, c.PersonalHonorMax));
+            Add(Range(Strings.Get("Search_Sum_Focus"), c.FocusMin, c.FocusMax));
+
+            if (c.IncludeBanned) Add(Strings.Get("Search_Sum_Banned"));
+            if (c.OnlyInitialHoldings) Add(Strings.Get("Search_OnlyInitialHoldings"));
+            if (c.OnlyFavorites) Add(Strings.Get("Search_OnlyFavorites"));
+            if (c.OnlyHidden) Add(Strings.Get("Search_OnlyHidden"));
+            else if (c.IncludeHidden) Add(Strings.Get("Search_ShowHidden"));
+            if (c.ListId != null) Add(Strings.Format("Fmt_Sum_Set", _activeSet?.Label ?? c.ListId));
+            return parts;
+        }
+
+        /// <summary>"F≥5" / "F≤3" / "F 2-5"; vacío si no hay rango.</summary>
+        private static string Range(string label, int? min, int? max)
+        {
+            if (min == null && max == null) return null;
+            if (min != null && max != null) return $"{label} {min}-{max}";
+            return min != null ? $"{label}≥{min}" : $"{label}≤{max}";
+        }
+
         private void UpdateSortDirLabel()
         {
             var desc = SortDirBtn.IsChecked == true;
@@ -535,7 +627,25 @@ namespace L5ArgentinaLauncher.Views
         /// Colapsa/expande los paneles laterales desde los rieles; el centro absorbe el ancho
         /// liberado. Las columnas de los rieles no se tocan: son la única forma de reabrir.
         /// </summary>
+        /// <summary>
+        /// Debajo de este ancho los paneles laterales se cierran solos y los rieles se apagan:
+        /// con 270 + 405 de paneles más el centro no queda una grilla usable, y dejar abrir un
+        /// panel que no entra es peor que no dejar.
+        /// </summary>
+        private const double NarrowWidth = 1000;
+
+        private bool _narrow;
+        // Lo que el usuario eligió cuando la ventana era ancha, para restaurarlo al volver.
+        private bool _wantFilters = true, _wantDetail = true;
+
         private void PaneToggle_Click(object sender, RoutedEventArgs e)
+        {
+            _wantFilters = FiltersPaneBtn.IsChecked == true;
+            _wantDetail = DetailPaneBtn.IsChecked == true;
+            ApplyPanes();
+        }
+
+        private void ApplyPanes()
         {
             var filtersOn = FiltersPaneBtn.IsChecked == true;
             FiltersPanel.Visibility = filtersOn ? Visibility.Visible : Visibility.Collapsed;
@@ -544,6 +654,66 @@ namespace L5ArgentinaLauncher.Views
             var detailOn = DetailPaneBtn.IsChecked == true;
             DetailPanelBorder.Visibility = detailOn ? Visibility.Visible : Visibility.Collapsed;
             DetailCol.Width = new GridLength(detailOn ? 405 : 0);
+        }
+
+        /// <summary>
+        /// Segundo escalón, más abajo que <see cref="NarrowWidth"/>: acá ya no alcanza con cerrar
+        /// los paneles, porque el **piso lo pone la barra de botones**. Se esconde lo accesorio
+        /// —el bloque del mazo activo y el zoom— para que la ventana pueda seguir angostándose.
+        /// </summary>
+        private const double CompactWidth = 900;
+
+        private bool _compact;
+
+        private void Window_SizeChanged(object sender, SizeChangedEventArgs e) => ApplyResponsiveChrome();
+
+        private void ApplyResponsiveChrome()
+        {
+            ApplyNarrowMode();
+            ApplyCompactMode();
+        }
+
+        private void ApplyNarrowMode()
+        {
+            var narrow = ActualWidth < NarrowWidth;
+            if (narrow == _narrow) return;
+            _narrow = narrow;
+            foreach (var rail in new[] { FiltersPaneBtn, DetailPaneBtn })
+            {
+                rail.IsEnabled = !narrow;
+                rail.ToolTip = narrow ? Strings.Get("Pane_TooNarrow") : null;
+            }
+            FiltersPaneBtn.IsChecked = !narrow && _wantFilters;
+            DetailPaneBtn.IsChecked = !narrow && _wantDetail;
+            ApplyPanes();
+        }
+
+        private void ApplyCompactMode()
+        {
+            var compact = ActualWidth < CompactWidth;
+            if (compact == _compact) return;
+            _compact = compact;
+            var hidden = compact ? Visibility.Collapsed : Visibility.Visible;
+            // el mazo activo se sigue viendo entero en la ventana de Mazos
+            ActiveDeckBlock.Visibility = hidden;
+            FilterSummary.Visibility = compact ? Visibility.Collapsed
+                : (FilterSummary.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed);
+            ZoomOutBtn.Visibility = hidden;
+            ZoomInBtn.Visibility = hidden;
+        }
+
+        /// <summary>
+        /// Deja la ventana lista para trabajar al lado del editor: sin panel de detalle (el mazo
+        /// se ve en la otra ventana) y con los filtros abiertos si entran. La usa el botón de
+        /// reacomodar del editor.
+        /// </summary>
+        public void ApplySideBySideLayout()
+        {
+            _wantDetail = false;
+            _wantFilters = true;
+            DetailPaneBtn.IsChecked = false;
+            FiltersPaneBtn.IsChecked = !_narrow;
+            ApplyPanes();
         }
 
         // ------------------------------------------------------------------ vista lista / grilla
@@ -555,6 +725,10 @@ namespace L5ArgentinaLauncher.Views
             ViewGridBtn.IsChecked = grid;
             ViewListBtn.IsChecked = !grid;
             ExpandPrintsBtn.IsEnabled = grid;
+            // el zoom es de la grilla: en vista Lista no aplica
+            ZoomOutBtn.IsEnabled = grid && _zoom > 0;
+            ZoomInBtn.IsEnabled = grid && _zoom < ZoomWidths.Length - 1;
+            if (!grid) HidePreview(); // la previsualización cuelga de las celdas
 
             var selectedId = _selectedCell?.Card.Id ?? (ResultsList.SelectedItem as Card)?.Id;
             CardGrid.Visibility = grid ? Visibility.Visible : Visibility.Collapsed;
@@ -641,6 +815,82 @@ namespace L5ArgentinaLauncher.Views
         /// celda a propósito: un solo cambio y todas las celdas realizadas reaccionan por binding,
         /// en vez de recorrer miles de VMs en cada tecla.
         /// </summary>
+        // Tamaño de celda como DP: la plantilla de la grilla se bindea contra la ventana, así un
+        // solo cambio re-mide todas las celdas realizadas sin recorrer las VMs.
+        /// <summary>
+        /// Zoom mínimo: la celda es más angosta que la barra de acciones, así que la barra se
+        /// esconde. DP y no un campo porque lo consume la plantilla de la grilla por binding.
+        /// </summary>
+        public static readonly DependencyProperty IsTinyZoomProperty =
+            DependencyProperty.Register(nameof(IsTinyZoom), typeof(bool), typeof(SearchWindow),
+                new PropertyMetadata(false));
+
+        public bool IsTinyZoom
+        {
+            get => (bool)GetValue(IsTinyZoomProperty);
+            set => SetValue(IsTinyZoomProperty, value);
+        }
+
+        public static readonly DependencyProperty CellWidthProperty =
+            DependencyProperty.Register(nameof(CellWidth), typeof(double), typeof(SearchWindow),
+                new PropertyMetadata(226.0));
+
+        public double CellWidth
+        {
+            get => (double)GetValue(CellWidthProperty);
+            set => SetValue(CellWidthProperty, value);
+        }
+
+        public static readonly DependencyProperty CellHeightProperty =
+            DependencyProperty.Register(nameof(CellHeight), typeof(double), typeof(SearchWindow),
+                new PropertyMetadata(322.0));
+
+        public double CellHeight
+        {
+            get => (double)GetValue(CellHeightProperty);
+            set => SetValue(CellHeightProperty, value);
+        }
+
+        private void Help_Click(object sender, RoutedEventArgs e) =>
+            Dialogs.Info(this, Strings.Get("Help_ShortcutsTitle"), Strings.Get("Help_ShortcutsSearch"));
+
+        private void ZoomOut_Click(object sender, RoutedEventArgs e) => SetZoom(_zoom - 1);
+        private void ZoomIn_Click(object sender, RoutedEventArgs e) => SetZoom(_zoom + 1);
+
+        /// <summary>Ctrl+rueda = zoom, como en cualquier visor. Sin Ctrl, la rueda scrollea.</summary>
+        private void CardGrid_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Control) == 0) return;
+            e.Handled = true;
+            SetZoom(_zoom + (e.Delta > 0 ? 1 : -1));
+        }
+
+        /// <summary>
+        /// Cambia el tamaño de celda. **Lo único que hace falta rehacer es el agrupado en filas**,
+        /// porque cambia la cantidad de columnas: el tamaño en sí viaja por binding a las celdas
+        /// ya realizadas, y las miniaturas no dependen del zoom.
+        ///
+        /// Antes esto reconstruía las ~6400 VMs con `BuildGrid` (re-expandir + miles de
+        /// `Path.GetFullPath`), invalidaba el `Thumb` de todas y **vaciaba el caché de
+        /// miniaturas**, así que cada cambio de zoom volvía a decodificar desde disco todo lo
+        /// visible. Eso era el tirón y el "cargando".
+        /// </summary>
+        private void SetZoom(int zoom)
+        {
+            zoom = Math.Max(0, Math.Min(ZoomWidths.Length - 1, zoom));
+            if (zoom == _zoom) return;
+            _zoom = zoom;
+            CellWidth = CellWidthFor(zoom);
+            CellHeight = Math.Round(CellWidth * CardAspect);
+            IsTinyZoom = zoom == 0;
+            ZoomOutBtn.IsEnabled = zoom > 0;
+            ZoomInBtn.IsEnabled = zoom < ZoomWidths.Length - 1;
+
+            if (CardGrid.Visibility != Visibility.Visible) return;
+            ChunkGrid();             // reagrupa las MISMAS VMs con el ancho de fila nuevo
+            ScrollGridToSelected();
+        }
+
         public static readonly DependencyProperty IsAddModifierDownProperty =
             DependencyProperty.Register(nameof(IsAddModifierDown), typeof(bool), typeof(SearchWindow),
                 new PropertyMetadata(false));
@@ -654,11 +904,19 @@ namespace L5ArgentinaLauncher.Views
         private void SyncAddModifier() =>
             IsAddModifierDown = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
 
-        private void Window_KeyUp(object sender, KeyEventArgs e) => SyncAddModifier();
+        private void Window_KeyUp(object sender, KeyEventArgs e)
+        {
+            SyncAddModifier();
+            if ((Keyboard.Modifiers & ModifierKeys.Alt) == 0) HidePreview();
+        }
 
         // Sin esto el modo queda pegado si se suelta Ctrl con la ventana en segundo plano
         // (p.ej. Alt+Tab con Ctrl apretado): el KeyUp nunca llega.
-        private void Window_Deactivated(object sender, EventArgs e) => IsAddModifierDown = false;
+        private void Window_Deactivated(object sender, EventArgs e)
+        {
+            IsAddModifierDown = false;
+            HidePreview();
+        }
 
         private void GridCell_Click(object sender, MouseButtonEventArgs e)
         {
@@ -673,6 +931,57 @@ namespace L5ArgentinaLauncher.Views
         /// con un solo click y sin apuntar al `+` chiquito de la barra de acciones: mientras Ctrl
         /// está apretado el overlay tapa la celda entera, así que el click cae siempre acá.
         /// </summary>
+        /// <summary>
+        /// Click derecho sobre una celda = copiar el arte al portapapeles. La celda no se
+        /// selecciona: es una acción sobre esa carta, no una forma de navegar.
+        /// </summary>
+        private void GridCell_CopyImage(object sender, MouseButtonEventArgs e)
+        {
+            var cell = (sender as FrameworkElement)?.DataContext as GridCell;
+            if (cell == null) return;
+            e.Handled = true;
+            var ok = CardImageClipboard.TryCopy(cell.CandidatePaths);
+            ShowDeckFeedback(
+                ok ? Strings.Format("Fmt_CopiedImage", cell.Card.Name) : Strings.Get("Detail_CopyImageFail"),
+                error: !ok);
+        }
+
+        // ------------------------------------------------------------------ previsualización (Alt)
+
+        private string _previewCardId;
+
+        /// <summary>
+        /// Con **Alt** apretado, pasar sobre una carta la abre grande al lado del cursor. Se lee
+        /// el modificador en el MouseMove en vez de escuchar la tecla: Alt en WPF llega como
+        /// `Key.System` y compite con la activación de menús; preguntarlo acá es más simple y no
+        /// deja el estado pegado si se suelta la tecla fuera de la ventana.
+        /// </summary>
+        private void GridCell_MouseMove(object sender, MouseEventArgs e)
+        {
+            var cell = (sender as FrameworkElement)?.DataContext as GridCell;
+            if (cell == null) return;
+            if ((Keyboard.Modifiers & ModifierKeys.Alt) == 0) { HidePreview(); return; }
+            if (HoverPreview.IsOpen && _previewCardId == cell.Card.Id) return;
+
+            // el original, no la miniatura: la gracia de esto es mirar el arte
+            var image = CardImageClipboard.LoadFull(cell.CandidatePaths);
+            if (image == null) { HidePreview(); return; }
+            _previewCardId = cell.Card.Id;
+            HoverPreviewImage.Source = image;
+            HoverPreview.IsOpen = false; // reabrir la reposiciona en el cursor actual
+            HoverPreview.IsOpen = true;
+        }
+
+        private void GridCell_MouseLeave(object sender, MouseEventArgs e) => HidePreview();
+
+        private void HidePreview()
+        {
+            if (!HoverPreview.IsOpen) return;
+            HoverPreview.IsOpen = false;
+            HoverPreviewImage.Source = null;
+            _previewCardId = null;
+        }
+
         private void GridCell_MouseDown(object sender, MouseButtonEventArgs e)
         {
             var cell = (sender as FrameworkElement)?.DataContext as GridCell;
@@ -745,6 +1054,7 @@ namespace L5ArgentinaLauncher.Views
             TextSearchBox.Text = "";
             IncludeBannedBox.IsChecked = false;
             OnlyHiddenBox.IsChecked = false;
+            QuickHoldingsBtn.IsChecked = false;
             QuickFavBtn.IsChecked = false;
             QuickHiddenBtn.IsChecked = false;
             QuickListBtn.IsChecked = false; // la selección de mazo/lista se conserva; el filtro se apaga
@@ -991,6 +1301,7 @@ namespace L5ArgentinaLauncher.Views
             KwSubtitleBox.IsChecked = c.IncludeSubtitleKeywords;
 
             IncludeBannedBox.IsChecked = c.IncludeBanned;
+            QuickHoldingsBtn.IsChecked = c.OnlyInitialHoldings;
             QuickFavBtn.IsChecked = c.OnlyFavorites;
             QuickHiddenBtn.IsChecked = c.IncludeHidden;
             OnlyHiddenBox.IsChecked = c.OnlyHidden;
@@ -1046,8 +1357,6 @@ namespace L5ArgentinaLauncher.Views
                 case "deck":
                     return ChoiceForDeck(_library.Decks.FirstOrDefault(d =>
                         string.Equals(d.Name, c.ListId, StringComparison.OrdinalIgnoreCase)));
-                case "favorites":
-                    return new SetChoice { Kind = SetKind.Favorites, Name = "favorites", Label = Strings.Get("Search_SetFavorites") };
                 case "hidden":
                     return new SetChoice { Kind = SetKind.Hidden, Name = "hidden", Label = Strings.Get("Search_SetHidden") };
                 default: // null o "list": los presets viejos no traían kind y siempre eran listas
@@ -1272,7 +1581,8 @@ namespace L5ArgentinaLauncher.Views
                 items.AddRange(_library.Lists
                     .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
                     .Select(ChoiceForList));
-                items.Add(new SetChoice { Kind = SetKind.Favorites, Name = "favorites", Label = Strings.Get("Search_SetFavorites") });
+                // Favoritas salió del selector: ya tiene su propio chip "Solo favoritas" y su ★
+                // por celda, y como conjunto no aportaba nada que no estuviera a un click.
                 items.Add(new SetChoice { Kind = SetKind.Hidden, Name = "hidden", Label = Strings.Get("Search_SetHidden") });
                 items.Add(new SetChoice { Kind = SetKind.ShowDecks, Label = Strings.Get("Search_SetUseDeck") });
             }
@@ -1293,14 +1603,7 @@ namespace L5ArgentinaLauncher.Views
             string.Equals(a.Name, b.Name, StringComparison.Ordinal);
 
         /// <summary>El 🗑 solo borra listas; el ＋ crea listas siempre.</summary>
-        private void UpdateSetButtons()
-        {
-            ListDeleteBtn.IsEnabled = _activeSet?.Kind == SetKind.List;
-            // favoritas/ocultas no son archivos: se las "baja" a lista con el botón de copiar
-            SetToListBtn.IsEnabled = _activeSet != null &&
-                (_activeSet.Kind == SetKind.Favorites || _activeSet.Kind == SetKind.Hidden ||
-                 _activeSet.Kind == SetKind.Deck);
-        }
+        private void UpdateSetButtons() => ListDeleteBtn.IsEnabled = _activeSet?.Kind == SetKind.List;
 
         private void SetFilterCombo_Changed(object sender, SelectionChangedEventArgs e)
         {
@@ -1379,29 +1682,6 @@ namespace L5ArgentinaLauncher.Views
         }
 
         /// <summary>
-        /// Copia el conjunto activo a una lista nueva. Es el camino para editar favoritas u
-        /// ocultas como se edita cualquier otra cosa: no son archivos, así que se bajan a una
-        /// lista que sí lo es. Con un mazo elegido, sirve para partir de él sin tocarlo.
-        /// </summary>
-        private void SetToList_Click(object sender, RoutedEventArgs e)
-        {
-            if (_activeSet == null || _activeSet.Kind == SetKind.None || _activeSet.Kind == SetKind.List) return;
-            var suggested = _activeSet.Kind == SetKind.Deck ? _activeSet.Name : _activeSet.Label;
-            var name = (Dialogs.Prompt(this, Strings.Get("Search_SetToListTitle"),
-                                       Strings.Get("Search_ListCreatePrompt"), suggested) ?? "").Trim();
-            if (name.Length == 0) return;
-            var ids = ActiveSetCardIds().ToList();
-            var id = _library.CreateListFrom(name, ids);
-            var created = _library.Repo.GetDeckById(id);
-            ShowDeckFeedback(Strings.Format("Fmt_SetSavedAsList", created.Name, created.Cards.Count), error: false);
-            _showingDecks = false;
-            _activeSet = ChoiceForList(created);
-            RefreshSetCombo();
-            RefreshCellStates();
-            UpdateDetailActions();
-        }
-
-        /// <summary>
         /// Cartas del conjunto activo. Es lo único que el motor necesita saber de un conjunto:
         /// de ahí que un mazo, una lista y las favoritas sean intercambiables como filtro.
         /// </summary>
@@ -1415,7 +1695,6 @@ namespace L5ArgentinaLauncher.Views
                     return deck == null
                         ? Enumerable.Empty<string>()
                         : deck.Cards.Where(en => en.Quantity > 0).Select(en => en.CardId);
-                case SetKind.Favorites: return _store.Data.Favorites;
                 case SetKind.Hidden: return _store.Data.Hidden;
                 default: return Enumerable.Empty<string>();
             }
@@ -1606,53 +1885,105 @@ namespace L5ArgentinaLauncher.Views
     /// </summary>
     internal static class ThumbnailCache
     {
-        private const int Capacity = 400;
+        // Una sola resolución para los cuatro niveles de zoom, a propósito. Variarla por nivel
+        // obligaba a vaciar el caché en cada cambio —y a redecodificar desde disco todo lo
+        // visible—, que es exactamente lo que hacía que el zoom se trabara. 400 px alcanza para el
+        // nivel más grande (302 DIP → 1.32x a 100 %, 1.06x a 125 %).
+        private const int DecodeWidth = 400;
+
+        // Dos niveles, porque el catálogo tiene ~6400 cartas y una miniatura decodificada pesa
+        // ~0,87 MB: un LRU fuerte lo bastante grande para no redecodificar al scrollear costaría
+        // cientos de MB retenidos para siempre.
+        //   · fuerte: las últimas StrongCapacity (dos o tres pantallas en cualquier zoom) → ~104 MB
+        //     tope, y son las que garantizan scroll fluido en las dos direcciones;
+        //   · débil: el resto sigue accesible **mientras el GC no las haya reclamado**, así que
+        //     volver a una zona ya vista suele no tocar disco, pero bajo presión de memoria el
+        //     runtime se las lleva en vez de que el proceso siga creciendo.
+        // Nunca es peor que un LRU puro del mismo tamaño: lo desalojado no se pierde, se degrada.
+        private const int StrongCapacity = 120;
+
         private static readonly object _gate = new object();
-        private static readonly Dictionary<string, LinkedListNode<KeyValuePair<string, BitmapImage>>> _map =
+        private static readonly Dictionary<string, LinkedListNode<KeyValuePair<string, BitmapImage>>> _strong =
             new Dictionary<string, LinkedListNode<KeyValuePair<string, BitmapImage>>>(StringComparer.OrdinalIgnoreCase);
         private static readonly LinkedList<KeyValuePair<string, BitmapImage>> _lru =
             new LinkedList<KeyValuePair<string, BitmapImage>>();
+        private static readonly Dictionary<string, WeakReference<BitmapImage>> _weak =
+            new Dictionary<string, WeakReference<BitmapImage>>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Primera imagen existente de la cadena de candidatos (preserva la prioridad del
-        /// resolver): si el candidato ya está cacheado se devuelve sin tocar disco; si no,
-        /// se decodifica el primero que exista en disco.
+        /// resolver): si el candidato ya está en alguno de los dos niveles se devuelve sin tocar
+        /// disco; si no, se decodifica el primero que exista.
         /// </summary>
         public static BitmapImage Get(IEnumerable<string> candidatePaths)
         {
             foreach (var path in candidatePaths)
             {
-                lock (_gate)
-                {
-                    if (_map.TryGetValue(path, out var hit))
-                    {
-                        _lru.Remove(hit);
-                        _lru.AddFirst(hit);
-                        return hit.Value.Value;
-                    }
-                }
+                var cached = Lookup(path);
+                if (cached != null) return cached;
 
                 if (!File.Exists(path)) continue;
                 var bmp = Decode(path);
                 if (bmp == null) continue; // archivo corrupto → probar el siguiente candidato
-
-                lock (_gate)
-                {
-                    if (!_map.ContainsKey(path))
-                    {
-                        var node = _lru.AddFirst(new KeyValuePair<string, BitmapImage>(path, bmp));
-                        _map[path] = node;
-                        while (_map.Count > Capacity)
-                        {
-                            var oldest = _lru.Last;
-                            _lru.RemoveLast();
-                            _map.Remove(oldest.Value.Key);
-                        }
-                    }
-                }
+                Store(path, bmp);
                 return bmp;
             }
             return null;
+        }
+
+        private static BitmapImage Lookup(string path)
+        {
+            lock (_gate)
+            {
+                if (_strong.TryGetValue(path, out var hit))
+                {
+                    _lru.Remove(hit);
+                    _lru.AddFirst(hit);
+                    return hit.Value.Value;
+                }
+                // sigue viva porque la referencia una celda realizada, o porque el GC no pasó:
+                // se recupera al nivel fuerte, que es donde se está mirando ahora
+                if (_weak.TryGetValue(path, out var weak) && weak.TryGetTarget(out var alive))
+                {
+                    _weak.Remove(path);
+                    Promote(path, alive);
+                    return alive;
+                }
+                return null;
+            }
+        }
+
+        private static void Store(string path, BitmapImage bmp)
+        {
+            lock (_gate)
+            {
+                if (_strong.ContainsKey(path)) return;
+                _weak.Remove(path);
+                Promote(path, bmp);
+            }
+        }
+
+        /// <summary>Entra al nivel fuerte; lo que se pasa de tope baja al débil. Bajo el lock.</summary>
+        private static void Promote(string path, BitmapImage bmp)
+        {
+            var node = _lru.AddFirst(new KeyValuePair<string, BitmapImage>(path, bmp));
+            _strong[path] = node;
+            while (_strong.Count > StrongCapacity)
+            {
+                var oldest = _lru.Last;
+                _lru.RemoveLast();
+                _strong.Remove(oldest.Value.Key);
+                _weak[oldest.Value.Key] = new WeakReference<BitmapImage>(oldest.Value.Value);
+            }
+            // el diccionario débil no se purga en cada inserción (sería recorrerlo entero): se
+            // limpia cuando junta bastante basura, que es cuando empieza a costar memoria propia
+            if (_weak.Count > StrongCapacity * 8) PurgeWeak();
+        }
+
+        private static void PurgeWeak()
+        {
+            var dead = _weak.Where(kv => !kv.Value.TryGetTarget(out _)).Select(kv => kv.Key).ToList();
+            foreach (var key in dead) _weak.Remove(key);
         }
 
         private static BitmapImage Decode(string path)
@@ -1663,7 +1994,7 @@ namespace L5ArgentinaLauncher.Views
                 bmp.BeginInit();
                 bmp.UriSource = new Uri(path);
                 bmp.CacheOption = BitmapCacheOption.OnLoad;
-                bmp.DecodePixelWidth = 340; // ~ancho de celda (226) en pantallas 1.5x
+                bmp.DecodePixelWidth = DecodeWidth;
                 bmp.EndInit();
                 bmp.Freeze();
                 return bmp;

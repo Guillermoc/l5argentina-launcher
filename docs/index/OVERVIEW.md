@@ -3,7 +3,7 @@
 Índice raíz del launcher. **Se lee al empezar cualquier sesión**, junto con
 [../ROADMAP.md](../ROADMAP.md). Regla: leer los índices antes que el código fuente.
 
-Última actualización: **v0.4.0** (2026-07-26).
+Última actualización: **v0.6.0** (2026-07-28).
 
 ---
 
@@ -16,7 +16,7 @@
 | **Empaquetado** | **Costura.Fody** embebe los DLLs → un único `.exe` (~7 MB). Se distribuye solo el exe. |
 | **Arquitectura en una línea** | UI (WPF, 4 ventanas) → `LauncherEngine` coordina → `Services/` (red, hash, archivos) + motores portados 1:1 de la app Android (`Services/Search`, `Services/Deck`). |
 | **Datos** | Bucket Cloudflare R2 (dos manifests: el del launcher y el del pool/CDN de la app). El launcher **solo descarga datos, nunca código**. |
-| **Versión** | `AppConstants.LauncherVersion` = `0.4.0` (y `<Version>` del csproj — se bumpean juntos). |
+| **Versión** | `AppConstants.LauncherVersion` = `0.6.0` (y `<Version>` del csproj — se bumpean juntos). |
 | **Verificación** | `--selftest`: la batería completa en verde (pipeline + 53 golden del Buscador + 25 del deckbuilder). Conteo al día en [build-verificacion.md](build-verificacion.md). |
 | **Idioma de UI** | Español, 100 % en `src/Resources/Strings.resx` (i18n listo, sin segundo idioma hoy). |
 
@@ -71,10 +71,11 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 | `MainWindow.xaml(.cs)` | Ventana principal: selección de base, banner de update, sincronización, JUGAR, overlays de Configuración y Packs de imágenes. |
 | `Views/FirstRunWindow.xaml(.cs)` | Primer arranque: elegir `Sun and Moon.exe`, validar la instalación, capturar la base **Original**. |
 | `Views/SearchWindow.xaml(.cs)` | Buscador: filtros en vivo, tabla/grilla virtualizada, panel derecho Carta \| Mazo, selector de conjunto activo y presets. |
-| `Views/DeckWindow.xaml(.cs)` | Editor de Mazos: rail de mazos, grupos Starter/Dynasty/Fate, importar/exportar, notas. |
+| `Views/DeckWindow.xaml(.cs)` | Editor de Mazos **y listas** (solapa Mazos \| Listas): grupos Starter/Dynasty/Fate, cartas recortadas, importar/exportar, notas. |
 | `Views/CardDetailPanel.xaml(.cs)` | Detalle de carta compartido entre Buscador y editor (+ `CardImageResolver`). |
 | `Views/CardUiStyles.xaml` | Estilos XAML compartidos entre ambas ventanas (chips, checkboxes, celdas). |
 | `Views/CardTextRenderer.cs` | HTML acotado del texto de carta → `Inline`s de WPF. **Nunca** WebView. |
+| `Views/CardImageClipboard.cs` | Arte a tamaño completo al portapapeles (click derecho) y para la previsualización con Alt: re-decodifica el archivo, no copia la miniatura de la grilla. |
 | `Views/Dialogs.cs` | `Prompt` / `Confirm` / `Info` con la estética de la app, para Buscador y Mazos (que no tienen overlay propio). Nada de `MessageBox`. |
 | `Views/WindowSizingFix.cs` | Acota Buscador y Mazos al **área de trabajo** del monitor al abrir y al maximizar (`WM_GETMINMAXINFO`): sin esto quedaban debajo de la barra de tareas. |
 | `Themes/Theme.xaml` | Paleta, fuentes, fondo, scrollbar temática — estilos de toda la app. |
@@ -156,7 +157,7 @@ Nada depende de dónde esté el `.exe`: moverlo no cambia ninguna ruta.
 | `%APPDATA%\L5Argentina Launcher\config.json` | Instalación, URL del manifest, base aplicada, hashes cacheados, packs aplicados. |
 | `%APPDATA%\...\usercards.json` | Favoritas y ocultas del Buscador, **por nombre de carta** ([ADR-044](../DECISIONS.md#adr-044)). |
 | `%APPDATA%\...\presets.json` | Presets de filtros con nombre. |
-| `%APPDATA%\...\decksmeta.json` | Sidecar de mazos y listas (notas, orden, mazo y lista activos). |
+| `%APPDATA%\...\decksmeta.json` | Sidecar de mazos y listas (notas, orden, mazo y lista activos, cartas recortadas). |
 | `%LOCALAPPDATA%\...\cache\` | Descargas verificadas (`catalog/`, `packs/`). |
 | `%LOCALAPPDATA%\...\backups\` | `database.original.xml` + copias con timestamp. |
 | `<SunAndMoon>\Decks\*.txt` | **Los mazos** (los mismos archivos que carga el juego). **No** los redirige `L5A_DATA_ROOT`. |

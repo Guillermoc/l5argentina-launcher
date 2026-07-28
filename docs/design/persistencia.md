@@ -12,7 +12,7 @@ agrega estado nuevo, se decide acá primero.
 | Config del usuario | `%APPDATA%\L5Argentina Launcher\config.json` | JSON (`UserConfig`) | `ConfigService` |
 | Favoritas / ocultas | `%APPDATA%\...\usercards.json` | JSON v2, **por nombre de carta** | `UserCardDataStore` |
 | Presets de filtros | `%APPDATA%\...\presets.json` | JSON (nombres compatibles con los golden) | `FilterPresetStore` |
-| Metadata de mazos y listas | `%APPDATA%\...\decksmeta.json` | JSON, indexado por **nombre de archivo** (listas prefijadas `list:`) | `DeckLibrary` |
+| Metadata de mazos y listas | `%APPDATA%\...\decksmeta.json` | JSON, indexado por **nombre de archivo** (listas prefijadas `list:`); incluye las **recortadas**, por nombre de carta | `DeckLibrary` |
 | **Los mazos** | `<SunAndMoon>\Decks\<Nombre>.txt` | formato del juego | `DeckLibrary` + `SunAndMoonDeckFile` |
 | **Las listas** | `<SunAndMoon>\Lists\<Nombre>.txt` | mismo formato, 1 copia por carta | `DeckLibrary` + `SunAndMoonDeckFile` |
 | Descargas verificadas | `%LOCALAPPDATA%\...\cache\` (`catalog\`, `packs\`) | archivos tal cual | `DownloadService` |

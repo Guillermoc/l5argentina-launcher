@@ -3,7 +3,7 @@
 Qué hace el launcher hoy y cómo está construido, en prosa y de corrido. Es el documento para leer
 entero: para consulta rápida están los índices ([../index/](../index/)), que son densos a propósito.
 
-**Versión descrita:** v0.5.0 · **Última pasada contra el código:** 2026-07-28.
+**Versión descrita:** v0.6.0 · **Última pasada contra el código:** 2026-07-28.
 Se actualiza en cada **cierre de fase o release**, sección por sección, contra el código real (o
 contra `docs/index/`, que debería estar al día). No en cada commit.
 
@@ -243,13 +243,19 @@ cada mazo es un `.txt` en `<SunAndMoon>\Decks\`, exactamente los archivos que el
 lista un `.txt` en `<SunAndMoon>\Lists\`, la carpeta hermana que el juego no lee. El mazo
 que se arma en el launcher se juega directo, sin exportar nada, y los mazos que el usuario ya tenía
 aparecen solos la primera vez. Lo que el formato del juego no puede representar —notas, modo de
-orden, fecha, orden en la lista, cuál es el mazo y la lista activos— va a un sidecar
-`decksmeta.json` indexado por nombre de archivo: si se pierde, no se pierde ningún mazo.
+orden, fecha, orden en la lista, cuál es el mazo y la lista activos, y qué cartas están
+recortadas— va a un sidecar `decksmeta.json` indexado por nombre de archivo: si se pierde, no se
+pierde ningún mazo.
+
+El **recorte** es el caso más claro de esa división: bajar una carta a 0 en el editor no la borra,
+la deja en el mazo pero fuera de juego, para poder probar una versión sin perderla de vista. El
+archivo del juego no tiene forma de expresar eso, y escribirle una marca propia sería arriesgar que
+el juego no la entienda, así que la marca vive en el sidecar y el `.txt` sale limpio.
 
 De ahí sale una regla que gobierna todo el estado del usuario: **una carta se referencia por nombre,
 nunca por su id de catálogo**. El id lo asigna quien genera la base de la comunidad y puede
 reasignarse entre versiones; el nombre es lo único que el juego y el launcher acuerdan. Los mazos ya
-lo cumplían por venir del formato del juego, y en la v0.5.0 se extendió a favoritas y ocultas, con
+lo cumplían por venir del formato del juego, y en la v0.6.0 se extendió a favoritas y ocultas, con
 migración automática del archivo viejo.
 
 **Hay un solo mazo activo y una sola forma de cambiarlo**: el seleccionado en la ventana de Mazos.
@@ -289,6 +295,14 @@ calibrados para que en 1080p a 125 % entren la mayor cantidad de cartas posible.
 **área de trabajo** del monitor al abrir y al maximizar (`WindowSizingFix`): con chrome propio,
 Windows maximiza contra el monitor completo y la barra de tareas tapa el borde inferior.
 
+Las dos ventanas de trabajo **se adaptan al ancho en dos escalones**: bajo 1000 DIP cierran sus
+paneles laterales y apagan los rieles, y bajo 900 esconden lo accesorio de la barra —el mazo activo,
+los conteos con el "Falta: {slot}", el zoom— porque con los paneles ya cerrados el piso lo pone la
+barra de botones. Eso permite un mínimo de 460 y habilita el botón de **lado a lado**, que acomoda el
+Buscador al 70 % y el editor al 30 % para armar mirando las dos cosas a la vez. La grilla de cartas
+tiene cuatro tamaños de celda (con `Ctrl + rueda`), y con **Alt** apretado pasar el mouse sobre una
+carta la abre grande al lado del cursor.
+
 Los controles siguen una taxonomía explícita —una forma por rol— en vez del chip universal de la
 primera versión: rieles verticales para colapsar paneles, pestañas adosadas para cambiar el contenido
 de un panel, segmentados para selección exclusiva, píldoras solo para filtros on/off, y menús
@@ -309,7 +323,7 @@ El texto de las cartas viene en un HTML acotado que se renderiza a `Inline`s de 
 `CardTextRenderer`. No hay navegador embebido en ninguna parte, y no lo va a haber: sería convertir
 contenido descargado en superficie de ejecución.
 
-Todos los textos de UI —327 claves— viven en `Strings.resx`, usados con `{loc:Loc Clave}` en XAML y
+Todos los textos de UI —384 claves— viven en `Strings.resx`, usados con `{loc:Loc Clave}` en XAML y
 `Strings.Get/Format` en C#. No hay literales de UI en el código. Con eso, agregar un idioma es crear
 `Strings.<cultura>.resx` y setear `CurrentUICulture`, sin tocar una línea. Hasta los nombres de los
 packs de imágenes salen de claves `Pack_<id>` con fallback al id crudo, así un pack nuevo publicado

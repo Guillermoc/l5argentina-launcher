@@ -4,7 +4,7 @@ Qué falta. **Se lee al empezar cualquier sesión**, junto con [index/OVERVIEW.m
 
 Leyenda: ⏳ en curso/esperando · 🔜 próximo · ⬜ pendiente · ⏸️ diferido · 🔁 recurrente · ✅ hecho.
 
-**Estado hoy:** v0.4.0 publicada (launcher + Buscador + Mazos + pasada de UX), batería en verde.
+**Estado hoy:** v0.6.0 publicada. Batería en verde.
 **Foco actual:** SEC-6 (firma del exe con SignPath, esperando aprobación OSS).
 
 ---
@@ -104,6 +104,13 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 **Buscador** ([index/buscador.md](index/buscador.md))
 - ✅ Filtrar por un conjunto cualquiera —lista, mazo, favoritas u ocultas— desde un solo selector
   ([ADR-045](DECISIONS.md#adr-045)).
+- ✅ Chip "Solo holdings iniciales" (`onlyInitialHoldings`): el motor y su golden estaban desde el
+  principio, faltaba el chip.
+- ✅ Resumen de filtros activos al lado del contador, con el detalle a un click.
+- ✅ Click derecho sobre una celda = copiar el arte a tamaño completo.
+- ✅ Zoom de la grilla en tres tamaños de celda.
+- ✅ Previsualización con **Alt**: pasar sobre una carta la abre grande al lado del cursor.
+- ✅ Favoritas salió del selector de conjuntos (ya tenía chip propio y `★` por celda).
 - ⬜ Contador de cartas en el selector de conjunto (hoy solo se ve en la solapa Listas del editor).
 - ⬜ Renombrar una lista desde la barra del Buscador (hoy hay que ir a la ventana de Mazos).
 - ⬜ `Ctrl+click` para agregar también desde la vista de tabla (hoy solo en la grilla, donde el
@@ -112,6 +119,12 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 **Mazos** ([index/mazos.md](index/mazos.md))
 - ✅ Listas editables con el mismo editor que los mazos, como `.txt` de `Lists\`
   ([ADR-045](DECISIONS.md#adr-045)).
+- ✅ Recorte: bajar una carta a 0 la conserva en el mazo, grisada, en vez de borrarla
+  ([ADR-046](DECISIONS.md#adr-046)).
+- ✅ Panel izquierdo con pestañas **Abrir** / **Filtros**: buscar conjuntos por nombre o por carta,
+  ordenar por recientes o alfabético, filtrar por clan y por estado de armado
+  ([ADR-047](DECISIONS.md#adr-047)).
+- ✅ Botón **lado a lado** (`⫞`): Buscador 70 % / editor 30 %, en vista Lista y todo colapsado.
 - ⏸️ Goldfish (sandbox de testeo) — fuera de alcance; la spec del handoff lo cubre si se quiere.
 - ⏸️ Grupos de usuario (carpetas de mazos) y subgrupos dentro del mazo — no portados.
 - ⏸️ Export PDF — no portado.
@@ -119,6 +132,21 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 - ⬜ Favoritas y ocultas **dentro** del editor. Hoy se filtran desde el Buscador y se copian a una
   lista con `⎘`; editarlas ahí adentro pediría una capa de indirección sobre todo `DeckWindow` para
   algo que no es un archivo.
+
+**Ventanas**
+- ✅ Mínimos bajados a 720×520 y **modo angosto**: bajo 1000 DIP los paneles laterales se cierran y
+  los rieles se apagan.
+- ✅ Zoom en cuatro tamaños (`－`/`＋` y **Ctrl + rueda**) y previsualización con **Alt** en las
+  **dos** ventanas.
+- ✅ Botón `?` con el listado de atajos de teclado y mouse en ambas ventanas.
+- ✅ Segundo escalón de angostura: bajo 900 DIP se esconde lo accesorio de la barra, y los mínimos
+  bajaron a 460 para que el 30 % del layout lado a lado entre sin irse de pantalla.
+- ⬜ Previsualización con Alt en la vista de **tabla** del Buscador (hoy solo en la grilla).
+
+**Launcher**
+- ✅ El acceso a Cartas y mazos salió del grupo de utilidades del header y quedó al lado de JUGAR.
+- ✅ El pack de imágenes propio dejó de aparecer duplicado en el overlay de packs
+  ([ADR-048](DECISIONS.md#adr-048)).
 
 **Estado del usuario**
 - ⬜ Aviso al usuario cuando una actualización de la base deja nombres sin resolver (hoy esas
@@ -141,4 +169,5 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 | v0.1.1 | 2026-06-14 | SEC-2 (TLS 1.2), SEC-4 (un solo `.xml`), ajustes de textos. |
 | v0.2.0 | 2026-07-07 | Buscador de cartas (MVP → V3), packs de imágenes y catálogo desde el pool. |
 | v0.3.0 | 2026-07-11 | Mazos (deckbuilder) + V4 del Buscador + fixes de rendimiento. |
+| v0.6.0 | 2026-07-28 | **Conjuntos de cartas**: listas editables con el mismo editor que los mazos, como `.txt` en `Lists` ([ADR-045](DECISIONS.md#adr-045)); identidad del estado del usuario **por nombre de carta** y no por id, con migración de `usercards.json` ([ADR-044](DECISIONS.md#adr-044)); **recorte** de cartas ([ADR-046](DECISIONS.md#adr-046)); panel de abrir conjuntos con orden, clan y **estado de armado** ([ADR-047](DECISIONS.md#adr-047)); chip de holdings iniciales, resumen de filtros activos, zoom de grilla en 4 tamaños, previsualización con **Alt**, copiar imagen con click derecho, listado de atajos (`?`), ventanas **lado a lado** y adaptación a ventanas angostas; el pack de imágenes propio dejó de duplicarse ([ADR-048](DECISIONS.md#adr-048)) y el acceso a Cartas y mazos quedó junto a JUGAR. |
 | v0.4.0 | 2026-07-26 | Pasada de UX: taxonomía de controles (rieles de colapso, pestañas adosadas, segmentados, menús), ventanas acotadas al área de trabajo, arte de carta redondeado y sin marco, listas manejadas desde la barra, diálogos propios (fuera los `MessageBox`), confirmación al cerrar, `Ctrl+click` para agregar al mazo, copiar imagen al portapapeles y **un solo mazo activo** con la ventana de Mazos como fuente de verdad. |

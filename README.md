@@ -32,9 +32,14 @@ Versión actual: **0.4.0**.
 | Mazos guardados como `.txt` en la carpeta `Decks` del juego | ✅ | v0.3.0 | [DECISIONS ADR-022](docs/DECISIONS.md#adr-022) |
 | Un solo mazo activo, compartido por todas las ventanas | ✅ | v0.4.0 | [DECISIONS ADR-042](docs/DECISIONS.md#adr-042) |
 | `Ctrl+click` para agregar al mazo, con ayuda visual | ✅ | v0.4.0 | [DECISIONS ADR-041](docs/DECISIONS.md#adr-041) |
-| Listas editables como mazos (`.txt` en `Lists`, tope 1 por carta) | ✅ | v0.5.0 | [DECISIONS ADR-045](docs/DECISIONS.md#adr-045) |
-| Filtrar el Buscador por un mazo, una lista o las favoritas | ✅ | v0.5.0 | [index/buscador.md](docs/index/buscador.md) |
-| Estado del usuario referenciado por nombre de carta, no por id | ✅ | v0.5.0 | [DECISIONS ADR-044](docs/DECISIONS.md#adr-044) |
+| Listas editables como mazos (`.txt` en `Lists`, tope 1 por carta) | ✅ | v0.6.0 | [DECISIONS ADR-045](docs/DECISIONS.md#adr-045) |
+| Filtrar el Buscador por un mazo, una lista o las favoritas | ✅ | v0.6.0 | [index/buscador.md](docs/index/buscador.md) |
+| Estado del usuario referenciado por nombre de carta, no por id | ✅ | v0.6.0 | [DECISIONS ADR-044](docs/DECISIONS.md#adr-044) |
+| Cartas recortadas en el mazo (bajar a 0 sin perderlas) | ✅ | v0.6.0 | [DECISIONS ADR-046](docs/DECISIONS.md#adr-046) |
+| Abrir mazos con orden, filtro por clan y estado (terminado/pendiente) | ✅ | v0.6.0 | [DECISIONS ADR-047](docs/DECISIONS.md#adr-047) |
+| Resumen de filtros activos y copiar imagen con click derecho | ✅ | v0.6.0 | [index/buscador.md](docs/index/buscador.md) |
+| Zoom de grilla en 4 tamaños, previsualización con Alt y atajos (`?`) | ✅ | v0.6.0 | [index/ui.md](docs/index/ui.md) |
+| Ventanas lado a lado y adaptación a ventanas angostas | ✅ | v0.6.0 | [index/ui.md](docs/index/ui.md) |
 | Copiar el arte de la carta al portapapeles | ✅ | v0.4.0 | [index/ui.md](docs/index/ui.md) |
 | Rediseño de controles (rieles, pestañas, menús, diálogos) | ✅ | v0.4.0 | [DECISIONS ADR-035](docs/DECISIONS.md#adr-035) |
 | Firma del ejecutable (SignPath) | ⏳ esperando aprobación OSS | — | [ROADMAP §1](docs/ROADMAP.md) |
@@ -153,7 +158,7 @@ quedan al lado).
 
 Un harness de verificación monta un bucket+instalación falsos en `%TEMP%` y ejercita el pipeline real
 (hash, confinamiento de origen, zip-slip, backups, base zippeada, catálogo y packs del pool) sin tocar
-tu instalación — **193 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
+tu instalación — **219 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
 los **25 golden tests** del deckbuilder, ambos contra la lógica real de la app Android:
 
 ```sh

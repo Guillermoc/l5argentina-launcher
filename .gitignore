@@ -29,3 +29,6 @@ desktop.ini
 
 # Tooling artifacts dropped during setup
 dotnet-install.ps1
+
+# Temporales que deja el SDK de WPF al compilar (a veces sobreviven a un lock de archivo)
+*_wpftmp.csproj

@@ -268,6 +268,22 @@ namespace L5ArgentinaLauncher
                 "Pool: solo los packages type=images son packs");
             Assert(!enginePool.PackIsCurrent(enginePool.ImagePacks[0]), "Pool: pack no aplicado inicialmente");
 
+            // El pack propio de la comunidad (sección `images` del manifest del launcher) también
+            // está publicado en el pool: mismo archivo, mismo hash. Si apareciera en las dos
+            // partes, el usuario lo bajaría dos veces y cada mitad llevaría su propio registro de
+            // "aplicado", contradiciéndose. Se saca de la lista del pool identificándolo por hash.
+            var dupPoolPath = Path.Combine(pool, "manifest-dup.json");
+            File.WriteAllText(dupPoolPath, "{\"packages\":[" +
+                PoolPkg("testpack", "images", "1.0", poolPackZip) + "," +
+                PoolPkg("samuraiEx", "images", "1.0", packZip) + "]}");
+            var dupEngine = new LauncherEngine(new UserConfig { ManifestUrl = manifestUrl, SunAndMoonPath = install });
+            dupEngine.LoadPoolManifestAsync(new Uri(dupPoolPath).AbsoluteUri).GetAwaiter().GetResult();
+            Assert(dupEngine.ImagePacks.Count == 2,
+                "Pool: sin el manifest del launcher cargado, no se puede descartar nada");
+            dupEngine.LoadManifestAsync().GetAwaiter().GetResult();
+            Assert(dupEngine.ImagePacks.Count == 1 && dupEngine.ImagePacks[0].Id == "testpack",
+                "Pool: el pack propio (mismo sha256 que manifest.images) se saca de la lista");
+
             enginePool.ApplyPoolImagePackAsync(enginePool.ImagePacks[0], null).GetAwaiter().GetResult();
             Assert(File.Exists(Path.Combine(install, "images", "cards", "POOLSET", "img1.jpg")),
                 "Pool: pack extraído sobre images/cards/ de la instalación");
@@ -320,6 +336,12 @@ namespace L5ArgentinaLauncher
 
             // ---------- Conjuntos de cartas: listas como txt + identidad por nombre ----------
             RunCardSetTests(tempRoot);
+
+            // ---------- Recorte: quantity=0 conserva la carta en el mazo ----------
+            RunTrimTests(tempRoot);
+
+            // ---------- Estado de armado: mazo terminado vs pendiente ----------
+            RunDeckStateTests(tempRoot);
 
             // ---------- Opcional: e2e con archivos REALES del bucket ----------
             // Se activa pasando L5A_SELFTEST_BUCKET=<carpeta con manifest.json + zips reales>.
@@ -844,6 +866,157 @@ namespace L5ArgentinaLauncher
             var storeS = Services.Search.UserCardDataStore.Load(libS);
             Assert(storeS.Data.Favorites.Contains("NEW-Ivory032"),
                 "usercards: las favoritas sobreviven a un cambio de ids del catálogo");
+        }
+
+        /// <summary>
+        /// Recorte (SPEC-DECK-CRUD §4): bajar una carta a 0 la conserva en el mazo en vez de
+        /// borrarla. El motor ya lo tenía (`keepRowAtZero`); lo que se verifica acá es la mitad
+        /// que la app resolvía con SQLite y el launcher no tenía: dónde se guarda. Va al sidecar
+        /// y **no** al .txt, porque ese archivo lo lee el juego (ADR-046).
+        /// </summary>
+        private static void RunTrimTests(string tempRoot)
+        {
+            var fixturesDir = FindRepoRelative(Path.Combine("tests", "fixtures", "deckbuilder"));
+            if (fixturesDir == null) return;
+
+            Line("");
+            Line("=== Recorte de cartas (quantity=0 persiste) ===");
+            var catalog = Services.Search.CatalogStore.Load(Path.Combine(fixturesDir, "data"));
+            var root = Path.Combine(tempRoot, "triminstall");
+            var decksDir = Path.Combine(root, "Decks");
+            var listsDir = Path.Combine(root, "Lists");
+            var metaPath = Path.Combine(tempRoot, "trimmeta.json");
+            Directory.CreateDirectory(decksDir);
+
+            var lib = new DeckLibrary(catalog, decksDir, metaPath, listsDir);
+            var deckId = lib.CreateDeck("Recortes");
+            lib.Repo.ImportCards(deckId, "2 Jade Works\n1 Hida Akeno");
+
+            // −  sobre la última copia: la fila persiste con quantity 0
+            lib.Repo.RemoveCard(deckId, "TDoW012", keepRowAtZero: true); // Hida Akeno, tenía 1
+            var trimmedEntry = lib.Repo.GetDeckCard(deckId, "TDoW012");
+            Assert(trimmedEntry != null && trimmedEntry.Quantity == 0,
+                "Recorte: bajar a 0 conserva la entrada en el mazo");
+            Assert(lib.Repo.TotalCardCount(deckId) == 2, "Recorte: la recortada no cuenta en el total");
+            Assert(!lib.Repo.ExportDeck(deckId).Contains("Hida Akeno"),
+                "Recorte: la recortada no sale en el export");
+
+            // El .txt es del juego: no puede aparecer ahí de ninguna forma
+            var txt = File.ReadAllText(Path.Combine(decksDir, "Recortes.txt"));
+            Assert(!txt.Contains("Hida Akeno"), "Recorte: la recortada NO se escribe en el .txt del juego");
+            Assert(txt.Contains("2x Jade Works"), "Recorte: el resto del mazo se escribe igual");
+
+            // …pero sobrevive al reinicio, vía el sidecar
+            var meta = File.ReadAllText(metaPath);
+            Assert(meta.Contains("\"trimmed\"") && meta.Contains("Hida Akeno"),
+                "Recorte: se guarda en el sidecar, por nombre de carta");
+            var lib2 = new DeckLibrary(catalog, decksDir, metaPath, listsDir);
+            var reloaded = lib2.Repo.Decks.First(d => d.Name == "Recortes");
+            Assert(lib2.Repo.GetDeckCard(reloaded.Id, "TDoW012")?.Quantity == 0,
+                "Recorte: vuelve como recortada al recargar del disco");
+            Assert(lib2.Repo.TotalCardCount(reloaded.Id) == 2,
+                "Recorte: sigue sin contar después de recargar");
+
+            // El + la rescata conservando su lugar
+            var orderBefore = lib2.Repo.GetDeckCard(reloaded.Id, "TDoW012").SortOrder;
+            Assert(lib2.Repo.AddCard(reloaded.Id, "TDoW012").Kind == AddCardResultKind.Success,
+                "Recorte: el + rescata una recortada");
+            var rescued = lib2.Repo.GetDeckCard(reloaded.Id, "TDoW012");
+            Assert(rescued.Quantity == 1 && rescued.SortOrder == orderBefore,
+                "Recorte: al rescatarla conserva su sortOrder");
+
+            // Limpiar recortadas
+            lib2.Repo.RemoveCard(reloaded.Id, "TDoW012", keepRowAtZero: true);
+            lib2.Repo.RemoveAllTrimmed(reloaded.Id);
+            Assert(lib2.Repo.GetDeckCard(reloaded.Id, "TDoW012") == null,
+                "Recorte: 'limpiar recortadas' saca la entrada del todo");
+            Assert(!File.ReadAllText(metaPath).Contains("Hida Akeno"),
+                "Recorte: al limpiarlas desaparecen del sidecar");
+
+            // El .txt manda: si alguien puso la carta a mano con cantidad, la marca de recorte
+            // del sidecar se ignora (lo que se juega es lo que dice el archivo del juego)
+            lib2.Repo.RemoveCard(reloaded.Id, "Ivory032", keepRowAtZero: true);
+            lib2.Repo.RemoveCard(reloaded.Id, "Ivory032", keepRowAtZero: true); // 2 → 1 → 0
+            File.WriteAllText(Path.Combine(decksDir, "Recortes.txt"), "3x Jade Works\r\n");
+            var lib3 = new DeckLibrary(catalog, decksDir, metaPath, listsDir);
+            var conflict = lib3.Repo.Decks.First(d => d.Name == "Recortes");
+            Assert(lib3.Repo.GetDeckCard(conflict.Id, "Ivory032")?.Quantity == 3,
+                "Recorte: el .txt manda sobre la marca de recorte del sidecar");
+
+            // Las listas no tienen recorte: bajar a 0 ahí es simplemente sacar la carta
+            var listId = lib3.CreateList("Sin recortes");
+            lib3.Repo.SetInList(listId, "Ivory032", true);
+            lib3.Repo.RemoveCard(listId, "Ivory032", keepRowAtZero: true);
+            var reloadedList = new DeckLibrary(catalog, decksDir, metaPath, listsDir)
+                .Lists.First(d => d.Name == "Sin recortes");
+            Assert(reloadedList.Cards.Count == 0, "Recorte: una lista nunca guarda recortadas");
+        }
+
+        /// <summary>
+        /// "Mazo terminado" (`IsDeckComplete`): extra del launcher, no existe en la app, así que
+        /// no hay golden que lo cubra. Criterio: los dos slots requeridos cubiertos (Border Keep y
+        /// Bamboo Harvesters) + stronghold + cada lado entre 40 y 50.
+        /// </summary>
+        private static void RunDeckStateTests(string tempRoot)
+        {
+            var fixturesDir = FindRepoRelative(Path.Combine("tests", "fixtures", "deckbuilder"));
+            if (fixturesDir == null) return;
+
+            Line("");
+            Line("=== Estado de armado del mazo (terminado / pendiente) ===");
+            var catalog = Services.Search.CatalogStore.Load(Path.Combine(fixturesDir, "data"));
+            var decksDir = Path.Combine(tempRoot, "stateinstall", "Decks");
+            Directory.CreateDirectory(decksDir);
+            var lib = new DeckLibrary(catalog, decksDir, Path.Combine(tempRoot, "statemeta.json"));
+            var repo = lib.Repo;
+
+            var deckId = lib.CreateDeck("Estado");
+            Assert(!repo.IsDeckComplete(deckId), "Estado: un mazo vacío está pendiente");
+
+            repo.SetCardQuantity(deckId, "Samurai395", 1);  // The Seventh Tower (stronghold)
+            repo.SetCardQuantity(deckId, "HaT001", 1);      // Bamboo Harvesters (slot bamboo)
+            repo.SetCardQuantity(deckId, "Emperor028", 1);  // Border Keep (slot border)
+            Assert(repo.UncoveredRequiredSlots(deckId).Count == 0,
+                "Estado: Bamboo + Border cubren los dos slots requeridos");
+            Assert(!repo.IsDeckComplete(deckId), "Estado: con slots y stronghold pero sin cartas, pendiente");
+
+            FillSide(repo, catalog, deckId, "dynasty", 40);
+            Assert(!repo.IsDeckComplete(deckId), "Estado: con un solo lado en rango sigue pendiente");
+            FillSide(repo, catalog, deckId, "fate", 40);
+            Assert(repo.DynastyCount(deckId) >= 40 && repo.FateCount(deckId) >= 40,
+                "Estado: los dos lados llegaron a 40");
+            Assert(repo.IsDeckComplete(deckId), "Estado: slots + stronghold + 40/40 → terminado");
+
+            // Sacar el stronghold lo devuelve a pendiente (aunque los conteos sigan bien)
+            repo.SetCardQuantity(deckId, "Samurai395", 0);
+            Assert(!repo.IsDeckComplete(deckId), "Estado: sin stronghold vuelve a pendiente");
+            repo.SetCardQuantity(deckId, "Samurai395", 1);
+
+            // Recortar el Border Keep descubre su slot → pendiente (una recortada no cubre nada)
+            repo.RemoveCard(deckId, "Emperor028", keepRowAtZero: true);
+            Assert(!repo.IsDeckComplete(deckId), "Estado: un slot cubierto por una recortada no cuenta");
+            repo.SetCardQuantity(deckId, "Emperor028", 1);
+
+            // Pasarse de 50 en un lado también lo saca del rango
+            FillSide(repo, catalog, deckId, "dynasty", 51);
+            Assert(repo.DynastyCount(deckId) > DeckRepository.SideMax && !repo.IsDeckComplete(deckId),
+                "Estado: pasarse de 50 en un lado lo devuelve a pendiente");
+
+            // Una lista nunca está terminada
+            var listId = lib.CreateList("Lista estado");
+            Assert(!repo.IsDeckComplete(listId), "Estado: una lista nunca cuenta como terminada");
+        }
+
+        /// <summary>Carga cartas del grupo pedido hasta llegar al total (para armar mazos de prueba).</summary>
+        private static void FillSide(DeckRepository repo, Models.CardCatalog catalog,
+                                     string deckId, string group, int target)
+        {
+            foreach (var card in catalog.Cards.Where(c =>
+                         string.Equals(c.DeckGroup, group, StringComparison.Ordinal) && !c.Banned))
+            {
+                if ((group == "dynasty" ? repo.DynastyCount(deckId) : repo.FateCount(deckId)) >= target) return;
+                repo.SetCardQuantity(deckId, card.Id, Math.Min(3, Math.Max(1, card.MaxCopies)));
+            }
         }
 
         /// <summary>Busca una ruta relativa al repo subiendo desde el directorio del exe.</summary>

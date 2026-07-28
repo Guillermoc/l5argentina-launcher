@@ -81,10 +81,15 @@ mazo inexistente" ([ADR-027](../DECISIONS.md#adr-027)).
 | "Solo ocultas" no resetea los demás filtros | Buscador | La app sí lo hace; acá sorprende |
 | `SortField` con TYPE/CLAN/RARITY/HONOR_REQ/FOCUS | Buscador | Orden por cabecera de tabla; sin goldens ([ADR-030](../DECISIONS.md#adr-030)) |
 | Duplicar mazo | Editor | Pedido frecuente, sale gratis ([ADR-029](../DECISIONS.md#adr-029)) |
-| Sin gracia de 2,5 s al llegar a 0 | Editor | Patrón táctil; el motor lo soporta igual ([ADR-025](../DECISIONS.md#adr-025)) |
+| Sin gracia de 2,5 s al llegar a 0 | Editor | Patrón táctil para no re-tocar un botón chico; el recorte sí está ([ADR-046](../DECISIONS.md#adr-046)) |
+| "Recortadas" arranca visible; en la app se ocultan | Editor | Sin la gracia de 2,5 s, esconder la carta en el instante en que la recortás deja al usuario sin ver lo que hizo ([ADR-046](../DECISIONS.md#adr-046)) |
 | Presets de filtros con nombre | Buscador | Superset del slot único de la app |
 | Resolución tolerante de nombres al leer `.txt` | Mazos | Los nombres del juego difieren del catálogo ([ADR-023](../DECISIONS.md#adr-023)) |
 | Sin marco del color del clan alrededor del arte | Detalle de carta | El marco del `CardViewerModal` de la app hacía resaltar las puntitas blancas del escaneo; acá el arte va redondeado y el marco quedó solo como placeholder ([ADR-037](../DECISIONS.md#adr-037)) |
+| **Sin gracia de 2 s al ocultar una carta** | Buscador | En la app, ocultar marca el ícono y recién a los 2 s saca la carta; tocar de nuevo cancela. Es el mismo patrón táctil que el recorte: existe para no re-tocar un botón chico en un celular. Con mouse, el `⊘` es preciso y el deshacer es volver a clickear — la demora solo agregaría un estado intermedio que explicar. Misma lógica que [ADR-025](../DECISIONS.md#adr-025) |
+| **Sin sugerencias de nombre en la barra** | Buscador | La app las necesita porque el resultado vive detrás de un modal de filtros; acá la búsqueda **filtra en vivo** y la grilla ya *es* la lista de sugerencias, con la ventaja de respetar los filtros activos (las de la app los ignoran y por eso tienen que marcar "Bloqueado por filtros") |
+| **Click derecho = copiar la imagen** | Grillas del Buscador y del editor | Extra del launcher: en la app el copiar vive en la barra del visor. Con mouse, el click derecho sobre la carta es el gesto esperado y evita abrir el detalle para una acción de un paso |
+| **Estado de armado del mazo (terminado / pendiente)** | Editor | Extra del launcher; la app no tiene la noción ([ADR-047](../DECISIONS.md#adr-047)) |
 
 **Al agregar una divergencia nueva:** anotarla acá y en el índice del dominio, y verificar que no
 toque ninguna semántica cubierta por goldens.

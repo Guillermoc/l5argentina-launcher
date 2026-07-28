@@ -34,6 +34,7 @@ y confinadas al directorio del manifest. Secciones:
 - `launcher.latest_version` → banner de update (compara contra `AppConstants.LauncherVersion`).
 - `databases[]` → la entrada con `id == "community"` es la única que se descarga (la Original es local).
 - `images` → pack de imágenes propio de la comunidad (~30 cartas fuera de los packs clásicos).
+  **Está publicado también en el pool**; el overlay lo filtra por hash ([ADR-048](../DECISIONS.md#adr-048)).
 - `catalog` (opcional) → `cards`/`rules`/`filters`; hoy es **fallback** del pool.
 - `news[]` → modelado, no usado (v2).
 
@@ -81,7 +82,12 @@ el manifest vive en `/production/` y los archivos en `/pool/`). De acá salen:
 
 ### Packs de imágenes (overlay "Packs de imágenes…")
 
-Lista los `type == "images"` del pool. Por pack: `ResolveSameOriginUrl` → descarga verificada a
+Lista los `type == "images"` del pool, **menos el pack propio de la comunidad**: ese mismo archivo
+está publicado en los dos manifests y se lo reconoce por **sha256** contra `Manifest.Images.Sha256`
+([ADR-048](../DECISIONS.md#adr-048)). Ofrecerlo en las dos partes hacía que se descargara dos veces
+y que cada camino llevara su propio registro de "aplicado", contradiciéndose.
+
+Por pack: `ResolveSameOriginUrl` → descarga verificada a
 `cache/packs/<id>-<version>.zip` → `ImagePackService.ApplyImagePack` sobre `<SunAndMoon>\images\` →
 **se borra el zip** (pesan hasta ~280 MB) → se registra en `config.appliedImagePacks[id]` por hash.
 Ids nuevos aparecen solos; el nombre amigable sale de `Pack_<id>` en el resx (fallback: el id).

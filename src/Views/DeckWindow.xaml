@@ -6,12 +6,13 @@
     xmlns:loc="clr-namespace:L5ArgentinaLauncher.Resources"
     xmlns:v="clr-namespace:L5ArgentinaLauncher.Views"
     Title="{loc:Loc Deck_WindowTitle}"
-    Width="1323" Height="798" MinWidth="1060" MinHeight="640"
+    Width="1323" Height="798" MinWidth="460" MinHeight="460"
     WindowStartupLocation="CenterScreen"
     WindowStyle="None"
     Background="{StaticResource ParchmentBackground}"
     Icon="pack://application:,,,/Assets/icon.png"
-    StateChanged="Window_StateChanged">
+    StateChanged="Window_StateChanged"
+    SizeChanged="Window_SizeChanged">
 
     <!-- Chrome custom (como SearchWindow): redimensionable y con maximizar -->
     <shell:WindowChrome.WindowChrome>
@@ -36,6 +37,14 @@
     </Window.Resources>
 
     <Grid x:Name="RootLayout">
+        <!-- Previsualización con Alt (ver ui.md): corrida del cursor para no taparse a sí misma -->
+        <Popup x:Name="HoverPreview" Placement="Mouse" HorizontalOffset="26" VerticalOffset="26"
+               AllowsTransparency="True" StaysOpen="True" IsHitTestVisible="False" Focusable="False">
+            <Border Background="#F2140A05" BorderBrush="{StaticResource Gold}" BorderThickness="2"
+                    CornerRadius="12" Padding="5">
+                <Image x:Name="HoverPreviewImage" Stretch="Uniform" MaxWidth="430" MaxHeight="620" />
+            </Border>
+        </Popup>
         <!-- Capas de fondo -->
         <Rectangle Fill="{StaticResource PaperOverlayBrush}" IsHitTestVisible="False" />
         <Rectangle Fill="{StaticResource BackgroundScrim}" IsHitTestVisible="False" />
@@ -96,9 +105,15 @@
                                     Height="32" FontSize="14" Padding="14,0"
                                     Content="{loc:Loc Deck_OpenSearch}"
                                     ToolTip="{loc:Loc Deck_OpenSearchTip}" Click="OpenSearchBtn_Click" />
+                            <Button x:Name="SideBySideBtn" Style="{StaticResource IconButton}"
+                                    Margin="8,0,0,0" Content="⫞" FontSize="16"
+                                    ToolTip="{loc:Loc Deck_SideBySideTip}" Click="SideBySide_Click" />
                             <Button x:Name="DeckMenuBtn" Style="{StaticResource IconButton}"
                                     Margin="8,0,0,0" Content="⋯" FontSize="17"
                                     ToolTip="{loc:Loc Deck_MenuTip}" Click="DeckMenuBtn_Click" />
+                            <Button x:Name="HelpBtn" Style="{StaticResource IconButton}"
+                                    Margin="8,0,0,0" Content="?" FontSize="14"
+                                    ToolTip="{loc:Loc Help_Tip}" Click="Help_Click" />
                         </StackPanel>
 
                         <Popup x:Name="DeckMenuPopup" PlacementTarget="{Binding ElementName=DeckMenuBtn}"
@@ -121,6 +136,11 @@
                                     <Button x:Name="OpenFolderBtn" Style="{StaticResource MenuRow}"
                                             Content="{loc:Loc Deck_OpenFolderMenu}" ToolTip="{loc:Loc Deck_OpenFolderTip}"
                                             Click="OpenFolderBtn_Click" />
+                                    <Rectangle Height="1" Margin="10,5" Fill="{StaticResource OutlineSoft}" />
+                                    <Button x:Name="ClearTrimmedBtn" Style="{StaticResource MenuRow}"
+                                            Content="{loc:Loc Deck_ClearTrimmedMenu}"
+                                            ToolTip="{loc:Loc Deck_ClearTrimmedTip}"
+                                            Click="ClearTrimmed_Click" />
                                     <Rectangle Height="1" Margin="10,5" Fill="{StaticResource OutlineSoft}" />
                                     <Button x:Name="DeleteBtn" Style="{StaticResource MenuRow}"
                                             Foreground="{StaticResource ErrorText}"
@@ -152,8 +172,14 @@
                             <ToggleButton x:Name="ViewListBtn" Style="{StaticResource SegmentLeft}"
                                           Content="{loc:Loc Search_ViewList}" Click="ViewToggle_Click" />
                             <ToggleButton x:Name="ViewGridBtn" Style="{StaticResource SegmentRight}"
-                                          Margin="0,0,12,0" IsChecked="True" Content="{loc:Loc Search_ViewGrid}"
+                                          IsChecked="True" Content="{loc:Loc Search_ViewGrid}"
                                           Click="ViewToggle_Click" />
+                            <Button x:Name="ZoomOutBtn" Style="{StaticResource IconButton}" Margin="8,0,0,0"
+                                    Content="－" FontSize="13" ToolTip="{loc:Loc Search_ZoomOutTip}"
+                                    Click="ZoomOut_Click" />
+                            <Button x:Name="ZoomInBtn" Style="{StaticResource IconButton}" Margin="3,0,12,0"
+                                    Content="＋" FontSize="13" ToolTip="{loc:Loc Search_ZoomInTip}"
+                                    Click="ZoomIn_Click" />
                             <ComboBox x:Name="SortCombo" Style="{StaticResource ChipCombo}" Width="120"
                                       SelectionChanged="Sort_Changed" />
                             <ToggleButton x:Name="SortDirBtn" Style="{StaticResource IconToggle}"
@@ -172,7 +198,7 @@
                              son la única forma de reabrir el panel. -->
                         <ColumnDefinition x:Name="DecksCol" Width="260" />
                         <ColumnDefinition Width="18" />
-                        <ColumnDefinition Width="*" MinWidth="360" />
+                        <ColumnDefinition Width="*" MinWidth="300" />
                         <ColumnDefinition Width="18" />
                         <ColumnDefinition x:Name="SideCol" Width="405" />
                     </Grid.ColumnDefinitions>
@@ -191,12 +217,27 @@
                             Padding="12,8,12,12">
                         <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />  <!-- pestañas Abrir | Filtros -->
+                                <RowDefinition Height="Auto" />  <!-- controles de "Abrir" -->
+                                <RowDefinition Height="*" />     <!-- lista de mazos O filtros -->
                             </Grid.RowDefinitions>
 
-                            <StackPanel Grid.Row="0" Margin="0,0,0,6">
+                            <!-- Dos pestañas: elegir qué abrir vs. filtrar lo que ya está abierto.
+                                 Son tareas distintas y competían por el mismo panel. -->
+                            <Grid Grid.Row="0" Margin="0,0,0,8">
+                                <Border Height="1" VerticalAlignment="Bottom"
+                                        Background="{StaticResource OutlineSoft}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <ToggleButton x:Name="PaneOpenBtn" Style="{StaticResource PanelTab}"
+                                                  IsChecked="True" Content="{loc:Loc Deck_PaneOpen}"
+                                                  Click="PaneTab_Click" />
+                                    <ToggleButton x:Name="PaneFiltersBtn" Style="{StaticResource PanelTab}"
+                                                  Content="{loc:Loc Deck_PaneFilters}"
+                                                  Click="PaneTab_Click" />
+                                </StackPanel>
+                            </Grid>
+
+                            <StackPanel x:Name="OpenPane" Grid.Row="1" Margin="0,0,0,6">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -221,9 +262,44 @@
                                                   Content="{loc:Loc Deck_TabLists}"
                                                   ToolTip="{loc:Loc Deck_TabListsTip}" Click="KindTab_Click" />
                                 </StackPanel>
+
+                                <!-- Buscar por nombre del mazo o por una carta que contenga -->
+                                <Grid Margin="0,7,0,0">
+                                    <TextBox x:Name="DeckSearchBox" Style="{StaticResource InvertedTextBox}"
+                                             Height="28" FontSize="12" TextChanged="DeckSearch_Changed" />
+                                    <TextBlock Text="{loc:Loc Deck_SearchHint}" Foreground="{StaticResource InputPlace}"
+                                               Margin="12,0" VerticalAlignment="Center"
+                                               IsHitTestVisible="False" FontSize="11">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Text, ElementName=DeckSearchBox}" Value="">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+
+                                <WrapPanel Margin="0,7,0,0">
+                                    <ComboBox x:Name="DeckSortCombo" Style="{StaticResource ChipCombo}"
+                                              Width="118" Margin="0,0,6,4"
+                                              ToolTip="{loc:Loc Deck_SortTip}"
+                                              SelectionChanged="DeckListFilter_Changed" />
+                                    <ComboBox x:Name="DeckClanCombo" Style="{StaticResource ChipCombo}"
+                                              Width="112" Margin="0,0,6,4"
+                                              ToolTip="{loc:Loc Deck_ClanFilterTip}"
+                                              SelectionChanged="DeckListFilter_Changed" />
+                                    <ComboBox x:Name="DeckStateCombo" Style="{StaticResource ChipCombo}"
+                                              Width="118" Margin="0,0,0,4"
+                                              ToolTip="{loc:Loc Deck_StateFilterTip}"
+                                              SelectionChanged="DeckListFilter_Changed" />
+                                </WrapPanel>
                             </StackPanel>
 
-                            <ListBox x:Name="DeckList" Grid.Row="1" Background="#40140A05"
+                            <ListBox x:Name="DeckList" Grid.Row="2" Background="#40140A05"
                                      BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1"
                                      HorizontalContentAlignment="Stretch"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -265,8 +341,9 @@
                                 </ListBox.ItemTemplate>
                             </ListBox>
 
-                            <!-- Filtros sobre las cartas del mazo -->
-                            <StackPanel Grid.Row="2" Margin="0,10,0,0">
+                            <!-- Filtros sobre las cartas del mazo abierto -->
+                            <StackPanel x:Name="FiltersPane" Grid.Row="2" VerticalAlignment="Top"
+                                        Visibility="Collapsed">
                                 <TextBlock Text="{loc:Loc Deck_FiltersHeader}" FontFamily="{StaticResource BrushFont}"
                                            FontSize="16" Foreground="{StaticResource GoldSoft}" Margin="0,0,0,6" />
                                 <Grid>
@@ -297,6 +374,15 @@
                                                   IsChecked="True" Content="Fate"
                                                   Checked="Filter_Changed" Unchecked="Filter_Changed" />
                                 </WrapPanel>
+                                <!-- Recortadas: prendido por defecto, al revés que la app. Sin el
+                                     período de gracia táctil de 2,5 s, esconderlas al recortar deja
+                                     al usuario sin ver lo que acaba de hacer. Apagarlo muestra el
+                                     mazo tal como se juega. -->
+                                <ToggleButton x:Name="ShowTrimmedBtn" Style="{StaticResource FilterChip}"
+                                              Margin="0,8,0,0" IsChecked="True"
+                                              Content="{loc:Loc Deck_ShowTrimmed}"
+                                              ToolTip="{loc:Loc Deck_ShowTrimmedTip}"
+                                              Checked="ShowTrimmed_Click" Unchecked="ShowTrimmed_Click" />
                                 <TextBlock Text="{loc:Loc Deck_AddFromSearchHint}" Style="{StaticResource BodySmall}"
                                            FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
                             </StackPanel>
@@ -311,7 +397,8 @@
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Padding="14,8,14,8">
+                            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Padding="14,8,14,8"
+                                          PreviewMouseWheel="DeckBody_PreviewMouseWheel">
                                 <StackPanel x:Name="DeckBody" />
                             </ScrollViewer>
 

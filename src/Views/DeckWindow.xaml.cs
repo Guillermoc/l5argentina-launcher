@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using L5ArgentinaLauncher.Models;
@@ -42,6 +43,19 @@ namespace L5ArgentinaLauncher.Views
             public string Subtitle { get; set; }
         }
 
+        /// <summary>Orden de la lista de conjuntos. El default es el trabajo más fresco arriba.</summary>
+        private enum DeckSort { Recent, Alphabetical }
+
+        /// <summary>Filtro por estado de armado (solo aplica a mazos, ver `IsDeckComplete`).</summary>
+        private enum DeckState { All, Complete, Pending }
+
+        private class ComboItem<T>
+        {
+            public T Value;
+            public string Label;
+            public override string ToString() => Label;
+        }
+
         private static DeckWindow _instance;
 
         private readonly DeckLibrary _library;
@@ -59,6 +73,35 @@ namespace L5ArgentinaLauncher.Views
         private string _selectedCardId;
         // qué solapa está abierta a la izquierda: mazos (.txt de Decks) o listas (.txt de Lists)
         private string _kind = DeckLibrary.DeckType;
+
+        /// <summary>Opacidad de una carta recortada (está en el mazo, no se juega).</summary>
+        private const double TrimmedOpacity = 0.42;
+
+        /// <summary>
+        /// Cuatro tamaños de celda para la vista Grilla, como en el Buscador. Acá la celda incluye
+        /// la barra de acciones al pie, así que la proporción es un poco más alta.
+        ///
+        /// En el más chico los botones `−`/`+`/`✕` no entran: queda **solo la cantidad**, que es
+        /// el dato que no se puede deducir mirando el arte. Para tocar el mazo a ese tamaño está
+        /// la vista Lista.
+        /// </summary>
+        private static readonly double[] ZoomWidths = { 118, 158, 213, 284 };
+        private const double CellAspect = 330.0 / 213.0;
+
+        private int _zoom = 2; // 213, el histórico
+
+        private bool IsTinyZoom => _zoom == 0;
+
+        private double CellWidth => ZoomWidths[_zoom];
+        private double CellHeight => Math.Round(CellWidth * CellAspect);
+
+        private enum RowAnim { None, Trim, Restore }
+
+        // El cuerpo se reconstruye entero en cada mutación, así que la animación no puede vivir en
+        // el elemento viejo: se anota qué carta cambió y la fila nueva arranca animándose desde el
+        // estado anterior. Da la lectura de "esta se atenuó" sin diffear el árbol visual.
+        private string _animCardId;
+        private RowAnim _anim = RowAnim.None;
         // true durante InitializeComponent (los IsChecked=True del XAML disparan Checked antes
         // de que existan los demás controles) y durante los refrescos programáticos
         private bool _syncing = true;
@@ -99,6 +142,20 @@ namespace L5ArgentinaLauncher.Views
                 new SortOption { Label = Strings.Get("Search_Sort_Force"), Field = DeckCardSort.FORCE },
             };
             SortCombo.SelectedIndex = 0; // _syncing sigue en true desde la construcción
+
+            DeckSortCombo.ItemsSource = new[]
+            {
+                new ComboItem<DeckSort> { Value = DeckSort.Recent, Label = Strings.Get("Deck_Sort_Recent") },
+                new ComboItem<DeckSort> { Value = DeckSort.Alphabetical, Label = Strings.Get("Deck_Sort_Alpha") },
+            };
+            DeckSortCombo.SelectedIndex = 0; // más reciente primero
+            DeckStateCombo.ItemsSource = new[]
+            {
+                new ComboItem<DeckState> { Value = DeckState.All, Label = Strings.Get("Deck_State_All") },
+                new ComboItem<DeckState> { Value = DeckState.Complete, Label = Strings.Get("Deck_State_Complete") },
+                new ComboItem<DeckState> { Value = DeckState.Pending, Label = Strings.Get("Deck_State_Pending") },
+            };
+            DeckStateCombo.SelectedIndex = 0;
 
             _notesTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _notesTimer.Tick += (s, e) =>
@@ -149,7 +206,20 @@ namespace L5ArgentinaLauncher.Views
         /// Colapsa/expande los paneles laterales desde los rieles; el centro absorbe el ancho
         /// liberado. Las columnas de los rieles no se tocan: son la única forma de reabrir.
         /// </summary>
+        /// <summary>Mismo criterio que el Buscador: bajo este ancho los paneles no entran.</summary>
+        private const double NarrowWidth = 1000;
+
+        private bool _narrow;
+        private bool _wantDecks = true, _wantSide = true;
+
         private void PaneToggle_Click(object sender, RoutedEventArgs e)
+        {
+            _wantDecks = DecksPaneBtn.IsChecked == true;
+            _wantSide = SidePaneBtn.IsChecked == true;
+            ApplyPanes();
+        }
+
+        private void ApplyPanes()
         {
             var decksOn = DecksPaneBtn.IsChecked == true;
             DecksPanel.Visibility = decksOn ? Visibility.Visible : Visibility.Collapsed;
@@ -158,6 +228,54 @@ namespace L5ArgentinaLauncher.Views
             var sideOn = SidePaneBtn.IsChecked == true;
             SidePanel.Visibility = sideOn ? Visibility.Visible : Visibility.Collapsed;
             SideCol.Width = new GridLength(sideOn ? 405 : 0);
+        }
+
+        /// <summary>
+        /// Segundo escalón: con los paneles ya cerrados, el ancho mínimo real lo pone la **barra
+        /// de botones**, y en el layout 70/30 la ventana no podía achicarse lo suficiente y se
+        /// iba de pantalla. Acá se esconde lo accesorio — los conteos con el "Falta: {slot}", el
+        /// zoom y el orden — que es información que igual se ve en el cuerpo del mazo.
+        /// </summary>
+        private const double CompactWidth = 900;
+
+        private bool _compact;
+
+        private void Window_SizeChanged(object sender, SizeChangedEventArgs e) => ApplyResponsiveChrome();
+
+        private void ApplyResponsiveChrome()
+        {
+            ApplyNarrowMode();
+            ApplyCompactMode();
+        }
+
+        private void ApplyNarrowMode()
+        {
+            var narrow = ActualWidth < NarrowWidth;
+            if (narrow == _narrow) return;
+            _narrow = narrow;
+            foreach (var rail in new[] { DecksPaneBtn, SidePaneBtn })
+            {
+                rail.IsEnabled = !narrow;
+                rail.ToolTip = narrow ? Strings.Get("Pane_TooNarrow") : null;
+            }
+            DecksPaneBtn.IsChecked = !narrow && _wantDecks;
+            SidePaneBtn.IsChecked = !narrow && _wantSide;
+            ApplyPanes();
+        }
+
+        private void ApplyCompactMode()
+        {
+            var compact = ActualWidth < CompactWidth;
+            if (compact == _compact) return;
+            _compact = compact;
+            var hidden = compact ? Visibility.Collapsed : Visibility.Visible;
+            // Los conteos y el "Falta: {slot}" son lo primero que se va: no son accionables desde
+            // la barra y el cuerpo del mazo los repite (la fila roja bajo Starter).
+            DeckCounts.Visibility = hidden;
+            ZoomOutBtn.Visibility = hidden;
+            ZoomInBtn.Visibility = hidden;
+            SortCombo.Visibility = hidden;
+            SortDirBtn.Visibility = hidden;
         }
 
         // ------------------------------------------------------------------ lista de mazos
@@ -171,9 +289,10 @@ namespace L5ArgentinaLauncher.Views
             var requested = selectId != null ? Repo.GetDeckById(selectId) : null;
             if (requested != null) _kind = requested.Type;
 
-            var items = Repo.Decks
-                .Where(d => d.Type == _kind)
-                .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+            var visible = Repo.Decks.Where(d => d.Type == _kind).ToList();
+            RefreshClanCombo(visible);
+            var filtered = ApplyDeckListFilters(visible);
+            var items = SortDecks(filtered)
                 .Select(d => new DeckItemVm
                 {
                     Id = d.Id,
@@ -185,8 +304,13 @@ namespace L5ArgentinaLauncher.Views
             _syncing = true;
             TabDecksBtn.IsChecked = !IsListKind;
             TabListsBtn.IsChecked = IsListKind;
+            // el estado de armado no significa nada en una lista
+            DeckStateCombo.Visibility = IsListKind ? Visibility.Collapsed : Visibility.Visible;
             DeckListHeader.Text = Strings.Get(IsListKind ? "Deck_ListsHeader" : "Deck_ListHeader");
             NewDeckBtn.ToolTip = Strings.Get(IsListKind ? "Deck_NewListTip" : "Deck_NewTip");
+            // en una lista no existe el recorte: la carta está o no está
+            ShowTrimmedBtn.Visibility = IsListKind ? Visibility.Collapsed : Visibility.Visible;
+            RefreshTrimmedLabel();
             DeckList.ItemsSource = items;
             var select = items.FirstOrDefault(i => i.Id == selectId)
                          ?? items.FirstOrDefault(i => i.Id == _selectedDeckId)
@@ -228,6 +352,84 @@ namespace L5ArgentinaLauncher.Views
             RefreshDeckList(null);
         }
 
+        // ------------------------------------------------------------------ filtros de la lista
+
+        /// <summary>Nombre, clan y estado. El nombre matchea el del conjunto o el de sus cartas.</summary>
+        private List<Models.Deck> ApplyDeckListFilters(List<Models.Deck> decks)
+        {
+            var search = (DeckSearchBox.Text ?? "").Trim();
+            var clan = (DeckClanCombo.SelectedItem as ComboItem<string>)?.Value;
+            var state = (DeckStateCombo.SelectedItem as ComboItem<DeckState>)?.Value ?? DeckState.All;
+
+            return decks.Where(d =>
+            {
+                if (search.Length > 0 &&
+                    !CardSearchEngine.LikeContains(d.Name, search) &&
+                    !Repo.GetCardsWithCards(d.Id).Any(x => CardSearchEngine.LikeContains(x.Card.Name, search)))
+                    return false;
+                if (clan != null && !string.Equals(Repo.DeckClan(d.Id), clan, StringComparison.Ordinal))
+                    return false;
+                if (state != DeckState.All && d.Type != DeckLibrary.ListType)
+                {
+                    var complete = Repo.IsDeckComplete(d.Id);
+                    if (state == DeckState.Complete && !complete) return false;
+                    if (state == DeckState.Pending && complete) return false;
+                }
+                return true;
+            }).ToList();
+        }
+
+        private IEnumerable<Models.Deck> SortDecks(List<Models.Deck> decks)
+        {
+            var sort = (DeckSortCombo.SelectedItem as ComboItem<DeckSort>)?.Value ?? DeckSort.Recent;
+            return sort == DeckSort.Alphabetical
+                ? decks.OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+                : decks.OrderByDescending(d => _library.UpdatedAt(d))
+                       .ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Solo los clanes que hay entre los conjuntos visibles, más "todos".</summary>
+        private void RefreshClanCombo(List<Models.Deck> decks)
+        {
+            var previous = (DeckClanCombo.SelectedItem as ComboItem<string>)?.Value;
+            var items = new List<ComboItem<string>>
+            {
+                new ComboItem<string> { Value = null, Label = Strings.Get("Deck_ClanAll") },
+            };
+            items.AddRange(decks.Select(d => Repo.DeckClan(d.Id))
+                .Where(c => c != null)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
+                .Select(c => new ComboItem<string> { Value = c, Label = ClanLabel(c) }));
+
+            var wasSyncing = _syncing;
+            _syncing = true;
+            DeckClanCombo.ItemsSource = items;
+            DeckClanCombo.SelectedItem = items.FirstOrDefault(i => i.Value == previous) ?? items[0];
+            _syncing = wasSyncing;
+        }
+
+        private void DeckSearch_Changed(object sender, TextChangedEventArgs e) => RefreshDeckListIfReady();
+
+        private void DeckListFilter_Changed(object sender, SelectionChangedEventArgs e) => RefreshDeckListIfReady();
+
+        private void RefreshDeckListIfReady()
+        {
+            if (_syncing) return;
+            RefreshDeckList(_selectedDeckId);
+        }
+
+        /// <summary>Pestañas del panel izquierdo: elegir qué abrir vs. filtrar lo abierto.</summary>
+        private void PaneTab_Click(object sender, RoutedEventArgs e)
+        {
+            var filters = ReferenceEquals(sender, PaneFiltersBtn);
+            PaneFiltersBtn.IsChecked = filters;
+            PaneOpenBtn.IsChecked = !filters;
+            OpenPane.Visibility = filters ? Visibility.Collapsed : Visibility.Visible;
+            DeckList.Visibility = filters ? Visibility.Collapsed : Visibility.Visible;
+            FiltersPane.Visibility = filters ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         private string DeckSubtitle(Models.Deck deck)
         {
             // una lista no tiene lados Dynasty/Fate: lo informativo es cuántas cartas junta
@@ -235,7 +437,9 @@ namespace L5ArgentinaLauncher.Views
                 return Strings.Format("Fmt_ListCount", deck.Cards.Count(c => c.Quantity > 0));
             var clan = Repo.DeckClan(deck.Id);
             var counts = $"{Repo.DynastyCount(deck.Id)}/{Repo.FateCount(deck.Id)}";
-            return (clan != null ? ClanLabel(clan) + " · " : "") + counts;
+            // el ✓ hace visible el mismo criterio por el que filtra el combo de estado
+            var done = Repo.IsDeckComplete(deck.Id) ? " · ✓" : "";
+            return (clan != null ? ClanLabel(clan) + " · " : "") + counts + done;
         }
 
         private static string ClanLabel(string clan)
@@ -283,6 +487,56 @@ namespace L5ArgentinaLauncher.Views
         private void OpenSearchBtn_Click(object sender, RoutedEventArgs e) =>
             new SearchWindow(_catalog, _installPath).Show();
 
+        /// <summary>
+        /// Acomoda las dos ventanas para armar: el Buscador ocupando el 70 % izquierdo con su
+        /// panel de detalle cerrado (la carta se mira en la grilla), y el editor en el 30 %
+        /// derecho en vista Lista y con los dos paneles cerrados — a ese ancho no entran, y lo
+        /// que importa acá es ver qué cartas tiene el mazo mientras se busca.
+        /// Si no hay Buscador abierto, se abre uno.
+        /// </summary>
+        private void SideBySide_Click(object sender, RoutedEventArgs e)
+        {
+            var search = Application.Current.Windows.OfType<SearchWindow>().FirstOrDefault()
+                         ?? new SearchWindow(_catalog, _installPath);
+            if (!search.IsVisible) search.Show();
+
+            var area = SystemParameters.WorkArea;
+            // El 30 % puede quedar por debajo del mínimo del editor (en 1366 son 410 DIP). Se
+            // reparte a partir de lo que el editor realmente necesita, así la suma sigue dando el
+            // área de trabajo y ninguna de las dos ventanas se va de pantalla.
+            var deckWidth = Math.Max(MinWidth, Math.Round(area.Width * 0.3));
+            var searchWidth = Math.Max(search.MinWidth, area.Width - deckWidth);
+            deckWidth = area.Width - searchWidth;
+
+            Place(search, area.Left, area.Top, searchWidth, area.Height);
+            Place(this, area.Left + searchWidth, area.Top, deckWidth, area.Height);
+
+            search.ApplySideBySideLayout();
+
+            // editor: vista Lista y paneles cerrados
+            _syncing = true;
+            ViewListBtn.IsChecked = true;
+            ViewGridBtn.IsChecked = false;
+            _syncing = false;
+            _wantDecks = false;
+            _wantSide = false;
+            DecksPaneBtn.IsChecked = false;
+            SidePaneBtn.IsChecked = false;
+            ApplyPanes();
+            RebuildIfReady();
+
+            search.Activate();
+        }
+
+        private static void Place(Window w, double left, double top, double width, double height)
+        {
+            if (w.WindowState != WindowState.Normal) w.WindowState = WindowState.Normal;
+            w.Left = left;
+            w.Top = top;
+            w.Width = Math.Max(w.MinWidth, width);
+            w.Height = Math.Max(w.MinHeight, height);
+        }
+
         private void DeckMenuBtn_Click(object sender, RoutedEventArgs e) =>
             DeckMenuPopup.IsOpen = !DeckMenuPopup.IsOpen;
 
@@ -294,6 +548,9 @@ namespace L5ArgentinaLauncher.Views
             var hasDeck = deck != null;
             foreach (var btn in new[] { ImportBtn, ExportBtn, DuplicateBtn, RenameBtn, DeleteBtn })
                 btn.IsEnabled = hasDeck;
+            ClearTrimmedBtn.IsEnabled = hasDeck && deck.Type != DeckLibrary.ListType &&
+                                        deck.Cards.Any(c => c.Quantity == 0);
+            RefreshTrimmedLabel();
 
             DeckTitle.Text = hasDeck ? deck.Name : Strings.Get("Deck_NoDeckSelected");
 
@@ -356,6 +613,10 @@ namespace L5ArgentinaLauncher.Views
         /// <summary>Lista (filas) o Grilla (cartas en imagen), manteniendo las secciones.</summary>
         private void ViewToggle_Click(object sender, RoutedEventArgs e)
         {
+            HidePreview();
+            var gridView = ReferenceEquals(sender, ViewGridBtn);
+            ZoomOutBtn.IsEnabled = gridView && _zoom > 0;
+            ZoomInBtn.IsEnabled = gridView && _zoom < ZoomWidths.Length - 1;
             var grid = ReferenceEquals(sender, ViewGridBtn);
             ViewGridBtn.IsChecked = grid;
             ViewListBtn.IsChecked = !grid;
@@ -401,8 +662,11 @@ namespace L5ArgentinaLauncher.Views
             var asc = SortDirBtn.IsChecked != true;
             var gridView = ViewGridBtn.IsChecked == true;
 
+            // Recortadas (quantity=0): siguen en el mazo pero no se juegan. Se muestran grisadas
+            // salvo que se apague el toggle; en una lista no existe el concepto (ADR-046).
+            var showTrimmed = ShowTrimmedBtn.IsChecked == true && deck.Type != DeckLibrary.ListType;
             var entries = Repo.GetCardsWithCards(deck.Id)
-                .Where(x => x.Entry.Quantity > 0)
+                .Where(x => x.Entry.Quantity > 0 || (showTrimmed && x.Entry.Quantity == 0))
                 .Where(x => filter.Length == 0 || CardSearchEngine.LikeContains(x.Card.Name, filter))
                 .ToList();
 
@@ -417,15 +681,17 @@ namespace L5ArgentinaLauncher.Views
                     : new List<InitialHoldingSlot>();
                 if (groupEntries.Count == 0 && uncovered.Count == 0) continue;
 
+                // Los números son siempre los del mazo que se juega: una recortada no suma ni
+                // cuenta como carta distinta, aunque se esté viendo.
                 DeckBody.Children.Add(GroupHeader(
-                    $"{Capitalize(group)} — ({groupEntries.Sum(x => x.Entry.Quantity)}) [{groupEntries.Count}]"));
+                    $"{Capitalize(group)} — ({groupEntries.Sum(x => x.Entry.Quantity)}) [{groupEntries.Count(x => x.Entry.Quantity > 0)}]"));
 
                 foreach (var typeGroup in groupEntries
                              .OrderBy(x => DeckGroups.TypeOrderInGroup(group, x.Card.Type))
                              .GroupBy(x => x.Card.Type))
                 {
                     DeckBody.Children.Add(TypeHeader(
-                        $"{Capitalize(typeGroup.Key)} — ({typeGroup.Sum(x => x.Entry.Quantity)}) [{typeGroup.Count()}]"));
+                        $"{Capitalize(typeGroup.Key)} — ({typeGroup.Sum(x => x.Entry.Quantity)}) [{typeGroup.Count(x => x.Entry.Quantity > 0)}]"));
 
                     IOrderedEnumerable<(DeckCardEntry Entry, Card Card)> sorted;
                     switch (sort)
@@ -509,6 +775,7 @@ namespace L5ArgentinaLauncher.Views
         /// <summary>Fila de carta: nombre + mini-stats a la izquierda; − qty/max + ✕ a la derecha.</summary>
         private UIElement CardRow(Models.Deck deck, DeckCardEntry entry, Card card)
         {
+            var trimmed = entry.Quantity == 0;
             var row = new Border
             {
                 Padding = new Thickness(8, 3, 4, 3),
@@ -518,7 +785,10 @@ namespace L5ArgentinaLauncher.Views
                     : Brushes.Transparent,
                 Cursor = Cursors.Hand,
                 Tag = card.Id,
+                Opacity = trimmed ? TrimmedOpacity : 1.0,
+                ToolTip = trimmed ? Strings.Get("Deck_TrimmedTip") : null,
             };
+            AnimateIfPending(row, card, trimmed);
             row.MouseEnter += (s, e) => { if (card.Id != _selectedCardId) row.Background = new SolidColorBrush(Color.FromArgb(0x22, 0xC9, 0xA9, 0x61)); };
             row.MouseLeave += (s, e) => { if (card.Id != _selectedCardId) row.Background = Brushes.Transparent; };
             row.MouseLeftButtonUp += (s, e) => SelectCard(card);
@@ -534,8 +804,8 @@ namespace L5ArgentinaLauncher.Views
             // así que la única acción es sacarla.
             if (deck.Type != DeckLibrary.ListType)
             {
-                var plusBtn = SmallButton("+", null);
-                plusBtn.Click += (s, e) => ReportAdd(Repo.AddCard(deck.Id, card.Id));
+                var plusBtn = SmallButton("+", trimmed ? Strings.Get("Deck_RestoreTip") : null);
+                plusBtn.Click += (s, e) => AddOrRestore(deck, card, trimmed);
                 DockPanel.SetDock(plusBtn, Dock.Right);
                 dock.Children.Add(plusBtn);
 
@@ -544,7 +814,7 @@ namespace L5ArgentinaLauncher.Views
                     Text = $"{entry.Quantity}/{card.MaxCopies}",
                     FontFamily = (FontFamily)FindResource("BodyFont"),
                     FontSize = 12,
-                    Foreground = (Brush)FindResource("Gold"),
+                    Foreground = (Brush)FindResource(trimmed ? "TextDim" : "Gold"),
                     VerticalAlignment = VerticalAlignment.Center,
                     Margin = new Thickness(7, 0, 7, 0),
                     MinWidth = 26,
@@ -553,8 +823,9 @@ namespace L5ArgentinaLauncher.Views
                 DockPanel.SetDock(qty, Dock.Right);
                 dock.Children.Add(qty);
 
-                var minusBtn = SmallButton("−", null);
-                minusBtn.Click += (s, e) => Repo.RemoveCard(deck.Id, card.Id); // a 0 la fila se borra
+                var minusBtn = SmallButton("−", trimmed ? null : Strings.Get("Deck_TrimTip"));
+                minusBtn.IsEnabled = !trimmed; // ya está en 0: el paso siguiente es ✕, no −
+                minusBtn.Click += (s, e) => TrimOne(deck, card, entry);
                 DockPanel.SetDock(minusBtn, Dock.Right);
                 dock.Children.Add(minusBtn);
             }
@@ -567,7 +838,10 @@ namespace L5ArgentinaLauncher.Views
                 TextTrimming = TextTrimming.CharacterEllipsis,
             };
             name.Inlines.Add(new System.Windows.Documents.Run(card.Name)
-            { Foreground = (Brush)FindResource("Text") });
+            { Foreground = (Brush)FindResource(trimmed ? "TextDim" : "Text") });
+            if (trimmed)
+                name.Inlines.Add(new System.Windows.Documents.Run("  " + Strings.Get("Deck_TrimmedTag"))
+                { Foreground = (Brush)FindResource("TextFaint"), FontSize = 10 });
             var mini = MiniStats(card);
             if (mini.Length > 0)
                 name.Inlines.Add(new System.Windows.Documents.Run("   " + mini)
@@ -584,6 +858,7 @@ namespace L5ArgentinaLauncher.Views
         /// </summary>
         private UIElement CardImageCell(Models.Deck deck, DeckCardEntry entry, Card card)
         {
+            var isTrimmed = entry.Quantity == 0;
             if (!_imageCells.TryGetValue(card.Id, out var vm))
             {
                 vm = new GridCell
@@ -596,14 +871,28 @@ namespace L5ArgentinaLauncher.Views
 
             var cell = new Border
             {
-                Width = 213,
-                Height = 330,
+                Width = CellWidth,
+                Height = CellHeight,
                 Margin = new Thickness(4),
                 CornerRadius = new CornerRadius(9),
                 BorderThickness = new Thickness(2),
                 Cursor = Cursors.Hand,
+                Opacity = isTrimmed ? TrimmedOpacity : 1.0,
+                ToolTip = isTrimmed ? Strings.Get("Deck_TrimmedTip") : null,
             };
             cell.MouseLeftButtonUp += (s, e) => SelectCard(card);
+            // Alt + pasar por encima = ver la carta grande al lado del cursor (igual que el Buscador)
+            cell.MouseMove += (s, e) => ShowPreview(vm, card);
+            cell.MouseLeave += (s, e) => HidePreview();
+            // click derecho = copiar el arte, igual que en la grilla del Buscador
+            cell.MouseRightButtonUp += (s, e) =>
+            {
+                e.Handled = true;
+                var ok = CardImageClipboard.TryCopy(vm.CandidatePaths);
+                ShowStatus(ok ? Strings.Format("Fmt_CopiedImage", card.Name)
+                              : Strings.Get("Detail_CopyImageFail"));
+            };
+            AnimateIfPending(cell, card, isTrimmed);
 
             var layout = new Grid();
             layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -646,22 +935,44 @@ namespace L5ArgentinaLauncher.Views
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Center,
             };
+            if (IsTinyZoom)
+            {
+                // A 118 de ancho no entran los botones. Queda la cantidad, que es lo único que no
+                // se deduce mirando la carta; para editar a este tamaño está la vista Lista.
+                // En una lista no hay cantidad que mostrar, así que la barra no se dibuja.
+                if (deck.Type != DeckLibrary.ListType)
+                {
+                    actions.Children.Add(new TextBlock
+                    {
+                        Text = $"{entry.Quantity}/{card.MaxCopies}",
+                        FontFamily = (FontFamily)FindResource("BodyFont"),
+                        FontSize = 12,
+                        Foreground = (Brush)FindResource(isTrimmed ? "TextDim" : "Gold"),
+                        VerticalAlignment = VerticalAlignment.Center,
+                    });
+                    bar.Child = actions;
+                    layout.Children.Add(bar);
+                }
+                cell.Child = layout;
+                return cell;
+            }
             if (deck.Type != DeckLibrary.ListType) // en una lista la carta está o no está
             {
-                var minus = SmallButton("−", null);
-                minus.Click += (s, e) => Repo.RemoveCard(deck.Id, card.Id);
+                var minus = SmallButton("−", isTrimmed ? null : Strings.Get("Deck_TrimTip"));
+                minus.IsEnabled = !isTrimmed;
+                minus.Click += (s, e) => TrimOne(deck, card, entry);
                 actions.Children.Add(minus);
                 actions.Children.Add(new TextBlock
                 {
                     Text = $"{entry.Quantity}/{card.MaxCopies}",
                     FontFamily = (FontFamily)FindResource("BodyFont"),
                     FontSize = 12,
-                    Foreground = (Brush)FindResource("Gold"),
+                    Foreground = (Brush)FindResource(isTrimmed ? "TextDim" : "Gold"),
                     VerticalAlignment = VerticalAlignment.Center,
                     Margin = new Thickness(7, 0, 7, 0),
                 });
-                var plus = SmallButton("+", null);
-                plus.Click += (s, e) => ReportAdd(Repo.AddCard(deck.Id, card.Id));
+                var plus = SmallButton("+", isTrimmed ? Strings.Get("Deck_RestoreTip") : null);
+                plus.Click += (s, e) => AddOrRestore(deck, card, isTrimmed);
                 actions.Children.Add(plus);
             }
             var del = SmallButton("✕", Strings.Get("Deck_RemoveEntryTip"));
@@ -673,6 +984,139 @@ namespace L5ArgentinaLauncher.Views
 
             cell.Child = layout;
             return cell;
+        }
+
+        // ------------------------------------------------------------------ recorte
+
+        /// <summary>
+        /// `−` en la pantalla de mazo: al llegar a 0 la carta **no** se va, queda recortada
+        /// (`keepRowAtZero`, SPEC-DECK-CRUD §4). Conserva su `sortOrder`, así que el `+` la
+        /// devuelve a su lugar. Para sacarla de verdad está el `✕`, que es otra acción.
+        /// </summary>
+        private void TrimOne(Models.Deck deck, Card card, DeckCardEntry entry)
+        {
+            if (entry.Quantity <= 0) return;
+            var willTrim = entry.Quantity == 1; // la última copia: pasa a recortada, no se va
+            if (willTrim) MarkAnim(card.Id, RowAnim.Trim);
+            Repo.RemoveCard(deck.Id, card.Id, keepRowAtZero: true);
+            if (willTrim) ShowStatus(Strings.Format("Fmt_DeckTrimmed", card.Name));
+        }
+
+        /// <summary>`+`: sobre una recortada es un rescate; sobre el resto, agregar una copia.</summary>
+        private void AddOrRestore(Models.Deck deck, Card card, bool trimmed)
+        {
+            if (trimmed) MarkAnim(card.Id, RowAnim.Restore);
+            ReportAdd(Repo.AddCard(deck.Id, card.Id));
+        }
+
+        private void ShowTrimmed_Click(object sender, RoutedEventArgs e) => RebuildIfReady();
+
+        // ------------------------------------------------------------------ zoom y previsualización
+
+        /// <summary>Ctrl+rueda = zoom de la vista Grilla. Sin Ctrl, scrollea.</summary>
+        private void DeckBody_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Control) == 0) return;
+            if (ViewGridBtn.IsChecked != true) return; // el zoom es de la grilla
+            e.Handled = true;
+            SetZoom(_zoom + (e.Delta > 0 ? 1 : -1));
+        }
+
+        private void Help_Click(object sender, RoutedEventArgs e) =>
+            Dialogs.Info(this, Strings.Get("Help_ShortcutsTitle"), Strings.Get("Help_ShortcutsDeck"));
+
+        private void ZoomOut_Click(object sender, RoutedEventArgs e) => SetZoom(_zoom - 1);
+        private void ZoomIn_Click(object sender, RoutedEventArgs e) => SetZoom(_zoom + 1);
+
+        private void SetZoom(int zoom)
+        {
+            zoom = Math.Max(0, Math.Min(ZoomWidths.Length - 1, zoom));
+            if (zoom == _zoom) return;
+            _zoom = zoom;
+            ZoomOutBtn.IsEnabled = zoom > 0;
+            ZoomInBtn.IsEnabled = zoom < ZoomWidths.Length - 1;
+            // las celdas se construyen en código (no hay plantilla que re-medir): se rearma
+            RebuildIfReady();
+        }
+
+        private string _previewCardId;
+
+        /// <summary>
+        /// Con **Alt** apretado, la carta se abre grande al lado del cursor con el arte original.
+        /// El modificador se lee en el MouseMove por lo mismo que en el Buscador: Alt llega como
+        /// `Key.System` y compite con la activación de menús.
+        /// </summary>
+        private void ShowPreview(GridCell vm, Card card)
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Alt) == 0) { HidePreview(); return; }
+            if (HoverPreview.IsOpen && _previewCardId == card.Id) return;
+            var image = CardImageClipboard.LoadFull(vm.CandidatePaths);
+            if (image == null) { HidePreview(); return; }
+            _previewCardId = card.Id;
+            HoverPreviewImage.Source = image;
+            HoverPreview.IsOpen = false; // reabrir la reposiciona en el cursor actual
+            HoverPreview.IsOpen = true;
+        }
+
+        private void HidePreview()
+        {
+            if (!HoverPreview.IsOpen) return;
+            HoverPreview.IsOpen = false;
+            HoverPreviewImage.Source = null;
+            _previewCardId = null;
+        }
+
+        /// <summary>"Recortadas (N)" como la quick bar de la app; sin ninguna, solo la etiqueta.</summary>
+        private void RefreshTrimmedLabel()
+        {
+            var deck = _selectedDeckId != null ? Repo.GetDeckById(_selectedDeckId) : null;
+            var n = deck == null || deck.Type == DeckLibrary.ListType
+                ? 0 : deck.Cards.Count(c => c.Quantity == 0);
+            ShowTrimmedBtn.Content = n > 0
+                ? Strings.Format("Fmt_ShowTrimmed", n)
+                : Strings.Get("Deck_ShowTrimmed");
+        }
+
+        /// <summary>Saca del mazo todas las recortadas de una (`removeAllTrimmed` de la app).</summary>
+        private void ClearTrimmed_Click(object sender, RoutedEventArgs e)
+        {
+            DeckMenuPopup.IsOpen = false;
+            var deck = _selectedDeckId != null ? Repo.GetDeckById(_selectedDeckId) : null;
+            if (deck == null) return;
+            var count = deck.Cards.Count(c => c.Quantity == 0);
+            if (count == 0) { ShowStatus(Strings.Get("Deck_NoTrimmed")); return; }
+            if (!Dialogs.Confirm(this, Strings.Get("Deck_ClearTrimmedMenu"),
+                                 Strings.Format("Fmt_ClearTrimmedConfirm", count),
+                                 Strings.Get("Btn_Delete"))) return;
+            Repo.RemoveAllTrimmed(deck.Id);
+        }
+
+        private void MarkAnim(string cardId, RowAnim kind)
+        {
+            _animCardId = cardId;
+            _anim = kind;
+        }
+
+        /// <summary>
+        /// Anima la fila recién construida desde el estado anterior hasta el nuevo, para que
+        /// recortar y rescatar se **vean** en vez de aparecer ya resueltos. Se consume una sola
+        /// vez: el resto del cuerpo se reconstruye sin animar.
+        /// </summary>
+        private void AnimateIfPending(UIElement element, Card card, bool trimmed)
+        {
+            if (_anim == RowAnim.None || card.Id != _animCardId) return;
+            var from = _anim == RowAnim.Trim ? 1.0 : TrimmedOpacity;
+            var to = trimmed ? TrimmedOpacity : 1.0;
+            _anim = RowAnim.None;
+            _animCardId = null;
+            element.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation
+            {
+                From = from,
+                To = to,
+                Duration = TimeSpan.FromMilliseconds(220),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+                FillBehavior = FillBehavior.Stop,
+            });
         }
 
         private static string MiniStats(Card card)

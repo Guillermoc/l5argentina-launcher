@@ -14,8 +14,46 @@ Handoff original del rediseño: [../design/visual/](../design/visual/).
 |---|---|---|
 | `MainWindow` | **810×540 fija** (3:2), `ResizeMode=NoResize`, `WindowStyle=None` + `WindowChrome` propio | El diseño se **compone a 1080×720** y se escala con un `Viewbox Stretch=Uniform` (810×540 = 75 %). Todo lo que se agregue va en el lienzo de 1080×720. |
 | `FirstRunWindow` | diálogo modal | Detección de instalación + captura de la base Original. Devuelve `true`/`false` a `App`. |
-| `SearchWindow` | 1323×798, `Min` 1060×640, redimensionable/maximizable | Chrome propio (`CaptionHeight=35`). `Ctrl+N` abre otra instancia sobre el mismo catálogo. |
-| `DeckWindow` | 1323×798, `Min` 1060×640 | Mismo chrome. `DeckWindow.Open(...)` reusa la ventana si ya está abierta. El panel izquierdo tiene un segmentado **Mazos \| Listas**: es la misma ventana editando dos tipos del mismo conjunto ([ADR-045](../DECISIONS.md#adr-045)); en modo lista desaparecen `−`/qty/`+` y los conteos Dynasty/Fate. |
+| `SearchWindow` | 1323×798, `Min` **460×460**, redimensionable/maximizable | Chrome propio (`CaptionHeight=35`). `Ctrl+N` abre otra instancia sobre el mismo catálogo. |
+| `DeckWindow` | 1323×798, `Min` **460×460** | Mismo chrome. `DeckWindow.Open(...)` reusa la ventana si ya está abierta. El panel izquierdo tiene **dos pestañas** (`PanelTab`, el mismo idioma que Carta \| Stats): **Abrir** —segmentado Mazos \| Listas, buscador y selectores de orden/clan/estado— y **Filtros** sobre las cartas del mazo abierto. Elegir qué abrir y filtrar lo abierto son tareas distintas y competían por el mismo espacio. En modo lista desaparecen `−`/qty/`+`, los conteos Dynasty/Fate, el estado de armado y el toggle de recortadas. |
+
+**Ayuda de atajos** — un `?` discreto al final de la barra de cada ventana abre un `Dialogs.Info`
+con el listado completo de atajos de teclado y mouse. El texto vive entero en `Strings.resx`
+(`Help_ShortcutsSearch` / `Help_ShortcutsDeck`), así que agregar un atajo es editar el `.resx` y no
+tocar código — y si se olvida, se nota al leerlo.
+
+**Zoom de grilla** — cuatro tamaños de celda en las dos ventanas, con `－`/`＋` o **Ctrl + rueda**
+(`PreviewMouseWheel`, que marca `Handled` solo con Ctrl para no robarle el scroll a la rueda pelada).
+En el Buscador el tamaño viaja por `DependencyProperty` a la plantilla; en el editor las celdas se
+construyen en código, así que se rearma el cuerpo. **En el nivel mínimo la barra de acciones de la
+celda no entra** (mide ~160 contra 124 de celda) y se esconde: en el Buscador por un `DataTrigger`
+sobre `IsTinyZoom` puesto **último** en los triggers, para que gane sobre hover y selección; en el
+editor queda solo la cantidad. Es el mismo criterio que la barra de ventana en modo compacto: a
+menos espacio, se va lo que tiene otro camino.
+
+**Dos escalones de angostura.** Bajo **1000 DIP** las dos ventanas cierran sus paneles laterales y
+**apagan los rieles** (con un tooltip que lo explica): a ese ancho los paneles —270/260 y 405— no
+dejan una zona central usable, y un riel que abre algo que no entra es peor que un riel apagado. Cada
+ventana recuerda lo que el usuario tenía abierto (`_wantFilters`/`_wantDetail`,
+`_wantDecks`/`_wantSide`) y lo restaura al agrandarse.
+
+Bajo **900 DIP** entra el segundo escalón (`ApplyCompactMode`), porque con los paneles ya cerrados
+**el piso lo pone la barra de botones**. Se esconde lo accesorio: en el Buscador el bloque del mazo
+activo, el resumen de filtros y el zoom; en el editor los conteos con el "Falta: {slot}", el zoom y
+el orden. Nada de eso es accionable desde la barra y el cuerpo del mazo repite los conteos. Con eso
+los mínimos pudieron bajar a **460×460**, que es lo que necesita el 30 % del layout lado a lado.
+
+La segunda fila de la barra del Buscador es un **`WrapPanel`, no un `Grid`**: por debajo de ~1000 DIP
+sus grupos no entran en una línea, y bajar a la siguiente se lee mejor que recortarse. Cada grupo es
+un `StackPanel`, así que la envoltura corta entre grupos y nunca separa un control de su etiqueta.
+
+**Lado a lado** — el `⫞` de la barra del editor acomoda las dos ventanas sobre el área de trabajo:
+Buscador al 70 % izquierdo con su panel de detalle cerrado, editor al 30 % derecho en vista Lista y
+con los dos paneles cerrados. Si no hay Buscador abierto, lo abre. Es el layout de armar: se busca
+en una ventana y se ve el mazo crecer en la otra. El reparto **no es un 70/30 ciego**: se calcula el
+ancho del editor primero (acotado por su mínimo) y el Buscador se queda con el resto, así la suma da
+siempre el área de trabajo y ninguna ventana se va de pantalla — en 1366 el editor pide 460 y el
+Buscador queda en 906.
 
 **Dimensionado de `SearchWindow`/`DeckWindow`:** `Views/WindowSizingFix.cs` las acota al **área de
 trabajo** del monitor, en dos momentos que con `WindowStyle=None` fallaban por separado — al
@@ -80,15 +118,36 @@ píldora quedó reservada al único rol que le corresponde. Todos viven en `Card
 | Colapsar panel lateral | `PaneRail` (riel de altura completa entre panel y centro) | ambas ventanas |
 | Cambiar contenido del panel | `PanelTab` (pestaña adosada sobre una línea base) | Carta \| Stats (solo Mazos; el Buscador dejó de tener pestañas, [ADR-042](../DECISIONS.md#adr-042)) |
 | Selector que convive con toggles | `ChipCombo` (mismo template del ComboBox, paleta oscura) | orden, conjunto activo, mazo activo |
-| Acción puntual de barra | `IconButton` (círculo de 26 con glifo) | nueva lista `＋`, copiar a lista `⎘`, borrar lista `🗑` |
+| Acción puntual de barra | `IconButton` (círculo de 26 con glifo) | nueva lista `＋`, borrar lista `🗑`, zoom `－`/`＋`, lado a lado `⫞`, ayuda `?` |
+| Acción sobre la carta del detalle | `DetailActionBtn` (píldora chata con glifo + etiqueta) | `+ Mazo`, `☆ Favorita`, `≡ A la lista`… |
+| Acción dentro de un popup | `MenuRow` (ancho completo, texto a la izquierda, hover rojo) | menú `⋯` del editor de Mazos |
+
+**Copiar con click derecho** — sobre cualquier celda de grilla (Buscador y editor).
+`CardImageClipboard` **re-decodifica el archivo a tamaño completo**: la miniatura de la grilla se
+decodifica a ~340 px para no reventar la memoria, y pegar eso en el Discord daría una imagen borrosa.
+Lo mismo usa la previsualización con Alt.
+
+**Previsualización con Alt** (`HoverPreview`, en **ambas** ventanas) — `Popup` con `Placement=Mouse` y offset
+26,26: si quedara bajo el cursor taparía la celda, el `MouseLeave` lo cerraría y se abriría en loop.
+`IsHitTestVisible=False` — es para mirar, no se clickea. El modificador se lee en el `MouseMove` y no
+por `KeyDown`: en WPF Alt llega como `Key.System` y compite con la activación de menús.
+
+**Estado atenuado** (carta recortada del editor, [ADR-046](../DECISIONS.md#adr-046)): `Opacity`
+0.42 sobre la fila o la celda entera, nombre y cantidad en `TextDim`, sufijo "· recortada" y el `−`
+apagado. No hay estilo nuevo: es el mismo control con menos presencia, que es lo que significa.
+
+**Animación sobre un cuerpo que se reconstruye entero.** `RebuildDeckBody` rehace el árbol visual en
+cada mutación, así que no hay elemento viejo que animar. En vez de diffear, se anota qué carta cambió
+(`_animCardId` + `_anim`) y **la fila nueva arranca animándose desde el estado anterior**: recortar
+entra con `Opacity` 1 → 0.42, rescatar al revés, 220 ms con `CubicEase`/`EaseOut` y `FillBehavior.Stop`
+para que quede en el valor local. Se consume una sola vez, así que el resto del cuerpo aparece sin
+animar y no hay parpadeo general.
 
 **Selector de dos niveles** (conjunto activo del Buscador): un `ComboBox` común cuyos ítems incluyen
 **acciones** —`Usar mazo…` y `← Volver a listas`— que no seleccionan nada: cambian el `ItemsSource` y
 vuelven a abrir el desplegable (`IsDropDownOpen` en `BeginInvoke`, para que el reabrir no pelee con
 el cierre del click). Sale más barato que un menú jerárquico y no rompe el teclado: las listas, que
 son lo que se elige a diario, quedan a un click; los mazos, que suelen ser muchos, a dos.
-| Acción sobre la carta del detalle | `DetailActionBtn` (píldora chata con glifo + etiqueta) | `+ Mazo`, `☆ Favorita`, `≡ A la lista`… |
-| Acción dentro de un popup | `MenuRow` (ancho completo, texto a la izquierda, hover rojo) | menú `⋯` del editor de Mazos |
 
 `FilterChip`, `SegmentTemplate` e `IconToggle` tienen trigger de `IsEnabled=False` (opacidad 0.4 +
 cursor `Arrow`): sin él, un chip deshabilitado se veía idéntico a uno activo.

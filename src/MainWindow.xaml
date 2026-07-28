@@ -60,8 +60,6 @@
                     <Image Source="pack://application:,,,/Assets/logo_l5argentina.png" Height="112"
                            HorizontalAlignment="Left" VerticalAlignment="Center" />
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                        <Button x:Name="SearchButton" Content="{loc:Loc Btn_Search}" Style="{StaticResource GhostButton}"
-                                Click="SearchButton_Click" Margin="0,0,10,0" />
                         <Button x:Name="RefreshButton" Content="{loc:Loc Btn_CheckUpdates}" Style="{StaticResource GhostButton}"
                                 Click="RefreshButton_Click" Margin="0,0,10,0" />
                         <Button x:Name="SettingsButton" Content="{loc:Loc Btn_Settings}" Style="{StaticResource GhostButton}"
@@ -185,8 +183,14 @@
                         <TextBlock x:Name="InstallPathText" Style="{StaticResource BodySmall}" Text="" TextTrimming="CharacterEllipsis" MaxWidth="640" HorizontalAlignment="Left" />
                         <TextBlock x:Name="LauncherVersionText" Style="{StaticResource BodySmall}" Foreground="{StaticResource GoldDim}" Margin="0,2,0,0" />
                     </StackPanel>
-                    <Button x:Name="PlayButton" Content="{loc:Loc Btn_Play}" Style="{StaticResource PrimaryButtonLarge}"
-                            HorizontalAlignment="Right" MinWidth="230" Click="PlayButton_Click" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button x:Name="SearchButton" Content="{loc:Loc Btn_Search}"
+                                Style="{StaticResource GhostButton}" Height="48" FontSize="17"
+                                Padding="22,0" MinWidth="200" Margin="0,0,14,0"
+                                ToolTip="{loc:Loc Btn_SearchTip}" Click="SearchButton_Click" />
+                        <Button x:Name="PlayButton" Content="{loc:Loc Btn_Play}" Style="{StaticResource PrimaryButtonLarge}"
+                                MinWidth="230" Click="PlayButton_Click" />
+                    </StackPanel>
                 </Grid>
 
                 <!-- ===== Status / progreso (abajo a la derecha, bajo JUGAR) ===== -->

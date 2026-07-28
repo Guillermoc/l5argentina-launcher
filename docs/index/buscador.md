@@ -53,8 +53,9 @@ solo lista). Los filtros **aplican en vivo**, sin modal ni botón Aplicar.
 **Operadores de barra** (port de `parseBarText`): `tx.` filtra texto de carta en vivo; `k.` / `c.` /
 `t.` + Enter agregan keyword o activan chip de clan/tipo (match exacto o prefijo único).
 
-**Vistas** — grilla de miniaturas por defecto (celdas 226×322, filas virtualizadas por chunking
-manual, thumbnails con `DecodePixelWidth` + `IsAsync` + retención débil) y tabla virtualizada con
+**Vistas** — grilla de miniaturas por defecto (celda de 226×322 en el zoom del medio, filas
+virtualizadas por chunking manual, thumbnails con `DecodePixelWidth` + `IsAsync` + caché de dos
+niveles, ver abajo) y tabla virtualizada con
 orden por click en cabecera. Chip "Impresiones" = ver todas las impresiones de cada carta; con
 filtro de Edición activo muestra solo las de esos sets, y si ninguna coincide conserva la preferida
 para no perder la carta. Navegación por teclado en la grilla; `Ctrl+F` enfoca la búsqueda; `Ctrl+N`
@@ -64,19 +65,65 @@ abre otra ventana del Buscador sobre el mismo catálogo (estado de filtros indep
 (`PaneRail`, [ADR-035](../DECISIONS.md#adr-035)), con un chevron que apunta adónde se va el borde.
 Su columna (18 DIP) **nunca colapsa**: es la única forma de reabrir el panel. Cada colapso libera
 270 (Filtros) / 405 (Panel) DIP contra una celda de 226 → sigue sumando una columna de cartas.
-Anchos calibrados para 1080p a 125 % (~1530 DIP útiles).
+Anchos calibrados para 1080p a 125 % (~1530 DIP útiles). **Bajo 1000 DIP** los dos paneles se
+cierran solos y los rieles se apagan; **bajo 900** además se esconde lo accesorio de la barra (mazo
+activo, resumen de filtros, zoom) porque el piso lo pone la barra de botones. Al volver a agrandar se
+restaura lo que el usuario tenía. Detalle en [ui.md](ui.md).
 
 La barra superior va en dos filas: **caja de búsqueda + contador de resultados** pegados a la
 izquierda y vista/orden a la derecha arriba (sin título: ya lo muestra la barra de título propia);
-Limpiar filtros, toggles rápidos, **Solo conjunto + selector de conjunto + `＋`/`⎘`/`🗑`** y **mazo
-activo + Mazos…** abajo. Crear, copiar y borrar listas salió del panel de filtros a esos íconos
+Limpiar filtros, toggles rápidos, **Solo lista + selector de conjunto + `＋`/`🗑`** y **mazo
+activo + Mazos…** abajo. Crear y borrar listas salió del panel de filtros a esos íconos
 pegados al combo (el nombre se pide con `Dialogs.Prompt`, y borrar confirma): elegir conjunto es
 navegación, no un filtro más. El selector de mazo
 activo vive acá y no en el panel derecho: colapsar el panel no debe esconder el destino de los `+`/`−`.
 
+**Contador + resumen de filtros activos** — al lado de "N resultados" va un compacto de lo que está
+filtrando (`"hida" · personality/holding · Cangrejo · F≥5 · incl. baneadas`), y el click lo abre
+completo. Es el `summaryOf` de la app, y acá pesa **más**: el panel de filtros colapsa
+([ADR-035](../DECISIONS.md#adr-035)), así que sin esto se puede quedar filtrando sin ninguna señal
+de por qué.
+
 **Barra de acciones por celda** — `−`/`+` contra el mazo activo (con feedback del `AddCardResult`),
 `★` favorita, `⊘` ocultar, `≡` lista activa; badge con la cantidad en el mazo ("2/3").
-Doble click = agregar al mazo activo.
+Doble click = agregar al mazo activo. **Click derecho = copiar el arte** al portapapeles (sin
+tooltip en la celda: saltaba en cada carta y la acción está en el `?`); se
+re-decodifica el archivo a tamaño completo (`CardImageClipboard`), no se copia la miniatura de 340 px
+de la grilla.
+
+**Zoom de la grilla** — cuatro tamaños de celda (124 / 168 / 226 / 302 de ancho, proporción de carta
+escaneada), con `－`/`＋` al lado del segmentado Lista \| Grilla o con **Ctrl + rueda**. En el más
+chico **la barra de acciones de la celda no se dibuja**: mide ~160 con sus cinco botones y no entra
+en 124. No se pierde nada — Ctrl+click agrega, click derecho copia, Alt previsualiza y el panel de
+detalle tiene las mismas acciones.
+
+Cambiar de zoom **solo reagrupa las filas** (cambia la cantidad de columnas): el tamaño viaja por
+binding a las celdas ya realizadas y las miniaturas no dependen del nivel. Es deliberado que la
+resolución de decodificación sea **una sola para los cuatro niveles**: variarla obligaba a vaciar el
+caché en cada cambio y a redecodificar desde disco todo lo visible.
+
+**Caché de miniaturas — dos niveles.** Con ~6400 cartas y ~0,87 MB por miniatura decodificada
+(400 px), un LRU fuerte grande retendría cientos de MB para siempre. `ThumbnailCache` guarda las
+últimas **120** con referencia fuerte —dos o tres pantallas en cualquier zoom, que es lo que hace
+falta para scrollear en las dos direcciones sin tocar disco— y el resto con **`WeakReference`**:
+siguen disponibles mientras el GC no las reclame, así que volver a una zona ya vista casi nunca
+redecodifica, pero bajo presión de memoria el runtime se las lleva en vez de que el proceso siga
+creciendo. Nunca es peor que un LRU puro del mismo tamaño: lo desalojado no se pierde, se degrada. El tamaño viaja por dos
+`DependencyProperty` de la ventana (`CellWidth`/`CellHeight`) a las que se bindea la plantilla, así
+un solo cambio re-mide todas las celdas realizadas. En el nivel grande el caché de miniaturas se
+reconfigura a 460 px de decodificación y baja su tope de 400 a 150 entradas: sin eso la carta se
+vería blanda, y decodificando más grande con el tope viejo la memoria se multiplicaba.
+
+**Previsualización con Alt** — mantener **Alt** y pasar sobre una carta la abre grande al lado del
+cursor, con el arte **original** (no la miniatura). El modificador se lee en el `MouseMove` y no
+escuchando la tecla: en WPF Alt llega como `Key.System` y compite con la activación de menús. El
+popup se corre 26 px abajo-derecha para no quedar bajo el mouse — si tapara la celda, el `MouseLeave`
+lo cerraría en loop— y no es clickeable. Se cierra al soltar Alt, al salir de la celda, al pasar a
+vista Lista o al perder el foco la ventana.
+
+**Chip "Solo holdings iniciales"** (`onlyInitialHoldings`) — las 7 cartas elegibles de
+`filters.json` (Bamboo Harvesters y Border Keep con sus variantes). El chip se esconde si el
+catálogo no trae ninguna, como el `hasInitialHoldings` de la app.
 
 **Ctrl+click = agregar**, sobre cualquier parte de la carta y sin apuntar al `+` chiquito. Con Ctrl
 apretado se prenden los bordes de **todas** las celdas (hay un modo activo) y la de abajo del mouse
@@ -90,9 +137,10 @@ data-driven de `rules.json`) más la fila de acciones sobre la carta seleccionad
 ni contenido del mazo: eso vive en la ventana de Mazos ([ADR-042](../DECISIONS.md#adr-042)).
 
 **Conjunto activo** ([ADR-045](../DECISIONS.md#adr-045)) — el selector de la barra elige **un
-conjunto de cartas**, que puede ser una lista, un mazo, las favoritas o las ocultas; "Solo conjunto"
-filtra los resultados a sus cartas. El desplegable tiene **dos niveles**: arriba las listas +
-`★ Favoritas` + `🚫 Ocultas` + una entrada `Usar mazo…`, que recién ahí baja a la lista de mazos
+conjunto de cartas** —una lista, un mazo o las ocultas— y el chip **"Solo lista"**
+filtra los resultados a sus cartas. (El chip dice "Solo lista" porque es el caso de todos los días;
+el selector admite igual cualquier conjunto.) El desplegable tiene **dos niveles**: arriba las listas +
+`🚫 Ocultas` + una entrada `Usar mazo…`, que recién ahí baja a la lista de mazos
 (con `← Volver a listas` para salir). Los mazos suelen ser muchos y no son lo que se elige
 habitualmente.
 
@@ -103,13 +151,16 @@ siempre — el que verifican los golden. Sumar un tipo de conjunto nuevo no toca
 - **Listas**: crear con `＋` y borrar con `🗑` desde la barra. Cargarlas es el `≡` de la celda o
   `≡ A la lista` del detalle. Son `.txt` de `<juego>\Lists\`, 1 copia por carta, y se editan en la
   ventana de Mazos (solapa **Listas**).
-- **Favoritas / ocultas**: se togglean con `★` / `⊘` como siempre. Como conjunto solo se filtran; para
-  editarlas como una lista está `⎘ Guardar como lista`, que las copia a una lista nueva.
-- **Mazos**: solo como filtro. El `≡` se apaga (para el mazo activo están los `+`/`−`). `⎘` también
-  sirve acá para partir de un mazo sin tocarlo.
+- **Ocultas**: se togglean con el `⊘` de siempre; como conjunto solo se filtran. **Favoritas no está
+  en el selector**: ya tiene su chip "Solo favoritas" y su `★` por celda, y como conjunto no aportaba
+  nada que no estuviera a un click.
+- **Mazos**: solo como filtro. El `≡` se apaga (para el mazo activo están los `+`/`−`).
 
 Un preset guarda `listKind` + nombre del conjunto; si el conjunto ya no existe, **lo avisa** y apaga
 el filtro en vez de devolver 0 resultados en silencio.
+
+**Ayuda** — un `?` discreto al final de la fila de vista/orden abre el listado completo de atajos
+de teclado y mouse (`Dialogs.Info`, texto en `Help_ShortcutsSearch`).
 
 **Presets de filtros** — guardar/cargar/borrar el criteria completo con nombre (superset del slot
 único de la app), en `presets.json` con los mismos nombres JSON que los golden.

@@ -500,6 +500,30 @@ namespace L5ArgentinaLauncher.Services.Deck
             return RequiredSlots.Where(s => !covered.Contains(s.SlotId)).ToList();
         }
 
+        /// <summary>
+        /// ¿El mazo está terminado? **Extra del launcher, no existe en la app** (que no tiene
+        /// noción de mazo completo). Criterio del mantenedor: cubre los dos slots de holding
+        /// inicial requeridos —Border Keep y Bamboo Harvesters—, tiene stronghold, y cada lado
+        /// está entre 40 y 50 cartas. Las listas nunca cuentan como terminadas.
+        /// Es un indicador blando más, en la línea de [ADR-026]: no bloquea nada.
+        /// </summary>
+        public bool IsDeckComplete(string deckId)
+        {
+            var deck = GetDeckById(deckId);
+            if (deck == null || deck.Type == "list") return false;
+            if (UncoveredRequiredSlots(deckId).Count > 0) return false;
+            var hasStronghold = GetCardsWithCards(deckId)
+                .Any(x => x.Entry.Quantity > 0 &&
+                          string.Equals(x.Card.Type, "stronghold", StringComparison.Ordinal));
+            if (!hasStronghold) return false;
+            return InSideRange(DynastyCount(deckId)) && InSideRange(FateCount(deckId));
+        }
+
+        /// <summary>Rango de cartas por lado de un mazo terminado (40–50, inclusive).</summary>
+        public const int SideMax = 50;
+
+        private static bool InSideRange(int n) => n >= SideTarget && n <= SideMax;
+
         /// <summary>Clan del mazo = clan del primer stronghold (MainViewModel/DecksViewModel).</summary>
         public string DeckClan(string deckId) =>
             GetCardsWithCards(deckId)

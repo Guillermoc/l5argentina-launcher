@@ -239,11 +239,30 @@ namespace L5ArgentinaLauncher.Services
             _poolManifest = await _manifestService.FetchPoolAsync(_poolManifestUrl, ct).ConfigureAwait(false);
         }
 
-        /// <summary>Packs de imágenes del pool, en el orden del manifest. Vacío si no se cargó.</summary>
+        /// <summary>
+        /// Packs de imágenes del pool, en el orden del manifest. Vacío si no se cargó.
+        /// **Se excluye el pack propio de la comunidad** (ver <see cref="IsOwnImagePack"/>).
+        /// </summary>
         public IReadOnlyList<PoolPackage> ImagePacks =>
             _poolManifest?.Packages?
                 .Where(p => string.Equals(p.Type, "images", StringComparison.OrdinalIgnoreCase))
+                .Where(p => !IsOwnImagePack(p))
                 .ToList() ?? (IReadOnlyList<PoolPackage>)new List<PoolPackage>();
+
+        /// <summary>
+        /// El pack de imágenes propio (sección `images` del manifest del launcher, el que muestra
+        /// la barra "Imágenes Samurai Extended") **también está publicado en el pool**. Ofrecerlo
+        /// en las dos partes hacía que el usuario lo descargara dos veces y que cada mitad llevara
+        /// su propio registro de "aplicado" —`appliedImagePackSha256` por un lado y
+        /// `appliedImagePacks[id]` por el otro—, así que una decía "al día" y la otra
+        /// "actualización disponible" sobre el mismo archivo.
+        ///
+        /// Se identifica **por hash** y no por id: si algún día los contenidos se separan de
+        /// verdad, los hashes dejan de coincidir y el pack del pool vuelve a aparecer solo.
+        /// </summary>
+        private bool IsOwnImagePack(PoolPackage pack) =>
+            Manifest?.Images?.Sha256 != null && pack?.Sha256 != null &&
+            HashUtil.HashesEqual(Manifest.Images.Sha256, pack.Sha256);
 
         /// <summary>True si el pack ya está aplicado en esta versión exacta (por hash).</summary>
         public bool PackIsCurrent(PoolPackage pack) =>

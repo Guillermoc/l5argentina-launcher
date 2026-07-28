@@ -111,7 +111,8 @@
   <data name="Btn_YesContinue" xml:space="preserve"><value>Sí, continuar</value></data>
 
   <!-- ══════════ Buscador de cartas ══════════ -->
-  <data name="Btn_Search" xml:space="preserve"><value>Buscador</value></data>
+  <data name="Btn_Search" xml:space="preserve"><value>Cartas y mazos</value></data>
+  <data name="Btn_SearchTip" xml:space="preserve"><value>Abre el Buscador de cartas; desde ahí también se llega al editor de Mazos</value></data>
   <data name="Search_Title" xml:space="preserve"><value>Buscador de cartas</value></data>
   <data name="Fmt_SearchWindowTitle" xml:space="preserve"><value>Buscador de cartas · catálogo {0}</value></data>
   <data name="Search_NameHint" xml:space="preserve"><value>Buscar por nombre… (Ctrl+F)</value></data>
@@ -355,18 +356,14 @@
   <data name="Search_ActiveDeckLabel" xml:space="preserve"><value>Mazo activo:</value></data>
   <data name="Search_ListFilterAll" xml:space="preserve"><value>Conjunto: (ninguno)</value></data>
   <data name="Search_ListFilterTip" xml:space="preserve"><value>Conjunto activo: puede ser una lista, un mazo ("Usar mazo…"), tus favoritas o tus ocultas. "Solo conjunto" filtra los resultados a sus cartas, y el ≡ de las cartas carga la lista activa (p. ej. armá una lista de ninjas y filtrá por ella al armar el mazo)</value></data>
-  <data name="Search_OnlyListShort" xml:space="preserve"><value>Solo conjunto</value></data>
+  <data name="Search_OnlyListShort" xml:space="preserve"><value>Solo lista</value></data>
   <data name="Search_OnlyListTip" xml:space="preserve"><value>Mostrar solo las cartas del conjunto activo (elegilo en el selector de al lado)</value></data>
   <data name="Search_NoListSelected" xml:space="preserve"><value>Elegí una lista en el selector de la barra (o creá una con ＋)</value></data>
   <!-- ═══════ v4.2: conjuntos de cartas (listas = .txt en Lists, mazo/favoritas como filtro) ═══════ -->
   <data name="Search_SetUseDeck" xml:space="preserve"><value>Usar mazo…</value></data>
   <data name="Search_SetBackToLists" xml:space="preserve"><value>← Volver a listas</value></data>
-  <data name="Search_SetFavorites" xml:space="preserve"><value>★ Favoritas</value></data>
   <data name="Search_SetHidden" xml:space="preserve"><value>🚫 Ocultas</value></data>
   <data name="Fmt_SetDeckChoice" xml:space="preserve"><value>{0} (mazo)</value></data>
-  <data name="Search_SetToListTitle" xml:space="preserve"><value>Guardar como lista</value></data>
-  <data name="Search_SetToListTip" xml:space="preserve"><value>Copiar el conjunto activo a una lista nueva. Favoritas y ocultas no son archivos: así se editan como cualquier lista. Con un mazo elegido, parte de él sin tocarlo.</value></data>
-  <data name="Fmt_SetSavedAsList" xml:space="preserve"><value>Lista "{0}" creada con {1} cartas</value></data>
   <data name="Fmt_SetGone" xml:space="preserve"><value>El conjunto "{0}" del preset ya no existe — filtro por conjunto apagado</value></data>
   <data name="Search_SetNotAList" xml:space="preserve"><value>El conjunto activo no es una lista: el ≡ solo carga listas</value></data>
   <data name="Deck_TabDecks" xml:space="preserve"><value>Mazos</value></data>
@@ -376,6 +373,87 @@
   <data name="Deck_ListsHeader" xml:space="preserve"><value>Listas</value></data>
   <data name="Deck_NewListTip" xml:space="preserve"><value>Nueva lista</value></data>
   <data name="Deck_NoListSelectedLong" xml:space="preserve"><value>Elegí una lista a la izquierda o creá una con ＋. Las listas juntan cartas para armar (1 copia de cada una) y se pueden usar como filtro en el Buscador.</value></data>
+  <!-- ═══════ Recorte: bajar a 0 conserva la carta en el mazo (SPEC-DECK-CRUD §4) ═══════ -->
+  <data name="Deck_ShowTrimmed" xml:space="preserve"><value>Recortadas</value></data>
+  <data name="Deck_ShowTrimmedTip" xml:space="preserve"><value>Mostrar las cartas recortadas (las que bajaste a 0). Siguen en el mazo, grisadas, pero no se juegan ni cuentan; apagalo para ver el mazo tal como se juega.</value></data>
+  <data name="Deck_TrimmedTag" xml:space="preserve"><value>· recortada</value></data>
+  <data name="Deck_TrimmedTip" xml:space="preserve"><value>Recortada: sigue en el mazo y conserva su lugar, pero no se juega. + la devuelve, ✕ la saca del todo.</value></data>
+  <data name="Deck_TrimTip" xml:space="preserve"><value>Quitar una copia. La última no borra la carta: la deja recortada.</value></data>
+  <data name="Deck_RestoreTip" xml:space="preserve"><value>Devolver al mazo (vuelve a su lugar de siempre)</value></data>
+  <data name="Fmt_DeckTrimmed" xml:space="preserve"><value>{0} → recortada (sigue en el mazo, no se juega)</value></data>
+  <data name="Deck_ClearTrimmedMenu" xml:space="preserve"><value>Limpiar recortadas</value></data>
+  <data name="Deck_ClearTrimmedTip" xml:space="preserve"><value>Saca del mazo todas las cartas recortadas de una vez</value></data>
+  <data name="Fmt_ClearTrimmedConfirm" xml:space="preserve"><value>¿Sacar del mazo las {0} cartas recortadas? Las cartas del mazo que sí se juegan no se tocan.</value></data>
+  <data name="Deck_NoTrimmed" xml:space="preserve"><value>No hay cartas recortadas en este mazo</value></data>
+  <data name="Fmt_ShowTrimmed" xml:space="preserve"><value>Recortadas ({0})</value></data>
+  <!-- ═══════ Chip de holdings iniciales, resumen de filtros y copiar con click derecho ═══════ -->
+  <data name="Search_OnlyInitialHoldings" xml:space="preserve"><value>Solo holdings iniciales</value></data>
+  <data name="Search_OnlyInitialHoldingsTip" xml:space="preserve"><value>Mostrar solo las cartas que pueden ocupar un slot de holding inicial (Bamboo Harvesters y Border Keep, con sus variantes)</value></data>
+  <data name="Search_FilterSummaryTip" xml:space="preserve"><value>Lo que está filtrando ahora mismo. Click para verlo completo.</value></data>
+  <data name="Search_FilterSummaryTitle" xml:space="preserve"><value>Filtros activos</value></data>
+  <data name="Search_Sum_Text" xml:space="preserve"><value>texto</value></data>
+  <data name="Search_Sum_AnyKw" xml:space="preserve"><value>alguna de</value></data>
+  <data name="Search_Sum_Focus" xml:space="preserve"><value>Foco</value></data>
+  <data name="Search_Sum_Banned" xml:space="preserve"><value>incl. baneadas</value></data>
+  <data name="Fmt_Sum_Sets" xml:space="preserve"><value>{0} sets</value></data>
+  <data name="Fmt_Sum_Set" xml:space="preserve"><value>solo {0}</value></data>
+  <data name="Fmt_CopiedImage" xml:space="preserve"><value>Imagen de {0} copiada</value></data>
+  <!-- ═══════ Panel del editor: pestañas Abrir | Filtros ═══════ -->
+  <data name="Deck_PaneOpen" xml:space="preserve"><value>Abrir</value></data>
+  <data name="Deck_PaneFilters" xml:space="preserve"><value>Filtros</value></data>
+  <data name="Deck_SearchHint" xml:space="preserve"><value>Buscar por nombre o carta…</value></data>
+  <data name="Deck_SortTip" xml:space="preserve"><value>Orden de la lista: lo último que tocaste primero, o alfabético</value></data>
+  <data name="Deck_Sort_Recent" xml:space="preserve"><value>Recientes</value></data>
+  <data name="Deck_Sort_Alpha" xml:space="preserve"><value>Alfabético</value></data>
+  <data name="Deck_ClanFilterTip" xml:space="preserve"><value>Filtrar por el clan del stronghold del mazo</value></data>
+  <data name="Deck_ClanAll" xml:space="preserve"><value>Todos los clanes</value></data>
+  <data name="Deck_StateFilterTip" xml:space="preserve"><value>Un mazo está terminado si cubre Border Keep y Bamboo Harvesters, tiene stronghold y cada lado (Dynasty y Fate) queda entre 40 y 50 cartas. Los terminados llevan ✓.</value></data>
+  <data name="Deck_State_All" xml:space="preserve"><value>Todos</value></data>
+  <data name="Deck_State_Complete" xml:space="preserve"><value>Terminados</value></data>
+  <data name="Deck_State_Pending" xml:space="preserve"><value>Pendientes</value></data>
+  <!-- ═══════ Zoom, previsualización con Alt, ventanas lado a lado ═══════ -->
+  <data name="Search_ZoomOutTip" xml:space="preserve"><value>Achicar las cartas de la grilla</value></data>
+  <data name="Search_ZoomInTip" xml:space="preserve"><value>Agrandar las cartas de la grilla</value></data>
+  <data name="Pane_TooNarrow" xml:space="preserve"><value>La ventana es muy angosta para abrir los paneles: agrandala y vuelven a habilitarse</value></data>
+  <data name="Deck_SideBySideTip" xml:space="preserve"><value>Acomodar las ventanas para armar: el Buscador a la izquierda (70 %) y este editor a la derecha (30 %), en vista Lista y con los paneles cerrados</value></data>
+  <!-- ═══════ Ayuda: atajos de teclado y mouse ═══════ -->
+  <data name="Help_Tip" xml:space="preserve"><value>Atajos de teclado y mouse</value></data>
+  <data name="Help_ShortcutsTitle" xml:space="preserve"><value>Atajos</value></data>
+  <data name="Help_ShortcutsSearch" xml:space="preserve"><value>TECLADO
+Ctrl + F  —  ir a la barra de búsqueda
+Ctrl + N  —  abrir otra ventana del Buscador
+Esc  —  limpiar la barra de búsqueda
+Enter (en la barra)  —  confirmar el modo operador
+Flecha abajo (en la barra)  —  bajar a los resultados
+Flechas / Inicio / Fin  —  moverse por la grilla
+
+MOUSE
+Doble click  —  agregar la carta al mazo activo
+Ctrl + click  —  agregar la carta al mazo activo
+Click derecho  —  copiar la imagen al portapapeles
+Alt + pasar por encima  —  ver la carta en grande
+Ctrl + rueda  —  achicar o agrandar las cartas
+
+PREFIJOS DE LA BARRA
+tx.  —  buscar en el texto de la carta
+k.   —  keyword (Enter para confirmar)
+c.   —  clan (Enter para confirmar)
+t.   —  tipo (Enter para confirmar)</value></data>
+  <data name="Help_ShortcutsDeck" xml:space="preserve"><value>MOUSE
+Click en una carta  —  verla en el panel de la derecha
+Click derecho  —  copiar la imagen al portapapeles
+Alt + pasar por encima  —  ver la carta en grande
+Ctrl + rueda  —  achicar o agrandar las cartas (vista Grilla)
+
+EN LA LISTA DE CARTAS DEL MAZO
+−  —  quitar una copia; la última deja la carta recortada
++  —  agregar una copia, o devolver una recortada
+✕  —  sacar la carta del mazo del todo
+
+BOTONES DE LA BARRA
+Buscador  —  abrir el Buscador para agregar cartas
+⫞  —  acomodar Buscador y editor lado a lado
+⋯  —  renombrar, duplicar, importar, exportar, carpeta, limpiar recortadas, eliminar</value></data>
   <data name="Cell_PlusTip" xml:space="preserve"><value>Agregar al mazo activo (Ctrl+click sobre la carta hace lo mismo)</value></data>
   <data name="Cell_MinusTip" xml:space="preserve"><value>Quitar del mazo activo</value></data>
   <data name="Cell_FavTip" xml:space="preserve"><value>Favorita</value></data>

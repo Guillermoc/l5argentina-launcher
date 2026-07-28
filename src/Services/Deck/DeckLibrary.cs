@@ -32,6 +32,17 @@ namespace L5ArgentinaLauncher.Services.Deck
             [JsonPropertyName("sortMode")] public string SortMode { get; set; }
             [JsonPropertyName("createdAt")] public long CreatedAt { get; set; }
             [JsonPropertyName("sortOrder")] public int SortOrder { get; set; }
+
+            /// <summary>
+            /// Cartas recortadas (quantity=0): están en el mazo pero no se juegan
+            /// ([ADR-046](../../../docs/DECISIONS.md)). Van acá y no al .txt porque el juego lee
+            /// ese archivo y no tiene forma de expresar "esta carta está pero no cuenta": el
+            /// sidecar es exactamente para lo que el formato del juego no representa.
+            /// Por NOMBRE de carta, como todo lo que cruza el disco (ADR-044).
+            /// </summary>
+            [JsonPropertyName("trimmed")]
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+            public List<string> Trimmed { get; set; }
         }
 
         private class MetaDto
@@ -44,6 +55,11 @@ namespace L5ArgentinaLauncher.Services.Deck
 
         private readonly Dictionary<string, string> _fileByDeckId =
             new Dictionary<string, string>(StringComparer.Ordinal);
+        // Última escritura del .txt = última vez que se tocó el mazo. Se usa para ordenar por
+        // "más reciente" en el editor. No va al modelo (que es espejo del de la app) ni al
+        // sidecar: el dato ya lo tiene el sistema de archivos.
+        private readonly Dictionary<string, DateTime> _updatedAt =
+            new Dictionary<string, DateTime>(StringComparer.Ordinal);
         private readonly string _metaPath;
         private bool _loading;
         private string _activeDeckId;
@@ -151,13 +167,38 @@ namespace L5ArgentinaLauncher.Services.Deck
                     if (deck.CreatedAt == 0)
                         deck.CreatedAt = new DateTimeOffset(File.GetLastWriteTimeUtc(file))
                             .ToUnixTimeMilliseconds();
+                    if (type != ListType) RestoreTrimmed(deck, m);
                     Repo.AttachLoadedDeck(deck);
                     _fileByDeckId[deck.Id] = baseName;
+                    _updatedAt[deck.Id] = File.GetLastWriteTimeUtc(file);
                 }
                 catch
                 {
                     // txt ilegible → se ignora (no se pisa: solo se guardan los que se abren)
                 }
+            }
+        }
+
+        /// <summary>
+        /// Reinyecta las cartas recortadas del sidecar como entradas con quantity 0. El .txt
+        /// manda: si el nombre ya está en el mazo con cantidad, se ignora la marca de recorte
+        /// (alguien editó el archivo a mano y esa es la verdad de lo que se juega).
+        /// </summary>
+        private void RestoreTrimmed(Models.Deck deck, DeckMeta meta)
+        {
+            if (meta?.Trimmed == null) return;
+            var sortOrder = deck.Cards.Count == 0 ? 0 : deck.Cards.Max(e => e.SortOrder) + 1;
+            foreach (var name in meta.Trimmed)
+            {
+                var card = Repo.GetCardByNameRelaxed(name);
+                if (card == null) continue;
+                if (deck.Cards.Any(e => string.Equals(e.CardId, card.Id, StringComparison.Ordinal))) continue;
+                deck.Cards.Add(new DeckCardEntry
+                {
+                    CardId = card.Id,
+                    Quantity = 0,
+                    SortOrder = sortOrder++,
+                });
             }
         }
 
@@ -290,18 +331,6 @@ namespace L5ArgentinaLauncher.Services.Deck
         }
 
         /// <summary>
-        /// Copia un conjunto de ids de carta a una lista nueva (el "guardar como lista" de
-        /// favoritas/ocultas). Las cartas que el catálogo no resuelve se ignoran.
-        /// </summary>
-        public string CreateListFrom(string name, IEnumerable<string> cardIds)
-        {
-            var id = CreateList(name);
-            foreach (var cardId in cardIds ?? Enumerable.Empty<string>())
-                Repo.SetInList(id, cardId, true);
-            return id;
-        }
-
-        /// <summary>
         /// Nombre libre dentro de su tipo: agrega " (2)", " (3)"… si ya existe uno igual o el
         /// archivo está ocupado. Un mazo y una lista SÍ pueden llamarse igual: son carpetas
         /// distintas y significan cosas distintas.
@@ -337,7 +366,19 @@ namespace L5ArgentinaLauncher.Services.Deck
                 TryDelete(PathFor(oldBase, deck.Type));
             File.WriteAllText(PathFor(baseName, deck.Type), SunAndMoonDeckFile.Write(deck, Repo));
             _fileByDeckId[deck.Id] = baseName;
+            _updatedAt[deck.Id] = DateTime.UtcNow;
             PersistMeta();
+        }
+
+        /// <summary>
+        /// Última vez que se escribió el .txt del conjunto (para ordenar por "más reciente").
+        /// Sin dato —conjunto recién creado que todavía no se guardó— cae en su fecha de creación.
+        /// </summary>
+        public DateTime UpdatedAt(Models.Deck deck)
+        {
+            if (deck == null) return DateTime.MinValue;
+            if (_updatedAt.TryGetValue(deck.Id, out var t)) return t;
+            return DateTimeOffset.FromUnixTimeMilliseconds(deck.CreatedAt).UtcDateTime;
         }
 
         private void PersistMeta()
@@ -350,12 +391,18 @@ namespace L5ArgentinaLauncher.Services.Deck
             foreach (var deck in Repo.Decks)
             {
                 if (!_fileByDeckId.TryGetValue(deck.Id, out var baseName)) continue;
+                var trimmed = deck.Type == ListType ? null : deck.Cards
+                    .Where(e => e.Quantity == 0)
+                    .Select(e => Repo.GetCardById(e.CardId)?.Name)
+                    .Where(n => n != null)
+                    .ToList();
                 dto.Decks[MetaKey(baseName, deck.Type)] = new DeckMeta
                 {
                     Notes = deck.Notes,
                     SortMode = deck.SortMode,
                     CreatedAt = deck.CreatedAt,
                     SortOrder = deck.SortOrder,
+                    Trimmed = trimmed != null && trimmed.Count > 0 ? trimmed : null,
                 };
             }
             Directory.CreateDirectory(Path.GetDirectoryName(_metaPath));

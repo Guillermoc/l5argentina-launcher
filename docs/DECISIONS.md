@@ -37,7 +37,7 @@ backlog; su fecha es la del momento en que se tomaron.
 | [022](#adr-022) | Los mazos se persisten como `.txt` del juego | 2026-07-11 | Vigente |
 | [023](#adr-023) | Resolución tolerante de nombres solo en el parser txt | 2026-07-11 | Vigente |
 | [024](#adr-024) | Las líneas no reconocidas nunca se pierden | 2026-07-11 | Vigente |
-| [025](#adr-025) | Sin UX de "recorte" (`keepRowAtZero` sin usar) | 2026-07-11 | Vigente |
+| [025](#adr-025) | Sin UX de "recorte" (`keepRowAtZero` sin usar) | 2026-07-11 | **Sustituida por [046](#adr-046)** |
 | [026](#adr-026) | Validación = la de la app, pero el rechazo se informa | 2026-07-11 | Vigente |
 | [027](#adr-027) | `NoActiveDeck` conserva su nombre engañoso | 2026-07-11 | Vigente |
 | [028](#adr-028) | Listas ≠ mazos | 2026-07-11 | **Sustituida por [045](#adr-045)** |
@@ -58,6 +58,9 @@ backlog; su fecha es la del momento en que se tomaron.
 | [043](#adr-043) | La barra del editor: una acción visible y el resto en un menú | 2026-07-26 | Vigente |
 | [044](#adr-044) | La identidad persistida de una carta es su nombre, no su id | 2026-07-28 | Vigente |
 | [045](#adr-045) | Listas y mazos son el mismo conjunto, en carpetas distintas | 2026-07-28 | Vigente |
+| [046](#adr-046) | El recorte se implementa, y vive en el sidecar y no en el `.txt` | 2026-07-28 | Vigente |
+| [047](#adr-047) | "Mazo terminado": un criterio propio del launcher, y blando | 2026-07-28 | Vigente |
+| [048](#adr-048) | El pack propio se identifica por hash, no por id | 2026-07-28 | Vigente |
 
 ---
 
@@ -526,7 +529,9 @@ las ignoran, pero el archivo sigue siendo válido para el juego.
 <a id="adr-025"></a>
 ## ADR-025 — Sin UX de "recorte" (`keepRowAtZero` implementado pero sin usar)
 
-**Fecha:** 2026-07-11 · **Estado:** vigente.
+**Fecha:** 2026-07-11 · **Estado:** **sustituida por [ADR-046](#adr-046)** (2026-07-28). La lectura
+de fondo resultó incompleta: el recorte no era solo la gracia táctil de 2,5 s, era poder bajar una
+carta a 0 sin perderla de vista.
 
 **Decisión.** El repositorio implementa `keepRowAtZero` completo (paridad + goldens), pero la UI no
 lo usa: llegar a 0 borra la entrada, sin la gracia de 2,5 s de la app.
@@ -1181,3 +1186,124 @@ motor ni obliga a regenerar nada.
 - Un mazo y una lista pueden llamarse igual (carpetas distintas). El sidecar `decksmeta.json`
   prefija las listas con `list:` para que no colisionen; los mazos conservan la clave pelada.
 - Un preset cuyo conjunto ya no existe ahora **lo dice** en vez de devolver 0 resultados en silencio.
+
+---
+
+<a id="adr-046"></a>
+## ADR-046 — El recorte se implementa, y vive en el sidecar y no en el `.txt`
+
+**Fecha:** 2026-07-28 · **Estado:** vigente. **Sustituye a [ADR-025](#adr-025).**
+
+**Decisión.** Bajar una carta a 0 en el editor de mazos la deja **recortada**: la entrada persiste,
+la carta se ve grisada en su lugar y el `+` la devuelve. Sacarla del todo es otra acción, el `✕`.
+Solo aplica a mazos: en una lista la carta está o no está ([ADR-045](#adr-045)).
+
+Las recortadas se guardan en el sidecar `decksmeta.json`, **no** en el `.txt` del mazo.
+
+**Por qué se revierte ADR-025.** Esa decisión leyó el recorte como la gracia táctil de 2,5 s de la
+app —un patrón móvil para no re-tocar un botón chico— y concluyó que en desktop no aportaba. Es
+cierto de la gracia, pero el recorte es otra cosa: es poder bajar una carta a 0 **sin perderla de
+vista** mientras se prueba una versión del mazo. El motor estaba entero desde el primer día
+(`keepRowAtZero`, `DeleteCardEntry`, `RemoveAllTrimmed`, todos con sus goldens); faltaba solo la UI
+y el dónde se guarda.
+
+**Por qué en el sidecar y no en el `.txt`.** La alternativa evaluada era marcarlas con `# 0x Nombre`
+en el propio archivo del mazo, que tiene a favor dejar el mazo entero en un solo archivo. Se
+descartó: **ese archivo lo lee Sun and Moon**, ninguno de los mazos reales de la instalación tiene
+una sola línea con `#`, y si el juego las tolera al leer es una incógnita que no vale la pena correr
+—romperle un mazo al usuario cuesta infinitamente más que lo que aporta la portabilidad—. El sidecar,
+además, es exactamente lo que declara ser desde [ADR-022](#adr-022): *lo que el formato del juego no
+puede representar*. Y una carta recortada es justo eso — no forma parte del mazo que se juega.
+
+**Consecuencias.**
+
+- El `.txt` del juego **nunca** ve una recortada: `SunAndMoonDeckFile.Write` ya filtraba
+  `Quantity > 0` y no hubo que tocarlo.
+- **El `.txt` manda.** Si el nombre aparece en el archivo con cantidad, la marca de recorte del
+  sidecar se ignora: lo que se juega es lo que dice el archivo del juego.
+- Si se pierde el sidecar se pierden las recortadas, no el mazo — la misma garantía de siempre.
+- Se guardan por **nombre** de carta, como todo lo que cruza el disco ([ADR-044](#adr-044)).
+- El toggle "Recortadas" arranca **prendido**, al revés que la app. Sin el período de gracia, ocultar
+  la carta en el mismo instante en que la recortás deja al usuario sin ver lo que acaba de hacer.
+  Apagarlo muestra el mazo tal como se juega.
+- Los conteos de grupo y tipo cuentan solo lo jugable: una recortada suma 0 y **no** cuenta como
+  carta distinta, aunque se esté viendo.
+- Sigue sin haber gracia de 2,5 s ni undo del `✕`: esa parte de ADR-025 se mantiene.
+
+**⚠️ Paridad que ahora se ve.** `DeckClan` toma el primer stronghold **sin mirar la cantidad**, igual
+que `DecksViewModel.kt:122` de la app. Con el recorte disponible eso se vuelve observable: recortar
+el stronghold deja el mazo etiquetado con su clan igual. Es la semántica portada y se deja como está
+([ADR-018](#adr-018)); la UI no lo compensa porque el subtítulo del mazo no es un dato con el que se
+tomen decisiones.
+
+---
+
+<a id="adr-047"></a>
+## ADR-047 — "Mazo terminado": un criterio propio del launcher, y blando
+
+**Fecha:** 2026-07-28 · **Estado:** vigente.
+
+**Decisión.** El editor puede filtrar los mazos por **terminados** o **pendientes**. Un mazo está
+terminado cuando cumple las cuatro cosas a la vez:
+
+1. cubre el slot de **Border Keep**,
+2. cubre el slot de **Bamboo Harvesters**,
+3. tiene al menos un **stronghold**,
+4. **cada lado** —Dynasty y Fate— queda entre **40 y 50** cartas.
+
+Las listas nunca cuentan como terminadas. Vive en `DeckRepository.IsDeckComplete`, marcado como
+extra fuera del port.
+
+**Por qué se escribe.** Esto **no existe en la app Android**: es un criterio del mantenedor, y sin
+dejarlo anotado el próximo que lea `IsDeckComplete` no va a saber de dónde salieron esos números ni
+si puede tocarlos. Los dos slots no están hardcodeados por nombre: salen de
+`UncoveredRequiredSlots`, o sea de `filters.json → formats[].initialHoldingSlots` con
+`required: true` — si la comunidad agrega un tercer slot requerido, el criterio lo toma solo.
+
+**Consecuencias.**
+
+- Es un indicador **blando**, en la línea de [ADR-026](#adr-026): no bloquea nada, no impide jugar
+  un mazo de 38 cartas ni valida legalidad de torneo. Solo ordena la biblioteca.
+- El `✓` del subtítulo muestra el mismo criterio por el que filtra el combo, para que el filtro no
+  sea una caja negra.
+- Una carta **recortada** ([ADR-046](#adr-046)) no cubre su slot ni suma al lado: recortar el Border
+  Keep devuelve el mazo a "pendiente". Es lo correcto —no se juega— y está verificado.
+- 40 es el `SideTarget` que ya existía (el objetivo blando de la app); 50 es el tope nuevo.
+- Sin cobertura golden posible: la app no tiene el concepto. Se cubre con checks propios.
+
+**Descartado:** validar legalidad de formato o banlist como parte de "terminado". El launcher no
+tiene motor de reglas y no lo va a tener ([ADR-026](#adr-026)); mezclar "armado" con "legal" haría
+que el ✓ prometiera algo que no puede verificar.
+
+---
+
+<a id="adr-048"></a>
+## ADR-048 — El pack propio se identifica por hash, no por id
+
+**Fecha:** 2026-07-28 · **Estado:** vigente.
+
+**Decisión.** El pack de imágenes propio de la comunidad —la sección `images` del manifest del
+launcher, la que muestra la barra "Imágenes Samurai Extended"— **también está publicado en el pool**.
+`LauncherEngine.ImagePacks` lo excluye de la lista del overlay comparando el **sha256** contra
+`Manifest.Images.Sha256`.
+
+**El problema.** Aparecía en los dos lados: en la barra de info y en la lista de packs. Peor que la
+duplicación visual es que **cada mitad lleva su propio registro de "aplicado"** —
+`appliedImagePackVersion`/`appliedImagePackSha256` por un lado, `appliedImagePacks[id]` por el otro—,
+así que aplicarlo desde un camino dejaba al otro diciendo "actualización disponible" sobre el mismo
+archivo, y el usuario se lo bajaba dos veces (~30 MB). Verificado en el `config.json` de la máquina
+de dev: `1da9fdc1…` versión 1.1 registrado en las dos claves.
+
+**Por qué por hash y no por id.** Filtrar `samuraiEx` a mano sería una constante nueva que hay que
+mantener sincronizada con lo que publique el pool, y que miente el día que el id cambie. El hash es
+el dato que ya tenemos de las dos partes y **se auto-corrige**: si algún día los contenidos se
+separan de verdad, los hashes dejan de coincidir y el pack del pool vuelve a aparecer solo, sin que
+nadie toque código.
+
+**Consecuencias.**
+
+- Gana la barra de info: ese camino ya aplica el pack durante la sincronización normal, sin que el
+  usuario tenga que entrar a un overlay.
+- Los `appliedImagePacks["samuraiEx"]` que ya estén en un `config.json` quedan ahí. Son inertes —un
+  registro de algo que ya no se lista— y no hace falta migrarlos.
+- Cubierto en el selftest con un pool que publica el mismo zip que el manifest del launcher.

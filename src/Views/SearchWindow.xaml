@@ -6,7 +6,7 @@
     xmlns:loc="clr-namespace:L5ArgentinaLauncher.Resources"
     xmlns:v="clr-namespace:L5ArgentinaLauncher.Views"
     Title="{loc:Loc Search_Title}"
-    Width="1323" Height="798" MinWidth="1060" MinHeight="640"
+    Width="1323" Height="798" MinWidth="460" MinHeight="460"
     WindowStartupLocation="CenterScreen"
     WindowStyle="None"
     Background="{StaticResource ParchmentBackground}"
@@ -14,7 +14,8 @@
     KeyDown="Window_KeyDown"
     KeyUp="Window_KeyUp"
     Deactivated="Window_Deactivated"
-    StateChanged="Window_StateChanged">
+    StateChanged="Window_StateChanged"
+    SizeChanged="Window_SizeChanged">
 
     <!-- Chrome custom (como MainWindow) pero redimensionable y con maximizar -->
     <shell:WindowChrome.WindowChrome>
@@ -66,9 +67,13 @@
         <!-- Celda de la grilla de miniaturas: nombre de fondo (placeholder) + imagen encima
              + barra de acciones al pie (hover/selección), como la HalfCardCell de la app -->
         <DataTemplate x:Key="GridCellTemplate">
-            <Border x:Name="cellRoot" Width="226" Height="322" Margin="5" CornerRadius="11"
+            <Border x:Name="cellRoot" Margin="5" CornerRadius="11"
+                    Width="{Binding CellWidth, RelativeSource={RelativeSource AncestorType=Window}}"
+                    Height="{Binding CellHeight, RelativeSource={RelativeSource AncestorType=Window}}"
                     BorderThickness="2" Cursor="Hand" MouseLeftButtonUp="GridCell_Click"
-                    MouseLeftButtonDown="GridCell_MouseDown">
+                    MouseLeftButtonDown="GridCell_MouseDown"
+                    MouseRightButtonUp="GridCell_CopyImage"
+                    MouseMove="GridCell_MouseMove" MouseLeave="GridCell_MouseLeave">
                 <!-- El marco (borde + fondo) es el *placeholder*: solo se ve cuando no hay imagen.
                      Con arte, la celda es el arte y nada más; el borde vuelve al pasar el mouse o
                      al seleccionar, que es donde sí comunica algo. -->
@@ -164,6 +169,12 @@
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                         <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <!-- Último: gana sobre hover y selección. En el zoom mínimo la
+                                         celda es más angosta que esta barra, así que no se muestra. -->
+                                    <DataTrigger Binding="{Binding IsTinyZoom, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                 Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -289,6 +300,17 @@
     </Window.Resources>
 
     <Grid x:Name="RootLayout">
+        <!-- Previsualización con Alt: se abre donde está el cursor, corrida abajo-derecha para no
+             quedar debajo del mouse (si tapara la celda, el MouseLeave la cerraría en loop).
+             IsHitTestVisible=False: es para mirar, no se puede clickear. -->
+        <Popup x:Name="HoverPreview" Placement="Mouse" HorizontalOffset="26" VerticalOffset="26"
+               AllowsTransparency="True" StaysOpen="True" IsHitTestVisible="False" Focusable="False">
+            <Border Background="#F2140A05" BorderBrush="{StaticResource Gold}" BorderThickness="2"
+                    CornerRadius="12" Padding="5">
+                <Image x:Name="HoverPreviewImage" Stretch="Uniform" MaxWidth="430" MaxHeight="620" />
+            </Border>
+        </Popup>
+
         <!-- Capas de fondo -->
         <Rectangle Fill="{StaticResource PaperOverlayBrush}" IsHitTestVisible="False" />
         <Rectangle Fill="{StaticResource BackgroundScrim}" IsHitTestVisible="False" />
@@ -355,8 +377,20 @@
                             </TextBlock>
                         </Grid>
 
-                        <TextBlock x:Name="ResultCount" Grid.Column="1" Style="{StaticResource Body}"
-                                   Foreground="{StaticResource Gold}" VerticalAlignment="Center" Margin="14,0,18,0" />
+                        <!-- Contador + resumen de lo que está filtrando. El resumen importa más acá
+                             que en la app: el panel de filtros se colapsa (ADR-035) y sin esto se
+                             puede quedar filtrando sin ninguna señal de por qué. -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                                    Margin="14,0,18,0">
+                            <TextBlock x:Name="ResultCount" Style="{StaticResource Body}"
+                                       Foreground="{StaticResource Gold}" VerticalAlignment="Center" />
+                            <TextBlock x:Name="FilterSummary" Style="{StaticResource BodySmall}"
+                                       FontSize="11" VerticalAlignment="Center" Margin="9,1,0,0"
+                                       MaxWidth="430" TextTrimming="CharacterEllipsis"
+                                       Cursor="Hand" Visibility="Collapsed"
+                                       ToolTip="{loc:Loc Search_FilterSummaryTip}"
+                                       MouseLeftButtonUp="FilterSummary_Click" />
+                        </StackPanel>
 
                         <!-- Vista + orden (a la derecha de la fila 1 para que la fila 2 no desborde) -->
                         <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
@@ -365,6 +399,13 @@
                             <ToggleButton x:Name="ViewGridBtn" Style="{StaticResource SegmentRight}"
                                           IsChecked="True" Content="{loc:Loc Search_ViewGrid}"
                                           Click="ViewToggle_Click" />
+                            <!-- Zoom de la grilla: tres tamaños de celda (chico / normal / grande) -->
+                            <Button x:Name="ZoomOutBtn" Style="{StaticResource IconButton}" Margin="8,0,0,0"
+                                    Content="－" FontSize="13" ToolTip="{loc:Loc Search_ZoomOutTip}"
+                                    Click="ZoomOut_Click" />
+                            <Button x:Name="ZoomInBtn" Style="{StaticResource IconButton}" Margin="3,0,0,0"
+                                    Content="＋" FontSize="13" ToolTip="{loc:Loc Search_ZoomInTip}"
+                                    Click="ZoomIn_Click" />
                             <!-- Sub-opción de la grilla (se deshabilita en vista Lista): chip chico
                                  para que la etiqueta larga no compita con el segmentado. -->
                             <ToggleButton x:Name="ExpandPrintsBtn" Style="{StaticResource FilterChipSmall}"
@@ -378,28 +419,43 @@
                                           Margin="8,0,0,0" IsChecked="False"
                                           Checked="Filter_Changed" Unchecked="Filter_Changed"
                                           ToolTip="{loc:Loc Search_SortDirTip}" Content="↑" />
+                            <!-- Ayuda: discreta al final de la fila, no compite con nada -->
+                            <Button x:Name="HelpBtn" Style="{StaticResource IconButton}" Margin="10,0,0,0"
+                                    Content="?" FontSize="14" ToolTip="{loc:Loc Help_Tip}"
+                                    Click="Help_Click" />
                         </StackPanel>
                     </Grid>
 
+                    <!-- Los filtros van en un WrapPanel y no en columnas fijas: abajo de ~1000 DIP
+                         los grupos no entran en una línea y preferimos que bajen a la siguiente
+                         antes que recortarse. Cada grupo es un StackPanel, así que la envoltura
+                         corta entre grupos y nunca parte un control de su etiqueta. El mazo activo
+                         queda aparte, pegado a la derecha: es el destino de los +/− y conviene que
+                         esté siempre en el mismo lugar, no flotando con la envoltura. -->
                     <Grid Grid.Row="1" Margin="0,8,0,0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
+                        <WrapPanel Grid.Column="0">
+
                         <!-- Limpiar va primero: es el reset de la fila de filtros que sigue.
                              (El colapso de paneles vive ahora en los rieles laterales.) -->
-                        <Button x:Name="ClearFiltersBtn" Grid.Column="0" Content="{loc:Loc Search_ClearFilters}"
+                        <Button x:Name="ClearFiltersBtn" Content="{loc:Loc Search_ClearFilters}"
                                 Style="{StaticResource GhostButton}" FontSize="14" Height="32"
                                 Margin="0,0,14,0" Click="ClearFilters_Click" />
 
                         <!-- Toggles rápidos (antes enterrados en el panel de filtros) -->
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <ToggleButton x:Name="QuickFavBtn" Style="{StaticResource FilterChipSmall}"
                                           Margin="0,0,6,0" Content="{loc:Loc Search_OnlyFavorites}"
+                                          Checked="Filter_Changed" Unchecked="Filter_Changed" />
+                            <!-- Solo las 7 cartas elegibles de initialHoldingSlots; el chip se
+                                 esconde si el catálogo no tiene ninguna, como el de la app -->
+                            <ToggleButton x:Name="QuickHoldingsBtn" Style="{StaticResource FilterChipSmall}"
+                                          Margin="0,0,6,0" Content="{loc:Loc Search_OnlyInitialHoldings}"
+                                          ToolTip="{loc:Loc Search_OnlyInitialHoldingsTip}"
                                           Checked="Filter_Changed" Unchecked="Filter_Changed" />
                             <ToggleButton x:Name="QuickHiddenBtn" Style="{StaticResource FilterChipSmall}"
                                           Margin="0,0,12,0" Content="{loc:Loc Search_ShowHidden}"
@@ -411,7 +467,7 @@
                              a la lista de mazos. "Solo conjunto" filtra los resultados a sus
                              cartas (armar el mazo de ninjas desde la lista de ninjas, o filtrar
                              por lo que ya está en un mazo). El ≡ de las cartas carga la lista. -->
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <ToggleButton x:Name="QuickListBtn" Style="{StaticResource FilterChipSmall}"
                                           Margin="0,0,6,0" Content="{loc:Loc Search_OnlyListShort}"
                                           ToolTip="{loc:Loc Search_OnlyListTip}"
@@ -424,18 +480,18 @@
                             <Button x:Name="ListNewBtn" Style="{StaticResource IconButton}" Margin="6,0,0,0"
                                     Content="+" ToolTip="{loc:Loc Search_ListCreateTip}"
                                     Click="ListCreate_Click" />
-                            <Button x:Name="SetToListBtn" Style="{StaticResource IconButton}" Margin="3,0,0,0"
-                                    Content="⎘" FontSize="12" ToolTip="{loc:Loc Search_SetToListTip}"
-                                    Click="SetToList_Click" />
                             <Button x:Name="ListDeleteBtn" Style="{StaticResource IconButton}" Margin="3,0,0,0"
                                     Content="🗑" FontSize="12" ToolTip="{loc:Loc Search_ListDeleteTip}"
                                     Click="ListDelete_Click" />
                         </StackPanel>
+                        </WrapPanel>
 
                         <!-- Mazo activo: destino de todos los +/−. Es un LABEL, no un selector: el
                              mazo activo es el que está seleccionado en la ventana de Mazos, y esa
                              es la única fuente de verdad (ADR-042). Clickearlo abre esa ventana. -->
-                        <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                        <StackPanel x:Name="ActiveDeckBlock" Grid.Column="1" Orientation="Horizontal"
+                                    Margin="14,0,0,0" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
                             <TextBlock Text="{loc:Loc Search_ActiveDeckLabel}" Style="{StaticResource BodySmall}"
                                        FontSize="11" VerticalAlignment="Center" Margin="0,0,7,0" />
                             <TextBlock x:Name="ActiveDeckName" Style="{StaticResource Body}" FontSize="13"
@@ -464,7 +520,7 @@
                              son la única forma de reabrir el panel. -->
                         <ColumnDefinition x:Name="FiltersCol" Width="270" />
                         <ColumnDefinition Width="18" />
-                        <ColumnDefinition Width="*" MinWidth="320" />
+                        <ColumnDefinition Width="*" MinWidth="300" />
                         <ColumnDefinition Width="18" />
                         <ColumnDefinition x:Name="DetailCol" Width="405" />
                     </Grid.ColumnDefinitions>
@@ -653,6 +709,7 @@
 
                     <!-- Grilla de miniaturas (vista por defecto; filas virtualizadas) -->
                     <ListBox x:Name="CardGrid" Grid.Column="2" Focusable="True"
+                             PreviewMouseWheel="CardGrid_PreviewMouseWheel"
                              Background="#66140A05" BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1"
                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                              VirtualizingPanel.ScrollUnit="Pixel"

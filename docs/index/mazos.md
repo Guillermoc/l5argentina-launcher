@@ -21,8 +21,8 @@ fuentes Kotlin), que además sigue siendo la referencia viva de paridad vía sus
 | Biblioteca | `Services/Deck/DeckLibrary.cs` | Un `.txt` por conjunto: mazos en `<SunAndMoon>\Decks\`, listas en `<SunAndMoon>\Lists\`, + sidecar `decksmeta.json`. Un solo `DeckRepository` para los dos (`Decks`/`Lists` son vistas filtradas por `Type`). Instancia compartida por proceso (`GetOrLoad`): Buscador y editor operan sobre los mismos archivos, el mismo mazo activo y la misma lista activa. |
 | Slots | `CatalogImporter` → `CardCatalog.InitialHoldingSlots` | `filters.json → formats[].initialHoldingSlots` (id/label/required) — alimenta el aviso "Falta: {slot}". |
 | UI Buscador | `Views/SearchWindow.xaml(.cs)` | Label del mazo activo + conteos en la barra; `+`/`−` por celda con feedback del `AddCardResult`. Doble click o **Ctrl+click** = agregar. No elige mazo ni muestra su contenido. El selector de **conjunto activo** (listas/mazos/favoritas) vive acá — ver [buscador.md](buscador.md). |
-| UI editor | `Views/DeckWindow.xaml(.cs)` | Ventana única con solapa **Mazos \| Listas** a la izquierda: conjuntos + filtros (izq., colapsable), cartas agrupadas Starter/Dynasty/Fate → tipo (centro, vistas Lista/Grilla), detalle/stats (der., colapsable). Barra: nombre + **Buscador** + menú `⋯` ([ADR-043](../DECISIONS.md#adr-043)). Notas con debounce de 1 s. Confirmaciones y avisos por `Dialogs`, no por `MessageBox`. |
-| Paridad | `SelfTest.RunGoldenDeckTests` + `RunDeckStoreTests` + `RunCardSetTests` | **25 golden tests** replicando la secuencia exacta del harness (mismos mazos "Golden N", string exacto del export) + checks propios de persistencia txt, listas y identidad por nombre. |
+| UI editor | `Views/DeckWindow.xaml(.cs)` | Ventana única. Panel izquierdo con pestañas **Abrir** (segmentado Mazos \| Listas, buscador, orden/clan/estado) y **Filtros** (sobre las cartas del mazo abierto), cartas agrupadas Starter/Dynasty/Fate → tipo (centro, vistas Lista/Grilla), detalle/stats (der., colapsable). Barra: nombre + **Buscador** + menú `⋯` ([ADR-043](../DECISIONS.md#adr-043)). Notas con debounce de 1 s. Confirmaciones y avisos por `Dialogs`, no por `MessageBox`. |
+| Paridad | `SelfTest.RunGoldenDeckTests` + `RunDeckStoreTests` + `RunCardSetTests` + `RunTrimTests` + `RunDeckStateTests` | **25 golden tests** replicando la secuencia exacta del harness (mismos mazos "Golden N", string exacto del export) + checks propios de persistencia txt, listas, identidad por nombre, recorte y estado de armado. |
 
 ---
 
@@ -81,11 +81,38 @@ rompe el mazo al juego ([ADR-024](../DECISIONS.md#adr-024)).
 
 ---
 
+## Recorte (solo mazos)
+
+Bajar una carta a **0** con el `−` no la saca del mazo: la deja **recortada**
+([ADR-046](../DECISIONS.md#adr-046)). Sigue ahí, grisada y con su `sortOrder`, pero no se juega. El
+`+` la devuelve; el `✕` —acción aparte— la saca del todo; "Limpiar recortadas" del menú `⋯` las saca
+todas de una. El toggle **Recortadas** del panel izquierdo las muestra u oculta, y arranca prendido.
+
+El motor ya lo tenía entero (`keepRowAtZero`, `DeleteCardEntry`, `RemoveAllTrimmed`, con sus
+goldens): lo que faltaba era la UI y **dónde se guardan**. Van al sidecar `decksmeta.json`, por
+nombre de carta, y nunca al `.txt` — ese archivo lo lee el juego y no tiene forma de expresar "está
+pero no cuenta". `SunAndMoonDeckFile.Write` ya filtraba `Quantity > 0`, así que no hubo que tocarlo.
+Al cargar, **el `.txt` manda**: si el nombre aparece ahí con cantidad, la marca de recorte se ignora.
+
+Una recortada no suma en conteos, stats ni export, y tampoco cuenta como carta distinta en los
+`[N]` de las cabeceras. Las **listas no tienen recorte**: ahí la carta está o no está.
+
+---
+
 ## Validación
 
 No hay motor de validación: paridad con la app. Solo existen los rechazos de `AddCard`
 (baneada → slot cubierto → tope de copias) y los indicadores blandos (Dynasty/Fate en rojo si < 40,
 "Falta: {slot}"). Dos strongholds siguen permitidos (⚠️ paridad).
+
+⚠️ `DeckClan` toma el primer stronghold **sin mirar la cantidad**, igual que la app: recortar el
+stronghold deja el mazo etiquetado con su clan. Semántica portada, se deja ([ADR-046](../DECISIONS.md#adr-046)).
+
+**Estado de armado** (`IsDeckComplete`, extra del launcher — [ADR-047](../DECISIONS.md#adr-047)):
+un mazo está **terminado** si cubre los dos slots requeridos (Border Keep y Bamboo Harvesters, vía
+`UncoveredRequiredSlots`, o sea leídos de `filters.json` y no hardcodeados), tiene stronghold y cada
+lado queda entre 40 y `SideMax` (50). Es blando como todo lo demás: no bloquea nada, solo alimenta
+el filtro y el `✓` del subtítulo. Una carta recortada no cubre slot ni suma al lado.
 
 **Divergencia de UX deliberada**: acá los `AddCardResult` distintos de `Success` **se informan**
 (feedback en el panel / status del editor); la app los ignora en silencio
@@ -99,6 +126,23 @@ No hay motor de validación: paridad con la app. Solo existen los rechazos de `A
   rieles verticales ([ADR-035](../DECISIONS.md#adr-035)). El mazo activo y la lista activa se eligen
   en la barra superior (el selector de mazo salió del panel derecho para no perderse al colapsarlo). Los `+`/`−` van
   siempre contra el mazo activo.
+- **Editor, panel izquierdo**: dos pestañas, porque *elegir qué abrir* y *filtrar lo que ya está
+  abierto* son tareas distintas que competían por el mismo espacio.
+  - **Abrir**: segmentado Mazos \| Listas, buscador (por nombre del conjunto **o** por una carta que
+    contenga), y tres selectores — **orden** (Recientes, default / Alfabético), **clan** (solo los
+    que existen entre los conjuntos visibles) y **estado** (Todos / Terminados / Pendientes, oculto
+    en Listas). "Recientes" ordena por la última escritura del `.txt`, que `DeckLibrary` captura al
+    cargar y al guardar: es "lo último que tocaste", no la fecha de creación.
+  - **Filtros**: el filtro de texto sobre las cartas del mazo abierto, los chips
+    Starter/Dynasty/Fate y el toggle **Recortadas (N)**.
+- **Lado a lado** (`⫞` de la barra): acomoda Buscador y editor sobre el área de trabajo, 70 % / 30 %,
+  con el editor en vista Lista y todo colapsado. Es el layout de armar — ver
+  [ui.md](ui.md).
+- **Vista Grilla**: mismos cuatro tamaños de celda que el Buscador (`－`/`＋` o **Ctrl + rueda**) y la
+  misma previsualización con **Alt**. Click derecho copia el arte. En el tamaño más chico los
+  `−`/`+`/`✕` no entran y queda solo la cantidad, que es lo único que no se deduce mirando la carta;
+  para editar a ese tamaño está la vista Lista.
+- **`?`** al final de la barra: el listado de atajos de esta ventana.
 - **Editor**: **seleccionar un mazo lo activa** — no hay botón "Activar" ni badge "● Activo". Con la
   solapa **Listas** abierta, lo que se activa es la **lista activa** (destino del `≡` del Buscador),
   sin tocar el mazo activo: son dos punteros distintos, ambos en el sidecar.
@@ -114,9 +158,10 @@ No hay motor de validación: paridad con la app. Solo existen los rechazos de `A
 
 ## Verificación
 
-Del total de la batería, **54 checks** son del deckbuilder: los 25 golden + persistencia txt /
+Del total de la batería, **78 checks** son del deckbuilder: los 25 golden + persistencia txt /
 `DeckLibrary` + resolución tolerante de nombres + los 21 de `RunCardSetTests` (listas como `.txt`,
-`SetInList` vs `AddCard`, migración e identidad por nombre de `usercards.json`). Si se toca
+`SetInList` vs `AddCard`, migración e identidad por nombre de `usercards.json`) + los 14 de
+`RunTrimTests` (recorte) + los 10 de `RunDeckStateTests` (mazo terminado vs pendiente). Si se toca
 `DeckRepository` o el importer, correr `--selftest`; si se *cambia* una semántica golden, regenerar
 los expected con el harness del handoff (`../../tests/fixtures/deckbuilder/generator/`) y anotarlo.
 
@@ -127,7 +172,8 @@ los expected con el harness del handoff (`../../tests/fixtures/deckbuilder/gener
 [ADR-022](../DECISIONS.md#adr-022) persistencia en los txt del juego ·
 [ADR-023](../DECISIONS.md#adr-023) resolución tolerante solo en el parser ·
 [ADR-024](../DECISIONS.md#adr-024) líneas no reconocidas verbatim ·
-[ADR-025](../DECISIONS.md#adr-025) sin UX de recorte ·
+[ADR-046](../DECISIONS.md#adr-046) recorte, en el sidecar (sustituye a
+[ADR-025](../DECISIONS.md#adr-025)) ·
 [ADR-026](../DECISIONS.md#adr-026) validación de la app + feedback ·
 [ADR-027](../DECISIONS.md#adr-027) `NoActiveDeck` conserva su nombre ·
 [ADR-028](../DECISIONS.md#adr-028) listas ≠ mazos ·
