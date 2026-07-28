@@ -238,6 +238,36 @@ namespace L5ArgentinaLauncher.Services.Deck
             DeckChanged?.Invoke(deck);
         }
 
+        /// <summary>
+        /// Pertenencia a una LISTA (extra del launcher, fuera del port). Una lista es un conjunto
+        /// de material de armado, no un mazo legal: no pasa por <see cref="AddCard"/> y por lo
+        /// tanto no aplica ni el rechazo de baneadas ni el de slot inicial ya cubierto — querer
+        /// una lista con los cuatro strongholds que estás evaluando es el caso normal, no un
+        /// error. El tope sigue siendo 1 copia (ADR-045). Devuelve el estado nuevo.
+        /// </summary>
+        public bool SetInList(string deckId, string cardId, bool present)
+        {
+            var deck = GetDeckById(deckId);
+            if (deck == null || GetCardById(cardId) == null) return false;
+            var existing = GetDeckCard(deckId, cardId);
+            if (present)
+            {
+                if (existing != null && existing.Quantity == 1) return true;
+                Upsert(deck, cardId, 1, existing?.SortOrder ?? MaxCardSortOrder(deck) + 1);
+            }
+            else
+            {
+                if (existing == null) return false;
+                deck.Cards.Remove(existing);
+            }
+            DeckChanged?.Invoke(deck);
+            return present;
+        }
+
+        /// <summary>Alterna la pertenencia a una lista. Devuelve el estado nuevo (está en la lista).</summary>
+        public bool ToggleInList(string deckId, string cardId) =>
+            SetInList(deckId, cardId, GetDeckCard(deckId, cardId) == null);
+
         /// <summary>Eliminación dura de la entrada (distinto de recortar).</summary>
         public void DeleteCardEntry(string deckId, string cardId)
         {

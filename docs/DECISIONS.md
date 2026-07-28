@@ -40,13 +40,24 @@ backlog; su fecha es la del momento en que se tomaron.
 | [025](#adr-025) | Sin UX de "recorte" (`keepRowAtZero` sin usar) | 2026-07-11 | Vigente |
 | [026](#adr-026) | Validación = la de la app, pero el rechazo se informa | 2026-07-11 | Vigente |
 | [027](#adr-027) | `NoActiveDeck` conserva su nombre engañoso | 2026-07-11 | Vigente |
-| [028](#adr-028) | Listas ≠ mazos | 2026-07-11 | Vigente |
+| [028](#adr-028) | Listas ≠ mazos | 2026-07-11 | **Sustituida por [045](#adr-045)** |
 | [029](#adr-029) | Duplicar mazo, extra que la app no tiene | 2026-07-11 | Vigente |
 | [030](#adr-030) | Extras de `SortField` sin cobertura golden | 2026-07-11 | Vigente |
 | [031](#adr-031) | Documentación en cuatro capas + as-built | 2026-07-26 | Vigente |
 | [032](#adr-032) | El selftest se corre al cerrar, no durante | 2026-07-26 | Vigente |
 | [033](#adr-033) | Qué entra a la batería de verificación, y cómo se da de baja | 2026-07-26 | Vigente |
 | [034](#adr-034) | A `main` directo y sin PRs, pero con confirmación siempre | 2026-07-26 | Vigente |
+| [035](#adr-035) | Una forma de control por rol: la píldora deja de ser universal | 2026-07-26 | Vigente |
+| [036](#adr-036) | Las ventanas grandes se acotan al área de trabajo | 2026-07-26 | Vigente |
+| [037](#adr-037) | El arte va redondeado y sin marco; el marco es el placeholder | 2026-07-26 | Vigente |
+| [038](#adr-038) | Las listas se manejan en la barra, no en el panel de filtros | 2026-07-26 | Vigente |
+| [039](#adr-039) | Cerrar el launcher confirma y cierra todo | 2026-07-26 | Vigente |
+| [040](#adr-040) | Los diálogos salen de un helper propio, no de `MessageBox` | 2026-07-26 | Vigente |
+| [041](#adr-041) | Ctrl+click agrega al mazo; el overlay es la ayuda visual | 2026-07-26 | Vigente |
+| [042](#adr-042) | Un solo mazo activo, y Mazos es su única fuente de verdad | 2026-07-26 | Vigente |
+| [043](#adr-043) | La barra del editor: una acción visible y el resto en un menú | 2026-07-26 | Vigente |
+| [044](#adr-044) | La identidad persistida de una carta es su nombre, no su id | 2026-07-28 | Vigente |
+| [045](#adr-045) | Listas y mazos son el mismo conjunto, en carpetas distintas | 2026-07-28 | Vigente |
 
 ---
 
@@ -564,7 +575,9 @@ port siga vivo.
 <a id="adr-028"></a>
 ## ADR-028 — Listas ≠ mazos
 
-**Fecha:** 2026-07-11 · **Estado:** vigente.
+**Fecha:** 2026-07-11 · **Estado:** **sustituida por [ADR-045](#adr-045)** (2026-07-28). Lo de abajo
+es la foto de por qué se separaron; el argumento de persistencia se dio vuelta con
+[ADR-044](#adr-044).
 
 **Decisión.** Las "listas simples" del Buscador viven en `usercards.json` (junto a favoritas y
 ocultas) y **no** son mazos: no van a la carpeta `Decks`. Los mazos `type="list"` del modelo de la
@@ -1072,3 +1085,99 @@ Se cierra solo (`StaysOpen=False`) y además cada acción lo cierra antes de abr
 **Detalle de posicionamiento:** el popup se ancla al botón con `HorizontalOffset` negativo para
 alinear por el borde derecho; con el offset original se pasaba del borde de la ventana y WPF lo
 corría solo, dejándolo desalineado.
+
+---
+
+<a id="adr-044"></a>
+## ADR-044 — La identidad persistida de una carta es su nombre, no su id
+
+**Fecha:** 2026-07-28 · **Estado:** vigente.
+
+**Decisión.** Todo estado del usuario que referencie una carta se guarda en disco por **nombre**.
+El `id` del catálogo es una clave **de sesión**: vale mientras esté cargado ese catálogo, y no
+cruza el disco. La traducción nombre ⇄ id ocurre en el borde (al cargar y al guardar), y en memoria
+se sigue trabajando con ids, que es lo que matchea `CardSearchEngine`.
+
+**Por qué.** Es contraintuitivo —un id parece más estable que un nombre— pero acá es al revés:
+
+- El `id` sale del `cards_db.json` y lo asigna quien **genera la base de la comunidad**. Entre dos
+  versiones de la base puede desaparecer o, peor, **reasignarse a otra carta**.
+- El **nombre** es lo único que el juego y el launcher acuerdan: es lo que Sun and Moon escribe en
+  sus `.txt` de mazo, y por eso los mazos ya sobrevivían a los cambios de base sin que nadie lo
+  hubiera decidido explícitamente.
+
+El riesgo no era "se pierde una favorita" sino el silencioso: una lista de ninjas que después de
+actualizar la base contiene una holding, sin un solo error a la vista.
+
+**Consecuencias.**
+
+- `usercards.json` pasó a **v2**: favoritas y ocultas por nombre, y sin listas (ver
+  [ADR-045](#adr-045)). La migración desde v1 traduce los ids que todavía resuelven, respalda el
+  archivo viejo en `usercards.v1.json` y no se vuelve a correr.
+- Los ids que ya no resuelven se pierden en la migración. Estaban rotos igual.
+- La lectura usa `GetCardByNameRelaxed`, la misma cadena que el parser de `.txt`: un archivo
+  editado a mano con el nombre que usa el juego resuelve igual que un mazo.
+- El nombre tampoco es una clave perfecta: con nombres repetidos gana la primera carta en orden de
+  inserción (`_cardsByName`, port de `getByName LIMIT 1`). Es la **misma** ambigüedad que ya
+  aceptamos en todos los mazos y la misma que tiene el juego: no se agrega riesgo, se iguala.
+- **Corolario para quien genera la base:** renombrar una carta en `cards_db.json` equivale a
+  borrarla y crear otra — rompe listas, favoritas y mazos del usuario. Cambiar un `id` no rompe
+  nada.
+- Verificado en el selftest barajando los ids del catálogo y comprobando que las favoritas siguen
+  apuntando a la misma carta.
+
+**Al agregar estado nuevo:** si referencia cartas, se guarda por nombre. Sin excepciones.
+
+---
+
+<a id="adr-045"></a>
+## ADR-045 — Listas y mazos son el mismo conjunto, en carpetas distintas
+
+**Fecha:** 2026-07-28 · **Estado:** vigente. **Sustituye a [ADR-028](#adr-028).**
+
+**Decisión.** Una lista y un mazo son la misma cosa —un conjunto de cartas, `Models.Deck` con
+`Type` "deck" o "list", como en la app Android— y se editan con el mismo editor. Lo único que los
+distingue:
+
+| | Mazo | Lista |
+|---|---|---|
+| Archivo | `<juego>\Decks\<Nombre>.txt` | `<juego>\Lists\<Nombre>.txt` |
+| Lo lee el juego | sí | **no** |
+| Tope por carta | `MaxCopies` de la carta | **1** |
+| Validación | conteos Dynasty/Fate, slots | ninguna |
+
+`Lists\` es **hermana** de `Decks\`, no está adentro: el juego escanea su carpeta de mazos y no
+vale la pena arriesgar que una lista le aparezca como mazo jugable.
+
+**Por qué cambia respecto de ADR-028.** ADR-028 las separó por persistencia (JSON con ids vs `.txt`
+con nombres) y el argumento se dio vuelta con [ADR-044](#adr-044): si el nombre es la clave durable,
+el `.txt` es el formato **correcto**, no el frágil. Y una vez que comparten formato, mantener dos
+modelos para la misma cosa solo cuesta: el usuario quiere editar una lista como un mazo y filtrar
+por un mazo como si fuera una lista.
+
+**Lo que NO se tocó.** `DeckRepository` es port 1:1 con 25 golden y ya traía el soporte de
+`type="list"` de la app (tope 1 en `AddCard`, `isList` en `ImportCards`). Las mutaciones de lista de
+la UI **no** pasan por `AddCard`: usan `SetInList`, método nuevo que no aplica el rechazo de
+baneadas ni el de slot inicial cubierto. Una lista es material de armado, no un mazo legal — querer
+las cuatro versiones de Bamboo Harvesters que estás evaluando es el caso normal. `AddCard` queda
+exactamente como está, y el selftest verifica **las dos** semánticas por separado.
+
+**El conjunto activo como filtro.** El selector de la barra del Buscador elige un conjunto que puede
+ser una lista, un mazo, las favoritas o las ocultas; "Solo conjunto" filtra por sus cartas. El motor
+no se enteró: la UI **materializa** el conjunto elegido en `UserCardData.Lists` al momento de
+buscar, que es exactamente lo que los golden verifican. Sumar un tipo de conjunto nuevo no toca el
+motor ni obliga a regenerar nada.
+
+**Consecuencias.**
+
+- El desplegable tiene dos niveles: listas + favoritas + ocultas arriba, y una entrada "Usar mazo…"
+  que recién ahí baja a los mazos (suelen ser muchos y no son lo que se elige habitualmente).
+- El `≡` de las celdas sigue cargando **solo listas**: con un mazo elegido están los `+`/`−`, y con
+  favoritas está el `★`. Se apaga en vez de inventar un significado.
+- Favoritas y ocultas se pueden **copiar a una lista** (`⎘`). No son archivos, así que no se editan
+  en el editor: se bajan a una lista, que sí lo es.
+- `CardSearchCriteria` gana `listKind` para que un preset sepa a qué tipo de conjunto apuntaba. Es
+  un campo **agregado**: los golden serializados sin él deserializan igual.
+- Un mazo y una lista pueden llamarse igual (carpetas distintas). El sidecar `decksmeta.json`
+  prefija las listas con `list:` para que no colisionen; los mazos conservan la clave pelada.
+- Un preset cuyo conjunto ya no existe ahora **lo dice** en vez de devolver 0 resultados en silencio.

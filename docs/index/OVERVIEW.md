@@ -41,8 +41,8 @@ Mapa completo de la documentación: [`../README.md`](../README.md).
 | Índice | Cubre |
 |---|---|
 | [sincronizacion.md](sincronizacion.md) | Manifests, descargas + SHA-256, aplicar base, packs de imágenes, catálogo, config del usuario, primer arranque, lanzar el juego. |
-| [buscador.md](buscador.md) | Motor de búsqueda portado de la app Android, catálogo (cards/rules/filters), ventana del Buscador, favoritas/ocultas/listas/presets. |
-| [mazos.md](mazos.md) | `DeckRepository` portado, persistencia como `.txt` en la carpeta `Decks` del juego, editor de mazos, integración con el Buscador. |
+| [buscador.md](buscador.md) | Motor de búsqueda portado de la app Android, catálogo (cards/rules/filters), ventana del Buscador, favoritas/ocultas/presets, conjunto activo como filtro. |
+| [mazos.md](mazos.md) | `DeckRepository` portado, mazos y listas como `.txt` (`Decks\` y `Lists\`), editor con solapa Mazos \| Listas, integración con el Buscador. |
 | [ui.md](ui.md) | Ventanas, tema/estética, i18n (`Strings.resx`), estilos compartidos, render de texto de cartas, resolución de imágenes. |
 | [build-verificacion.md](build-verificacion.md) | csproj/Costura, self-test, CI, release y firma, hooks de testing. |
 
@@ -70,7 +70,7 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 |---|---|
 | `MainWindow.xaml(.cs)` | Ventana principal: selección de base, banner de update, sincronización, JUGAR, overlays de Configuración y Packs de imágenes. |
 | `Views/FirstRunWindow.xaml(.cs)` | Primer arranque: elegir `Sun and Moon.exe`, validar la instalación, capturar la base **Original**. |
-| `Views/SearchWindow.xaml(.cs)` | Buscador: filtros en vivo, tabla/grilla virtualizada, panel derecho Carta \| Mazo, listas y presets. |
+| `Views/SearchWindow.xaml(.cs)` | Buscador: filtros en vivo, tabla/grilla virtualizada, panel derecho Carta \| Mazo, selector de conjunto activo y presets. |
 | `Views/DeckWindow.xaml(.cs)` | Editor de Mazos: rail de mazos, grupos Starter/Dynasty/Fate, importar/exportar, notas. |
 | `Views/CardDetailPanel.xaml(.cs)` | Detalle de carta compartido entre Buscador y editor (+ `CardImageResolver`). |
 | `Views/CardUiStyles.xaml` | Estilos XAML compartidos entre ambas ventanas (chips, checkboxes, celdas). |
@@ -103,7 +103,7 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 | `CardSearchEngine.cs` | Motor de filtros: port 1:1 del SQL de la app con semánticas SQLite replicadas. |
 | `CardSearchCriteria.cs` | Criterios de búsqueda (nombres JSON compatibles con los golden). |
 | `CatalogStore.cs` | Encuentra y carga el trío versionado más alto en `cache/catalog/`. |
-| `UserCardDataStore.cs` | Favoritas / ocultas / listas → `usercards.json`. |
+| `UserCardDataStore.cs` | Favoritas / ocultas → `usercards.json` v2, **por nombre de carta** ([ADR-044](../DECISIONS.md#adr-044)); migra el v1 y manda sus listas a `Lists\`. |
 | `FilterPresetStore.cs` | Presets de filtros con nombre → `presets.json`. |
 
 ### Mazos (`Services/Deck/`, ver [mazos.md](mazos.md))
@@ -112,7 +112,7 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 |---|---|
 | `DeckRepository.cs` | Port 1:1 de `DeckRepository.kt`: `AddCard`, quantities, import/export, CRUD, espejos de UI. |
 | `SunAndMoonDeckFile.cs` | Parse/write del formato `.txt` de la carpeta `Decks` del juego (tolerante a nombres). |
-| `DeckLibrary.cs` | Un `.txt` por mazo en `Decks` + sidecar `decksmeta.json`; mazo activo compartido por proceso. |
+| `DeckLibrary.cs` | Un `.txt` por conjunto: mazos en `Decks`, listas en `Lists` + sidecar `decksmeta.json`; mazo y lista activos compartidos por proceso. |
 
 ### Modelos y recursos
 
@@ -144,21 +144,23 @@ Contrato de formato y ejemplo real: [../technical/contratos/manifest.example.jso
 
 **Dos raíces, con reglas distintas.** Lo que es del launcher cuelga del perfil del usuario y lo
 redirige `L5A_DATA_ROOT` (hook de testing/portabilidad). Lo que es del **juego** —`database.xml`,
-`images\` y los `.txt` de `Decks\`— cuelga de la instalación configurada (`sunAndMoonPath`) y **no**
-se redirige: moverlo rompería que el juego lea el mazo ([ADR-022](../DECISIONS.md#adr-022)). Único
-fallback: sin instalación configurada, los mazos caen en `%APPDATA%\...\Decks`.
+`images\` y los `.txt` de `Decks\` y `Lists\`— cuelga de la instalación configurada
+(`sunAndMoonPath`) y **no** se redirige: moverlo rompería que el juego lea el mazo
+([ADR-022](../DECISIONS.md#adr-022)). Único fallback: sin instalación configurada, mazos y listas
+caen en `%APPDATA%\...\Decks` y `%APPDATA%\...\Lists`.
 
 Nada depende de dónde esté el `.exe`: moverlo no cambia ninguna ruta.
 
 | Ruta | Contenido |
 |---|---|
 | `%APPDATA%\L5Argentina Launcher\config.json` | Instalación, URL del manifest, base aplicada, hashes cacheados, packs aplicados. |
-| `%APPDATA%\...\usercards.json` | Favoritas, ocultas y listas del Buscador. |
+| `%APPDATA%\...\usercards.json` | Favoritas y ocultas del Buscador, **por nombre de carta** ([ADR-044](../DECISIONS.md#adr-044)). |
 | `%APPDATA%\...\presets.json` | Presets de filtros con nombre. |
-| `%APPDATA%\...\decksmeta.json` | Sidecar de mazos (notas, orden, mazo activo). |
+| `%APPDATA%\...\decksmeta.json` | Sidecar de mazos y listas (notas, orden, mazo y lista activos). |
 | `%LOCALAPPDATA%\...\cache\` | Descargas verificadas (`catalog/`, `packs/`). |
 | `%LOCALAPPDATA%\...\backups\` | `database.original.xml` + copias con timestamp. |
 | `<SunAndMoon>\Decks\*.txt` | **Los mazos** (los mismos archivos que carga el juego). **No** los redirige `L5A_DATA_ROOT`. |
+| `<SunAndMoon>\Lists\*.txt` | **Las listas** (mismo formato, 1 copia por carta; el juego no las lee). Tampoco se redirigen. |
 
 Detalle y criterios: [../design/persistencia.md](../design/persistencia.md).
 

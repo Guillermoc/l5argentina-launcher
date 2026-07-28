@@ -291,15 +291,9 @@ namespace L5ArgentinaLauncher
                    && poolCatalog.Cards[0].Id == "PX1",
                 "Pool: CatalogStore carga la versión del pool");
 
-            // ---------- Stores del Buscador: listas y presets (roundtrip en disco) ----------
-            var ucs = Services.Search.UserCardDataStore.Load();
-            Assert(ucs.CreateList("mazo-prueba"), "Stores: crea lista");
-            Assert(!ucs.CreateList("mazo-prueba"), "Stores: no duplica lista");
-            Assert(ucs.ToggleInList("mazo-prueba", "X1"), "Stores: agrega carta a la lista");
-            var ucs2 = Services.Search.UserCardDataStore.Load();
-            Assert(ucs2.ListContains("mazo-prueba", "X1"), "Stores: lista persiste en disco");
-            Assert(!ucs2.ToggleInList("mazo-prueba", "X1"), "Stores: toggle quita la carta");
-
+            // ---------- Stores del Buscador: presets (roundtrip en disco) ----------
+            // Las listas ya no viven en usercards.json (son .txt de la carpeta Lists): sus checks
+            // se mudaron a RunDeckStoreTests, junto con los de favoritas/ocultas por nombre.
             var presets = Services.Search.FilterPresetStore.Load();
             presets.Save("agresivo", new Services.Search.CardSearchCriteria
             {
@@ -323,6 +317,9 @@ namespace L5ArgentinaLauncher
 
             // ---------- Deckbuilder: persistencia txt de Sun and Moon ----------
             RunDeckStoreTests(tempRoot);
+
+            // ---------- Conjuntos de cartas: listas como txt + identidad por nombre ----------
+            RunCardSetTests(tempRoot);
 
             // ---------- Opcional: e2e con archivos REALES del bucket ----------
             // Se activa pasando L5A_SELFTEST_BUCKET=<carpeta con manifest.json + zips reales>.
@@ -727,6 +724,126 @@ namespace L5ArgentinaLauncher
             var copyId = lib3.DuplicateDeck(dupA);
             Assert(copyId != null && lib3.Repo.TotalCardCount(copyId) == lib3.Repo.TotalCardCount(dupA),
                 "DeckLibrary: duplicar copia la composición (export→import)");
+        }
+
+        /// <summary>
+        /// Conjuntos de cartas: las listas como .txt de la carpeta Lists (ADR-045) y la
+        /// identidad persistida por NOMBRE de carta, no por id (ADR-044). Cubre lo que dejó de
+        /// vivir en usercards.json y lo que ese archivo sigue guardando.
+        /// </summary>
+        private static void RunCardSetTests(string tempRoot)
+        {
+            var fixturesDir = FindRepoRelative(Path.Combine("tests", "fixtures", "deckbuilder"));
+            if (fixturesDir == null) return;
+
+            Line("");
+            Line("=== Conjuntos de cartas: listas en txt + identidad por nombre ===");
+            var dataDir = Path.Combine(fixturesDir, "data");
+            var catalog = Services.Search.CatalogStore.Load(dataDir);
+            var root = Path.Combine(tempRoot, "setsinstall");
+            var decksDir = Path.Combine(root, "Decks");
+            var listsDir = Path.Combine(root, "Lists");
+            var metaPath = Path.Combine(tempRoot, "setsmeta.json");
+            Directory.CreateDirectory(decksDir);
+
+            var lib = new DeckLibrary(catalog, decksDir, metaPath, listsDir);
+            var listId = lib.CreateList("Ninjas");
+            lib.Repo.SetInList(listId, "Ivory032", true); // Jade Works
+
+            Assert(File.Exists(Path.Combine(listsDir, "Ninjas.txt")) &&
+                   !File.Exists(Path.Combine(decksDir, "Ninjas.txt")),
+                "Listas: el txt se escribe en Lists, nunca en Decks");
+            Assert(File.ReadAllText(Path.Combine(listsDir, "Ninjas.txt")).Contains("Jade Works"),
+                "Listas: el txt guarda el NOMBRE de la carta");
+
+            // Tope 1: el segundo SetInList no acumula
+            lib.Repo.SetInList(listId, "Ivory032", true);
+            Assert(lib.Repo.GetDeckCard(listId, "Ivory032")?.Quantity == 1, "Listas: tope de 1 copia por carta");
+
+            // SetInList NO es AddCard: una lista es material de armado, no un mazo legal
+            Assert(lib.Repo.AddCard(listId, "ALitS117").Kind == AddCardResultKind.Banned,
+                "Listas: AddCard sigue rechazando baneadas (semántica portada intacta)");
+            Assert(lib.Repo.SetInList(listId, "ALitS117", true) &&
+                   lib.Repo.GetDeckCard(listId, "ALitS117") != null,
+                "Listas: SetInList acepta una baneada");
+            lib.Repo.SetInList(listId, "HaT001", true);   // Bamboo Harvesters   } mismo slot
+            lib.Repo.SetInList(listId, "Ivory401", true); // Bamboo Harvesters - exp
+            Assert(lib.Repo.GetDeckCard(listId, "HaT001") != null &&
+                   lib.Repo.GetDeckCard(listId, "Ivory401") != null,
+                "Listas: SetInList acepta dos cartas del mismo slot inicial");
+            Assert(lib.Repo.AddCard(listId, "Emperor028").Kind == AddCardResultKind.SlotAlreadyCovered ||
+                   lib.Repo.AddCard(listId, "Ivory401").Kind == AddCardResultKind.SlotAlreadyCovered,
+                "Listas: AddCard sigue aplicando el slot cubierto (semántica portada intacta)");
+
+            // Un mazo y una lista pueden llamarse igual: son carpetas distintas
+            var deckId = lib.CreateDeck("Ninjas");
+            Assert(lib.Repo.GetDeckById(deckId).Name == "Ninjas" &&
+                   File.Exists(Path.Combine(decksDir, "Ninjas.txt")),
+                "Listas: un mazo y una lista pueden compartir nombre");
+
+            // Round-trip por disco: tipo, tope y lista activa
+            lib.ActiveListId = listId;
+            var lib2 = new DeckLibrary(catalog, decksDir, metaPath, listsDir);
+            var reloaded = lib2.Lists.FirstOrDefault(d => d.Name == "Ninjas");
+            Assert(reloaded != null && reloaded.Type == DeckLibrary.ListType &&
+                   reloaded.Cards.Count(c => c.Quantity == 1) == reloaded.Cards.Count,
+                "Listas: round-trip por disco (tipo lista, todo en 1 copia)");
+            Assert(lib2.ActiveList?.Name == "Ninjas", "Listas: la lista activa persiste en el sidecar");
+            Assert(lib2.Decks.Count() == 1 && lib2.Lists.Count() == 1,
+                "Listas: las dos carpetas se cargan separadas");
+
+            // Un txt de lista escrito a mano con cantidades se recorta a 1 al cargar
+            File.WriteAllText(Path.Combine(listsDir, "A mano.txt"), "3x Jade Works\r\n");
+            var lib3 = new DeckLibrary(catalog, decksDir, metaPath, listsDir);
+            var manual = lib3.Lists.FirstOrDefault(d => d.Name == "A mano");
+            Assert(manual != null && manual.Cards.Single().Quantity == 1,
+                "Listas: un txt con '3x' se recorta a 1 al cargar");
+
+            // Duplicar una lista no puede pasar por ImportCards (se comería las del mismo slot)
+            var dupId = lib3.DuplicateDeck(lib3.Lists.First(d => d.Name == "Ninjas").Id);
+            Assert(dupId != null && lib3.Repo.GetDeckCard(dupId, "HaT001") != null &&
+                   lib3.Repo.GetDeckCard(dupId, "Ivory401") != null &&
+                   lib3.Repo.GetDeckCard(dupId, "ALitS117") != null,
+                "Listas: duplicar conserva las del mismo slot y las baneadas");
+
+            // Borrar la lista borra su txt y no toca el mazo homónimo
+            lib3.DeleteDeck(lib3.Lists.First(d => d.Name == "Ninjas").Id);
+            Assert(!File.Exists(Path.Combine(listsDir, "Ninjas.txt")) &&
+                   File.Exists(Path.Combine(decksDir, "Ninjas.txt")),
+                "Listas: borrar la lista no toca el mazo del mismo nombre");
+
+            // ---- usercards.json: nombres, no ids (ADR-044) --------------------------------
+            var ucPath = AppConstants.UserCardsPath;
+            Directory.CreateDirectory(Path.GetDirectoryName(ucPath));
+
+            // v1: ids + listas adentro → se migra
+            File.WriteAllText(ucPath,
+                "{\"favorites\":[\"Ivory032\",\"NoExisteZZZ\"],\"hidden\":[\"Samurai395\"]," +
+                "\"lists\":{\"Vieja\":[\"Ivory032\",\"TDoW012\"]}}");
+            var libM = new DeckLibrary(catalog, decksDir, metaPath, listsDir);
+            var store = Services.Search.UserCardDataStore.Load(libM);
+            Assert(store.Data.Favorites.Contains("Ivory032") && store.Data.Favorites.Count == 1,
+                "usercards: migración v1 traduce los ids que existen y descarta los rotos");
+            Assert(store.Data.Hidden.Contains("Samurai395"), "usercards: migración v1 conserva las ocultas");
+            Assert(File.Exists(Path.Combine(Path.GetDirectoryName(ucPath), "usercards.v1.json")),
+                "usercards: la migración respalda el archivo viejo");
+            var migrated = libM.Lists.FirstOrDefault(d => d.Name == "Vieja");
+            Assert(migrated != null && migrated.Cards.Count == 2,
+                "usercards: las listas del v1 pasan a .txt de la carpeta Lists");
+
+            var saved = File.ReadAllText(ucPath);
+            Assert(saved.Contains("Jade Works") && !saved.Contains("Ivory032"),
+                "usercards: se guardan NOMBRES de carta, no ids (ADR-044)");
+            Assert(!saved.Contains("\"lists\""), "usercards: ya no guarda listas");
+
+            // La prueba de fuego de ADR-044: los ids del catálogo cambian y las favoritas siguen
+            // apuntando a la misma carta (es lo que pasa cuando entra una base nueva).
+            var shuffled = Services.Search.CatalogStore.Load(dataDir);
+            foreach (var card in shuffled.Cards) card.Id = "NEW-" + card.Id;
+            var libS = new DeckLibrary(shuffled, decksDir, metaPath, listsDir);
+            var storeS = Services.Search.UserCardDataStore.Load(libS);
+            Assert(storeS.Data.Favorites.Contains("NEW-Ivory032"),
+                "usercards: las favoritas sobreviven a un cambio de ids del catálogo");
         }
 
         /// <summary>Busca una ruta relativa al repo subiendo desde el directorio del exe.</summary>

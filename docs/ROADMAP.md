@@ -102,16 +102,29 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 ## 4. Pendientes por dominio
 
 **Buscador** ([index/buscador.md](index/buscador.md))
-- ⬜ Contador de cartas por lista en el selector.
-- ⬜ Renombrar listas.
+- ✅ Filtrar por un conjunto cualquiera —lista, mazo, favoritas u ocultas— desde un solo selector
+  ([ADR-045](DECISIONS.md#adr-045)).
+- ⬜ Contador de cartas en el selector de conjunto (hoy solo se ve en la solapa Listas del editor).
+- ⬜ Renombrar una lista desde la barra del Buscador (hoy hay que ir a la ventana de Mazos).
 - ⬜ `Ctrl+click` para agregar también desde la vista de tabla (hoy solo en la grilla, donde el
   overlay se puede leer; en la tabla sigue el doble click) — ver [ADR-041](DECISIONS.md#adr-041).
 
 **Mazos** ([index/mazos.md](index/mazos.md))
+- ✅ Listas editables con el mismo editor que los mazos, como `.txt` de `Lists\`
+  ([ADR-045](DECISIONS.md#adr-045)).
 - ⏸️ Goldfish (sandbox de testeo) — fuera de alcance; la spec del handoff lo cubre si se quiere.
 - ⏸️ Grupos de usuario (carpetas de mazos) y subgrupos dentro del mazo — no portados.
 - ⏸️ Export PDF — no portado.
 - ⬜ Buscador embebido en el editor (hoy el flujo es "Buscador `+`/`−` sobre el mazo activo").
+- ⬜ Favoritas y ocultas **dentro** del editor. Hoy se filtran desde el Buscador y se copian a una
+  lista con `⎘`; editarlas ahí adentro pediría una capa de indirección sobre todo `DeckWindow` para
+  algo que no es un archivo.
+
+**Estado del usuario**
+- ⬜ Aviso al usuario cuando una actualización de la base deja nombres sin resolver (hoy esas
+  entradas se descartan en silencio) — ver [ADR-044](DECISIONS.md#adr-044).
+- ⬜ Escribir el contrato del `cards_db.json` en `technical/contratos/` (qué puede cambiar entre
+  versiones sin romper el estado del usuario: los `id` sí, los **nombres no**).
 
 **URLs / operación**
 - ⬜ Confirmar con el mantenedor que `DefaultManifestUrl` y `ReleasesPageUrl` de `AppConstants` son

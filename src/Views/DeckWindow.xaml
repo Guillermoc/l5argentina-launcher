@@ -196,18 +196,32 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
-                            <Grid Grid.Row="0" Margin="0,0,0,6">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="{loc:Loc Deck_ListHeader}" FontFamily="{StaticResource BrushFont}"
-                                           FontSize="18" Foreground="{StaticResource GoldSoft}"
-                                           VerticalAlignment="Center" />
-                                <Button Grid.Column="1" Content="＋" Style="{StaticResource GhostButton}"
-                                        Height="28" FontSize="16" Padding="10,0"
-                                        ToolTip="{loc:Loc Deck_NewTip}" Click="NewDeck_Click" />
-                            </Grid>
+                            <StackPanel Grid.Row="0" Margin="0,0,0,6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="DeckListHeader" Text="{loc:Loc Deck_ListHeader}"
+                                               FontFamily="{StaticResource BrushFont}"
+                                               FontSize="18" Foreground="{StaticResource GoldSoft}"
+                                               VerticalAlignment="Center" />
+                                    <Button x:Name="NewDeckBtn" Grid.Column="1" Content="＋"
+                                            Style="{StaticResource GhostButton}"
+                                            Height="28" FontSize="16" Padding="10,0"
+                                            ToolTip="{loc:Loc Deck_NewTip}" Click="NewDeck_Click" />
+                                </Grid>
+                                <!-- Mazos y listas son lo mismo salvo dónde vive el .txt y el tope
+                                     de copias: un solo editor, dos solapas (ADR-045) -->
+                                <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+                                    <ToggleButton x:Name="TabDecksBtn" Style="{StaticResource SegmentLeft}"
+                                                  IsChecked="True" Content="{loc:Loc Deck_TabDecks}"
+                                                  ToolTip="{loc:Loc Deck_TabDecksTip}" Click="KindTab_Click" />
+                                    <ToggleButton x:Name="TabListsBtn" Style="{StaticResource SegmentRight}"
+                                                  Content="{loc:Loc Deck_TabLists}"
+                                                  ToolTip="{loc:Loc Deck_TabListsTip}" Click="KindTab_Click" />
+                                </StackPanel>
+                            </StackPanel>
 
                             <ListBox x:Name="DeckList" Grid.Row="1" Background="#40140A05"
                                      BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1"

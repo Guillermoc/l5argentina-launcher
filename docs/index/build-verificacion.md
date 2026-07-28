@@ -49,19 +49,20 @@ src/bin/Debug/net48/L5ArgentinaLauncher.exe --selftest C:\ruta\reporte.txt
 `SelfTest.Run` setea `L5A_DATA_ROOT` a una carpeta temporal y monta un **bucket falso + instalación
 falsa** en `%TEMP%`: ejercita el pipeline real sin tocar nada del usuario, y limpia al terminar.
 
-**177 checks** ([ADR-011](../DECISIONS.md#adr-011)):
+**193 checks** ([ADR-011](../DECISIONS.md#adr-011)):
 
 | Bloque | Cubre |
 |---|---|
-| Pipeline (~91 con los del Buscador no-golden) | `VersionUtil`; parseo del manifest (incl. `latest_version` snake_case); `ResolveFileUri` (relativa OK, otro origen rechazado, `../` rechazado); descarga con hash correcto / hash mal → aborta y **no deja archivo**; base `.zip` con exactamente un `.xml`; zip-slip rechazado; backup Original + backups con timestamp; manifest del pool y `ResolveSameOriginUrl`; catálogo y stores (`UserCardDataStore`, `FilterPresetStore`). |
+| Pipeline (~86 con los del Buscador no-golden) | `VersionUtil`; parseo del manifest (incl. `latest_version` snake_case); `ResolveFileUri` (relativa OK, otro origen rechazado, `../` rechazado); descarga con hash correcto / hash mal → aborta y **no deja archivo**; base `.zip` con exactamente un `.xml`; zip-slip rechazado; backup Original + backups con timestamp; manifest del pool y `ResolveSameOriginUrl`; catálogo y `FilterPresetStore`. |
 | Golden Buscador | **53 casos** generados con la lógica real de la app Android (criteria serializado + ids esperados; `orderMatters` decide secuencia vs conjunto). |
 | Golden deckbuilder | **25 casos** replicando la secuencia exacta de `DeckRunner.kt` (mismos mazos "Golden N", string exacto del export). |
 | Persistencia de mazos | Round-trip del `.txt` de Sun and Moon, `DeckLibrary` (rename/delete/activo/duplicados), resolución tolerante de nombres. |
+| Conjuntos de cartas (`RunCardSetTests`, **21**) | Listas como `.txt` de `Lists\` (nunca en `Decks\`, tope 1, `3x` recortado al cargar, borrado que no toca el mazo homónimo); `SetInList` vs `AddCard` (la semántica portada intacta, la de listas sin slot ni banlist); `usercards.json` v1→v2 (traducción de ids, respaldo, listas a `.txt`) y la prueba de fuego de [ADR-044](../DECISIONS.md#adr-044): se barajan los ids del catálogo y las favoritas siguen apuntando a la misma carta. |
 
 Los golden leen sus fixtures de `tests/fixtures/` resolviendo la ruta hacia
 arriba desde el exe (`FindRepoRelative`). Si el exe corre fuera del repo, esos bloques se **omiten**
 sin fallar (aparece `SKIP` en el reporte) — al validar un cambio, verificar que el reporte diga
-**0 FAIL y ningún SKIP**. El total (177 hoy) sube o baja con la batería: no es una constante.
+**0 FAIL y ningún SKIP**. El total (193 hoy) sube o baja con la batería: no es una constante.
 
 ### Costo y cadencia
 

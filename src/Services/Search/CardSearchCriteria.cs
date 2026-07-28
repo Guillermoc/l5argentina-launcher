@@ -89,6 +89,15 @@ namespace L5ArgentinaLauncher.Services.Search
         [JsonPropertyName("includeHidden")] public bool IncludeHidden { get; set; }
         [JsonPropertyName("listId")] public string ListId { get; set; }
 
+        /// <summary>
+        /// De qué conjunto es <see cref="ListId"/>: "list" (o null, default histórico), "deck",
+        /// "favorites" u "hidden". El motor no lo mira —resuelve siempre contra
+        /// <see cref="UserCardData.Lists"/>, que es lo que verifican los golden—; lo usa la UI
+        /// para volver a resolver el conjunto al recargar un preset. Campo agregado, no
+        /// renombrado: los golden serializados sin él siguen deserializando igual.
+        /// </summary>
+        [JsonPropertyName("listKind")] public string ListKind { get; set; }
+
         // Orden
         [JsonPropertyName("sortField")]
         [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -111,7 +120,13 @@ namespace L5ArgentinaLauncher.Services.Search
             ListId == null && !IncludeBanned && !Designators.Any();
     }
 
-    /// <summary>Datos de usuario (favoritas/ocultas/listas). El launcher no los persiste aún.</summary>
+    /// <summary>
+    /// Datos de usuario que el motor consulta. Favoritas y ocultas se persisten en
+    /// usercards.json; <see cref="Lists"/> es la entrada del filtro "solo el conjunto X" y se
+    /// arma en el momento de buscar: la UI mete ahí las cartas del conjunto elegido, venga de
+    /// una lista, de un mazo o de las propias favoritas/ocultas. El motor no sabe de dónde salió
+    /// —es la forma de sumar conjuntos nuevos sin tocar lo que verifican los golden—.
+    /// </summary>
     public class UserCardData
     {
         public HashSet<string> Favorites = new HashSet<string>();
@@ -119,5 +134,17 @@ namespace L5ArgentinaLauncher.Services.Search
         public Dictionary<string, HashSet<string>> Lists = new Dictionary<string, HashSet<string>>();
 
         public static readonly UserCardData Empty = new UserCardData();
+
+        /// <summary>
+        /// Copia que comparte favoritas/ocultas pero con su propio diccionario de conjuntos, para
+        /// materializar el conjunto activo sin ensuciar (ni persistir) el estado real.
+        /// </summary>
+        public UserCardData WithList(string id, IEnumerable<string> cardIds)
+        {
+            var copy = new UserCardData { Favorites = Favorites, Hidden = Hidden };
+            foreach (var kv in Lists) copy.Lists[kv.Key] = kv.Value;
+            if (id != null) copy.Lists[id] = new HashSet<string>(cardIds ?? Enumerable.Empty<string>());
+            return copy;
+        }
     }
 }

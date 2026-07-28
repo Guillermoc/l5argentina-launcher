@@ -32,6 +32,9 @@ Versión actual: **0.4.0**.
 | Mazos guardados como `.txt` en la carpeta `Decks` del juego | ✅ | v0.3.0 | [DECISIONS ADR-022](docs/DECISIONS.md#adr-022) |
 | Un solo mazo activo, compartido por todas las ventanas | ✅ | v0.4.0 | [DECISIONS ADR-042](docs/DECISIONS.md#adr-042) |
 | `Ctrl+click` para agregar al mazo, con ayuda visual | ✅ | v0.4.0 | [DECISIONS ADR-041](docs/DECISIONS.md#adr-041) |
+| Listas editables como mazos (`.txt` en `Lists`, tope 1 por carta) | ✅ | v0.5.0 | [DECISIONS ADR-045](docs/DECISIONS.md#adr-045) |
+| Filtrar el Buscador por un mazo, una lista o las favoritas | ✅ | v0.5.0 | [index/buscador.md](docs/index/buscador.md) |
+| Estado del usuario referenciado por nombre de carta, no por id | ✅ | v0.5.0 | [DECISIONS ADR-044](docs/DECISIONS.md#adr-044) |
 | Copiar el arte de la carta al portapapeles | ✅ | v0.4.0 | [index/ui.md](docs/index/ui.md) |
 | Rediseño de controles (rieles, pestañas, menús, diálogos) | ✅ | v0.4.0 | [DECISIONS ADR-035](docs/DECISIONS.md#adr-035) |
 | Firma del ejecutable (SignPath) | ⏳ esperando aprobación OSS | — | [ROADMAP §1](docs/ROADMAP.md) |
@@ -150,7 +153,7 @@ quedan al lado).
 
 Un harness de verificación monta un bucket+instalación falsos en `%TEMP%` y ejercita el pipeline real
 (hash, confinamiento de origen, zip-slip, backups, base zippeada, catálogo y packs del pool) sin tocar
-tu instalación — **177 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
+tu instalación — **193 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
 los **25 golden tests** del deckbuilder, ambos contra la lógica real de la app Android:
 
 ```sh
@@ -169,10 +172,12 @@ de qué cubre cada bloque, en [docs/index/build-verificacion.md](docs/index/buil
 ## Configuración del usuario (rutas)
 
 - Config: `%APPDATA%\L5Argentina Launcher\config.json`
-- Favoritas/ocultas/listas del Buscador: `%APPDATA%\L5Argentina Launcher\usercards.json`
+- Favoritas/ocultas del Buscador: `%APPDATA%\L5Argentina Launcher\usercards.json` (por **nombre**
+  de carta, no por id — así sobrevive a los cambios de base)
 - Presets de filtros del Buscador: `%APPDATA%\L5Argentina Launcher\presets.json`
-- Sidecar de mazos (notas, orden, mazo activo): `%APPDATA%\L5Argentina Launcher\decksmeta.json`
-  — los mazos en sí son `.txt` en la carpeta `Decks` de la instalación de Sun and Moon.
+- Sidecar de mazos y listas (notas, orden, mazo/lista activos): `%APPDATA%\L5Argentina Launcher\decksmeta.json`
+  — los mazos en sí son `.txt` en la carpeta `Decks` de la instalación de Sun and Moon, y las listas
+  `.txt` en `Lists`, al lado (el juego no las lee).
 - Caché de descargas: `%LOCALAPPDATA%\L5Argentina Launcher\cache\`
 - Backups: `%LOCALAPPDATA%\L5Argentina Launcher\backups\` (la Original + copias con timestamp)
 
@@ -242,7 +247,7 @@ src/
    │  ├─ CardSearchEngine     motor de filtros (port 1:1, semánticas SQLite replicadas)
    │  ├─ CardSearchCriteria   criterios (compatible con los golden tests)
    │  ├─ CatalogStore         carga del catálogo desde cache/catalog
-   │  ├─ UserCardDataStore    favoritas/ocultas/listas persistentes
+   │  ├─ UserCardDataStore    favoritas/ocultas persistentes (por nombre de carta)
    │  └─ FilterPresetStore    presets de filtros guardados con nombre
    └─ Deck/
       ├─ DeckRepository       port 1:1 de DeckRepository.kt (AddCard, import/export, CRUD, conteos)

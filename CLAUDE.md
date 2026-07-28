@@ -74,6 +74,10 @@ src/bin/Debug/net48/L5ArgentinaLauncher.exe --mazos             # abre el editor
    `DeckRepository`) no se "arregla". Los bugs conocidos se portan; la UI compensa.
 8. **Textos de UI solo en `Strings.resx`** (`{loc:Loc Clave}` / `Strings.Get`). Cero literales.
 9. **Rutas de estado solo desde `AppConstants`** (respetan `L5A_DATA_ROOT`).
+10. **Una carta se referencia por NOMBRE, nunca por id, en todo lo que se escriba a disco**
+    ([ADR-044](docs/DECISIONS.md#adr-044)). El `id` sale del `cards_db.json` y lo reasigna quien
+    genera la base: guardarlo hace que, al entrar una base nueva, una favorita desaparezca o —peor,
+    y en silencio— pase a ser otra carta. En memoria se usa el id; la traducción va en el borde.
 
 ## 5. Cuándo correr la batería de verificación
 
@@ -261,10 +265,14 @@ Todos los ítems pesan lo mismo; ninguno es opcional:
 - **Hay dos raíces de archivos y no se comportan igual.** (a) *Lo nuestro* —config, caché, backups,
   `usercards.json`, `presets.json`, `decksmeta.json`— cuelga del perfil del usuario y **sí** lo
   redirige `L5A_DATA_ROOT` (hook de testing y de uso portable, activo también en Release).
-  (b) *Lo del juego* —`database.xml`, `images\`, los `.txt` de `Decks\`— cuelga de la instalación
-  configurada (`sunAndMoonPath`) y **no** se redirige: si `Decks` se moviera, el juego dejaría de
-  leer el mazo, que es todo el punto de [ADR-022](docs/DECISIONS.md#adr-022). Único fallback:
-  sin instalación configurada, los mazos caen en `%APPDATA%\...\Decks`.
+  (b) *Lo del juego* —`database.xml`, `images\`, los `.txt` de `Decks\` y `Lists\`— cuelga de la
+  instalación configurada (`sunAndMoonPath`) y **no** se redirige: si `Decks` se moviera, el juego
+  dejaría de leer el mazo, que es todo el punto de [ADR-022](docs/DECISIONS.md#adr-022). Único
+  fallback: sin instalación configurada, mazos y listas caen en `%APPDATA%\...\Decks|Lists`.
+- **Listas y mazos son la misma cosa** ([ADR-045](docs/DECISIONS.md#adr-045)): `Models.Deck` con
+  `Type` `"deck"`/`"list"`, mismo editor, mismo formato de `.txt`. Cambia dónde vive el archivo
+  (`Decks\` lo lee el juego, `Lists\` no), el tope por carta (1 en las listas) y que las listas
+  **no pasan por `AddCard`** sino por `SetInList` — sin banlist ni regla de slot.
 - Nada de esto depende de dónde esté el `.exe`: moverlo no cambia ninguna ruta. La única ruta
   relativa al exe es el fallback de lectura de imágenes del Buscador.
 - Empaquetado: Costura.Fody embebe los DLLs → exe único. Se distribuye **solo** el `.exe`.

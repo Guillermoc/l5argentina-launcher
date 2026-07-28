@@ -9,15 +9,23 @@ using L5ArgentinaLauncher.Models;
 namespace L5ArgentinaLauncher.Services.Deck
 {
     /// <summary>
-    /// Biblioteca de mazos del launcher: cada mazo es UN .txt en la carpeta Decks de Sun and
-    /// Moon (los mismos archivos que carga el juego), formato de <see cref="SunAndMoonDeckFile"/>.
-    /// Lo que el txt no puede representar (notas, sort_mode, fecha de creación, mazo activo)
+    /// Biblioteca de conjuntos de cartas del launcher. Dos clases, un solo modelo
+    /// (<see cref="Models.Deck"/> con Type "deck"/"list", como la app Android) y un solo
+    /// <see cref="DeckRepository"/>; lo que cambia es dónde vive el archivo:
+    ///   · mazos  → &lt;juego&gt;\Decks\  — los que carga Sun and Moon;
+    ///   · listas → &lt;juego&gt;\Lists\  — al lado, material de armado que el juego no ve.
+    /// Ambos son .txt con el formato de <see cref="SunAndMoonDeckFile"/>, o sea que la
+    /// identidad persistida de cada carta es su NOMBRE (ADR-044), no su id de catálogo.
+    /// Lo que el txt no puede representar (notas, sort_mode, fecha de creación, conjunto activo)
     /// vive en un sidecar decksmeta.json en %APPDATA% (respeta L5A_DATA_ROOT). Sin instalación
-    /// configurada usa %APPDATA%\...\Decks para no perder la funcionalidad.
+    /// configurada ambas carpetas cuelgan de %APPDATA%\... para no perder la funcionalidad.
     /// Guardado inmediato en cada mutación (los txt son chicos y el evento, esporádico).
     /// </summary>
     public class DeckLibrary
     {
+        /// <summary>Valor de <see cref="Models.Deck.Type"/> para las listas (el de la app).</summary>
+        public const string ListType = "list";
+        public const string DeckType = "deck";
         private class DeckMeta
         {
             [JsonPropertyName("notes")] public string Notes { get; set; }
@@ -29,6 +37,7 @@ namespace L5ArgentinaLauncher.Services.Deck
         private class MetaDto
         {
             [JsonPropertyName("activeDeck")] public string ActiveDeck { get; set; }
+            [JsonPropertyName("activeList")] public string ActiveList { get; set; }
             [JsonPropertyName("decks")]
             public Dictionary<string, DeckMeta> Decks { get; set; } = new Dictionary<string, DeckMeta>();
         }
@@ -38,12 +47,17 @@ namespace L5ArgentinaLauncher.Services.Deck
         private readonly string _metaPath;
         private bool _loading;
         private string _activeDeckId;
+        private string _activeListId;
 
         public DeckRepository Repo { get; }
         public string DecksDir { get; }
+        public string ListsDir { get; }
 
         /// <summary>Cambió el mazo activo (o dejó de haber uno).</summary>
         public event Action ActiveDeckChanged;
+
+        /// <summary>Cambió la lista activa (o dejó de haber una).</summary>
+        public event Action ActiveListChanged;
 
         private static DeckLibrary _current;
 
@@ -55,7 +69,7 @@ namespace L5ArgentinaLauncher.Services.Deck
         {
             var dir = ResolveDecksDir(installPath);
             if (_current == null || _current.DecksDir != dir || _current.Repo.Catalog != catalog)
-                _current = new DeckLibrary(catalog, dir);
+                _current = new DeckLibrary(catalog, dir, null, ResolveListsDir(installPath));
             return _current;
         }
 
@@ -64,9 +78,23 @@ namespace L5ArgentinaLauncher.Services.Deck
                 ? Path.Combine(AppConstants.AppDataDir, "Decks")
                 : Path.Combine(installPath, "Decks");
 
-        public DeckLibrary(CardCatalog catalog, string decksDir, string metaPath = null)
+        /// <summary>
+        /// Carpeta de listas: hermana de Decks, no adentro. Sun and Moon lee &lt;juego&gt;\Decks\
+        /// y no hay que arriesgarse a que una lista le aparezca como mazo jugable.
+        /// </summary>
+        public static string ResolveListsDir(string installPath) =>
+            string.IsNullOrEmpty(installPath)
+                ? Path.Combine(AppConstants.AppDataDir, "Lists")
+                : Path.Combine(installPath, "Lists");
+
+        public DeckLibrary(CardCatalog catalog, string decksDir, string metaPath = null,
+                           string listsDir = null)
         {
             DecksDir = decksDir;
+            // por defecto, hermana de la carpeta de mazos (así el selftest y los tests manuales
+            // que pasan un decksDir temporal se llevan las listas al mismo lado)
+            ListsDir = listsDir ?? Path.Combine(
+                Path.GetDirectoryName(decksDir.TrimEnd(Path.DirectorySeparatorChar)) ?? "", "Lists");
             _metaPath = metaPath ?? AppConstants.DecksMetaPath;
             Repo = new DeckRepository(catalog);
             Load();
@@ -81,48 +109,69 @@ namespace L5ArgentinaLauncher.Services.Deck
             try
             {
                 var meta = LoadMeta();
-                if (Directory.Exists(DecksDir))
-                {
-                    foreach (var file in Directory.EnumerateFiles(DecksDir, "*.txt")
-                                                  .OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
-                    {
-                        try
-                        {
-                            var baseName = Path.GetFileNameWithoutExtension(file);
-                            var deck = SunAndMoonDeckFile.Parse(File.ReadAllText(file), Repo);
-                            deck.Id = Guid.NewGuid().ToString();
-                            deck.Name = baseName;
-                            DeckMeta m = null;
-                            meta.Decks?.TryGetValue(baseName, out m);
-                            // meta manda (el txt no lleva notas); sin meta, lo parseado del txt
-                            if (m != null)
-                            {
-                                deck.Notes = string.IsNullOrWhiteSpace(m.Notes) ? deck.Notes : m.Notes;
-                                deck.SortMode = m.SortMode ?? deck.SortMode;
-                                deck.CreatedAt = m.CreatedAt;
-                                deck.SortOrder = m.SortOrder;
-                            }
-                            if (deck.CreatedAt == 0)
-                                deck.CreatedAt = new DateTimeOffset(File.GetLastWriteTimeUtc(file))
-                                    .ToUnixTimeMilliseconds();
-                            Repo.AttachLoadedDeck(deck);
-                            _fileByDeckId[deck.Id] = baseName;
-                        }
-                        catch
-                        {
-                            // txt ilegible → se ignora (no se pisa: solo se guardan mazos abiertos)
-                        }
-                    }
-                }
-                if (meta.ActiveDeck != null)
-                    _activeDeckId = Repo.Decks.FirstOrDefault(d =>
-                        _fileByDeckId.TryGetValue(d.Id, out var f) && f == meta.ActiveDeck)?.Id;
+                LoadDir(DecksDir, DeckType, meta);
+                LoadDir(ListsDir, ListType, meta);
+
+                if (meta.ActiveDeck != null) _activeDeckId = FindByFile(meta.ActiveDeck, DeckType);
+                if (meta.ActiveList != null) _activeListId = FindByFile(meta.ActiveList, ListType);
             }
             finally
             {
                 _loading = false;
             }
         }
+
+        private void LoadDir(string dir, string type, MetaDto meta)
+        {
+            if (!Directory.Exists(dir)) return;
+            foreach (var file in Directory.EnumerateFiles(dir, "*.txt")
+                                          .OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var baseName = Path.GetFileNameWithoutExtension(file);
+                    var deck = SunAndMoonDeckFile.Parse(File.ReadAllText(file), Repo);
+                    deck.Id = Guid.NewGuid().ToString();
+                    deck.Name = baseName;
+                    deck.Type = type;
+                    // una lista es un conjunto: si el txt traía cantidades (editado a mano, o
+                    // copiado de un mazo), se recortan a 1 en vez de rechazar el archivo
+                    if (type == ListType)
+                        foreach (var entry in deck.Cards) entry.Quantity = 1;
+                    DeckMeta m = null;
+                    meta.Decks?.TryGetValue(MetaKey(baseName, type), out m);
+                    // meta manda (el txt no lleva notas); sin meta, lo parseado del txt
+                    if (m != null)
+                    {
+                        deck.Notes = string.IsNullOrWhiteSpace(m.Notes) ? deck.Notes : m.Notes;
+                        deck.SortMode = m.SortMode ?? deck.SortMode;
+                        deck.CreatedAt = m.CreatedAt;
+                        deck.SortOrder = m.SortOrder;
+                    }
+                    if (deck.CreatedAt == 0)
+                        deck.CreatedAt = new DateTimeOffset(File.GetLastWriteTimeUtc(file))
+                            .ToUnixTimeMilliseconds();
+                    Repo.AttachLoadedDeck(deck);
+                    _fileByDeckId[deck.Id] = baseName;
+                }
+                catch
+                {
+                    // txt ilegible → se ignora (no se pisa: solo se guardan los que se abren)
+                }
+            }
+        }
+
+        private string FindByFile(string baseName, string type) =>
+            Repo.Decks.FirstOrDefault(d => d.Type == type &&
+                _fileByDeckId.TryGetValue(d.Id, out var f) && f == baseName)?.Id;
+
+        /// <summary>
+        /// Clave del sidecar. Los mazos conservan el nombre pelado (compatibilidad con los
+        /// decksmeta.json ya escritos); las listas van prefijadas, porque un mazo y una lista
+        /// pueden llamarse igual (viven en carpetas distintas).
+        /// </summary>
+        private static string MetaKey(string baseName, string type) =>
+            type == ListType ? ListType + ":" + baseName : baseName;
 
         private MetaDto LoadMeta()
         {
@@ -138,7 +187,15 @@ namespace L5ArgentinaLauncher.Services.Deck
             return new MetaDto();
         }
 
-        // ------------------------------------------------------------------ mazo activo
+        // ------------------------------------------------------------------ vistas por tipo
+
+        /// <summary>Solo los mazos (los .txt de la carpeta del juego).</summary>
+        public IEnumerable<Models.Deck> Decks => Repo.Decks.Where(d => d.Type != ListType);
+
+        /// <summary>Solo las listas (material de armado; el juego no las ve).</summary>
+        public IEnumerable<Models.Deck> Lists => Repo.Decks.Where(d => d.Type == ListType);
+
+        // ------------------------------------------------------------------ activos
 
         /// <summary>Mazo activo global (destino de los +/− del Buscador). Puede ser null.</summary>
         public string ActiveDeckId
@@ -155,13 +212,34 @@ namespace L5ArgentinaLauncher.Services.Deck
 
         public Models.Deck ActiveDeck => _activeDeckId == null ? null : Repo.GetDeckById(_activeDeckId);
 
+        /// <summary>Lista activa global (destino del ≡ de las celdas del Buscador). Puede ser null.</summary>
+        public string ActiveListId
+        {
+            get => _activeListId;
+            set
+            {
+                if (_activeListId == value) return;
+                _activeListId = value;
+                PersistMeta();
+                ActiveListChanged?.Invoke();
+            }
+        }
+
+        public Models.Deck ActiveList => _activeListId == null ? null : Repo.GetDeckById(_activeListId);
+
         // ------------------------------------------------------------------ operaciones con archivo
 
         /// <summary>Crea un mazo con nombre único y lo activa (como la app). Devuelve el id.</summary>
-        public string CreateDeck(string name)
+        public string CreateDeck(string name) => Create(name, DeckType);
+
+        /// <summary>Crea una lista con nombre único y la activa. Devuelve el id.</summary>
+        public string CreateList(string name) => Create(name, ListType);
+
+        private string Create(string name, string type)
         {
-            var id = Repo.CreateDeck(UniqueName(name));
-            ActiveDeckId = id;
+            var id = Repo.CreateDeck(UniqueName(name, type), type);
+            if (type == ListType) ActiveListId = id;
+            else ActiveDeckId = id;
             return id;
         }
 
@@ -171,44 +249,72 @@ namespace L5ArgentinaLauncher.Services.Deck
             if (deck == null) return;
             newName = (newName ?? "").Trim();
             if (newName.Length == 0 || newName == deck.Name) return;
-            Repo.RenameDeck(id, UniqueName(newName)); // dispara DeckChanged → guarda y renombra el txt
+            // dispara DeckChanged → guarda y renombra el txt
+            Repo.RenameDeck(id, UniqueName(newName, deck.Type));
         }
 
         public void DeleteDeck(string id)
         {
             var deck = Repo.GetDeckById(id);
             if (deck == null) return;
+            var isList = deck.Type == ListType;
             if (_fileByDeckId.TryGetValue(id, out var baseName))
             {
-                TryDelete(PathFor(baseName));
+                TryDelete(PathFor(baseName, deck.Type));
                 _fileByDeckId.Remove(id);
             }
             Repo.DeleteDeck(id);
             if (_activeDeckId == id) _activeDeckId = null;
+            if (_activeListId == id) _activeListId = null;
             PersistMeta();
-            ActiveDeckChanged?.Invoke();
+            if (isList) ActiveListChanged?.Invoke();
+            else ActiveDeckChanged?.Invoke();
         }
 
-        /// <summary>Duplicar (no existe en la app; acá es export → mazo nuevo → import).</summary>
+        /// <summary>Duplicar (no existe en la app; acá es export → conjunto nuevo → import).</summary>
         public string DuplicateDeck(string id)
         {
             var deck = Repo.GetDeckById(id);
             if (deck == null) return null;
-            var text = Repo.ExportDeck(id);
-            var copyId = Repo.CreateDeck(UniqueName(deck.Name));
-            Repo.ImportCards(copyId, text);
+            var copyId = Repo.CreateDeck(UniqueName(deck.Name, deck.Type), deck.Type);
+            if (deck.Type == ListType)
+            {
+                // Una lista NO se duplica por export→import: ImportCards aplica la regla de slot
+                // inicial y se comería todas las Bamboo Harvesters menos una. Se copia entrada
+                // por entrada, que es lo que significa duplicar una lista.
+                foreach (var entry in deck.Cards.Where(e => e.Quantity > 0))
+                    Repo.SetInList(copyId, entry.CardId, true);
+            }
+            else Repo.ImportCards(copyId, Repo.ExportDeck(id));
             return copyId;
         }
 
-        /// <summary>Nombre libre: agrega " (2)", " (3)"… si ya existe mazo o archivo.</summary>
-        public string UniqueName(string name)
+        /// <summary>
+        /// Copia un conjunto de ids de carta a una lista nueva (el "guardar como lista" de
+        /// favoritas/ocultas). Las cartas que el catálogo no resuelve se ignoran.
+        /// </summary>
+        public string CreateListFrom(string name, IEnumerable<string> cardIds)
+        {
+            var id = CreateList(name);
+            foreach (var cardId in cardIds ?? Enumerable.Empty<string>())
+                Repo.SetInList(id, cardId, true);
+            return id;
+        }
+
+        /// <summary>
+        /// Nombre libre dentro de su tipo: agrega " (2)", " (3)"… si ya existe uno igual o el
+        /// archivo está ocupado. Un mazo y una lista SÍ pueden llamarse igual: son carpetas
+        /// distintas y significan cosas distintas.
+        /// </summary>
+        public string UniqueName(string name, string type = DeckType)
         {
             name = SanitizeFileName((name ?? "").Trim());
-            if (name.Length == 0) name = "Mazo";
+            if (name.Length == 0) name = type == ListType ? "Lista" : "Mazo";
             var candidate = name;
             var n = 2;
-            while (Repo.Decks.Any(d => string.Equals(d.Name, candidate, StringComparison.OrdinalIgnoreCase))
-                   || File.Exists(PathFor(candidate)))
+            while (Repo.Decks.Any(d => d.Type == type &&
+                       string.Equals(d.Name, candidate, StringComparison.OrdinalIgnoreCase))
+                   || File.Exists(PathFor(candidate, type)))
                 candidate = name + " (" + n++ + ")";
             return candidate;
         }
@@ -221,14 +327,15 @@ namespace L5ArgentinaLauncher.Services.Deck
             SaveDeck(deck);
         }
 
-        /// <summary>Escribe el txt del mazo (renombrando el archivo si cambió el nombre) + sidecar.</summary>
+        /// <summary>Escribe el txt del conjunto (renombrando el archivo si cambió el nombre) + sidecar.</summary>
         public void SaveDeck(Models.Deck deck)
         {
-            Directory.CreateDirectory(DecksDir);
+            var dir = DirFor(deck.Type);
+            Directory.CreateDirectory(dir);
             var baseName = SanitizeFileName(deck.Name);
             if (_fileByDeckId.TryGetValue(deck.Id, out var oldBase) && oldBase != baseName)
-                TryDelete(PathFor(oldBase));
-            File.WriteAllText(PathFor(baseName), SunAndMoonDeckFile.Write(deck, Repo));
+                TryDelete(PathFor(oldBase, deck.Type));
+            File.WriteAllText(PathFor(baseName, deck.Type), SunAndMoonDeckFile.Write(deck, Repo));
             _fileByDeckId[deck.Id] = baseName;
             PersistMeta();
         }
@@ -237,13 +344,13 @@ namespace L5ArgentinaLauncher.Services.Deck
         {
             var dto = new MetaDto
             {
-                ActiveDeck = _activeDeckId != null && _fileByDeckId.TryGetValue(_activeDeckId, out var f)
-                    ? f : null,
+                ActiveDeck = FileOf(_activeDeckId),
+                ActiveList = FileOf(_activeListId),
             };
             foreach (var deck in Repo.Decks)
             {
                 if (!_fileByDeckId.TryGetValue(deck.Id, out var baseName)) continue;
-                dto.Decks[baseName] = new DeckMeta
+                dto.Decks[MetaKey(baseName, deck.Type)] = new DeckMeta
                 {
                     Notes = deck.Notes,
                     SortMode = deck.SortMode,
@@ -256,7 +363,13 @@ namespace L5ArgentinaLauncher.Services.Deck
                 JsonSerializer.Serialize(dto, new JsonSerializerOptions { WriteIndented = true }));
         }
 
-        private string PathFor(string baseName) => Path.Combine(DecksDir, baseName + ".txt");
+        private string FileOf(string deckId) =>
+            deckId != null && _fileByDeckId.TryGetValue(deckId, out var f) ? f : null;
+
+        private string DirFor(string type) => type == ListType ? ListsDir : DecksDir;
+
+        private string PathFor(string baseName, string type) =>
+            Path.Combine(DirFor(type), baseName + ".txt");
 
         private static void TryDelete(string path)
         {

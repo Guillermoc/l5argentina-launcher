@@ -57,6 +57,8 @@ namespace L5ArgentinaLauncher.Views
             new Dictionary<string, GridCell>(StringComparer.Ordinal);
         private string _selectedDeckId;
         private string _selectedCardId;
+        // qué solapa está abierta a la izquierda: mazos (.txt de Decks) o listas (.txt de Lists)
+        private string _kind = DeckLibrary.DeckType;
         // true durante InitializeComponent (los IsChecked=True del XAML disparan Checked antes
         // de que existan los demás controles) y durante los refrescos programáticos
         private bool _syncing = true;
@@ -114,11 +116,13 @@ namespace L5ArgentinaLauncher.Views
             _library.Repo.DeckChanged += OnDeckChanged;
             _library.Repo.DeckListChanged += OnDeckListChanged;
             _library.ActiveDeckChanged += OnActiveDeckChanged;
+            _library.ActiveListChanged += OnActiveDeckChanged;
             Closed += (s, e) =>
             {
                 _library.Repo.DeckChanged -= OnDeckChanged;
                 _library.Repo.DeckListChanged -= OnDeckListChanged;
                 _library.ActiveDeckChanged -= OnActiveDeckChanged;
+                _library.ActiveListChanged -= OnActiveDeckChanged;
             };
 
             RefreshDeckList(_library.ActiveDeckId ?? Repo.Decks.FirstOrDefault()?.Id);
@@ -158,9 +162,17 @@ namespace L5ArgentinaLauncher.Views
 
         // ------------------------------------------------------------------ lista de mazos
 
+        private bool IsListKind => _kind == DeckLibrary.ListType;
+
         private void RefreshDeckList(string selectId)
         {
+            // el conjunto que se pide seleccionar manda sobre la solapa abierta: si el Buscador
+            // pide una lista, se abre la solapa de listas en vez de no encontrarla
+            var requested = selectId != null ? Repo.GetDeckById(selectId) : null;
+            if (requested != null) _kind = requested.Type;
+
             var items = Repo.Decks
+                .Where(d => d.Type == _kind)
                 .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(d => new DeckItemVm
                 {
@@ -171,6 +183,10 @@ namespace L5ArgentinaLauncher.Views
                 .ToList();
 
             _syncing = true;
+            TabDecksBtn.IsChecked = !IsListKind;
+            TabListsBtn.IsChecked = IsListKind;
+            DeckListHeader.Text = Strings.Get(IsListKind ? "Deck_ListsHeader" : "Deck_ListHeader");
+            NewDeckBtn.ToolTip = Strings.Get(IsListKind ? "Deck_NewListTip" : "Deck_NewTip");
             DeckList.ItemsSource = items;
             var select = items.FirstOrDefault(i => i.Id == selectId)
                          ?? items.FirstOrDefault(i => i.Id == _selectedDeckId)
@@ -179,14 +195,44 @@ namespace L5ArgentinaLauncher.Views
             _syncing = false;
 
             _selectedDeckId = select?.Id;
-            // Seleccionar ES activar (ADR-042): el mazo elegido acá es el destino de los +/− del
-            // Buscador, sin un paso de "Activar" aparte.
-            if (_selectedDeckId != null) _library.ActiveDeckId = _selectedDeckId;
+            ActivateSelected();
             RefreshAll();
+        }
+
+        /// <summary>
+        /// Seleccionar ES activar (ADR-042): el mazo elegido acá es el destino de los +/− del
+        /// Buscador. Con la solapa de listas, lo que se activa es la lista (destino del ≡), sin
+        /// tocar el mazo activo: son dos punteros distintos.
+        /// </summary>
+        private void ActivateSelected()
+        {
+            if (_selectedDeckId == null) return;
+            if (IsListKind) _library.ActiveListId = _selectedDeckId;
+            else _library.ActiveDeckId = _selectedDeckId;
+        }
+
+        private void KindTab_Click(object sender, RoutedEventArgs e)
+        {
+            var wanted = ReferenceEquals(sender, TabListsBtn) ? DeckLibrary.ListType : DeckLibrary.DeckType;
+            if (_kind == wanted)
+            {
+                // click sobre la solapa ya abierta: el segmentado no se apaga
+                _syncing = true;
+                TabDecksBtn.IsChecked = !IsListKind;
+                TabListsBtn.IsChecked = IsListKind;
+                _syncing = false;
+                return;
+            }
+            _kind = wanted;
+            _selectedDeckId = null;
+            RefreshDeckList(null);
         }
 
         private string DeckSubtitle(Models.Deck deck)
         {
+            // una lista no tiene lados Dynasty/Fate: lo informativo es cuántas cartas junta
+            if (deck.Type == DeckLibrary.ListType)
+                return Strings.Format("Fmt_ListCount", deck.Cards.Count(c => c.Quantity > 0));
             var clan = Repo.DeckClan(deck.Id);
             var counts = $"{Repo.DynastyCount(deck.Id)}/{Repo.FateCount(deck.Id)}";
             return (clan != null ? ClanLabel(clan) + " · " : "") + counts;
@@ -203,15 +249,17 @@ namespace L5ArgentinaLauncher.Views
         {
             if (_syncing) return;
             _selectedDeckId = (DeckList.SelectedItem as DeckItemVm)?.Id;
-            if (_selectedDeckId != null) _library.ActiveDeckId = _selectedDeckId;
+            ActivateSelected();
             RefreshAll();
         }
 
-        /// <summary>Selecciona un mazo desde afuera (p. ej. el botón ✎ del Buscador).</summary>
+        /// <summary>Selecciona un conjunto desde afuera (p. ej. el botón ✎ del Buscador).</summary>
         public void SelectDeck(string deckId)
         {
             var item = (DeckList.ItemsSource as IEnumerable<DeckItemVm>)?.FirstOrDefault(i => i.Id == deckId);
             if (item != null) DeckList.SelectedItem = item; // dispara SelectionChanged
+            // está en la otra solapa: cambiarla y volver a intentar
+            else if (Repo.GetDeckById(deckId) != null) RefreshDeckList(deckId);
         }
 
         // ------------------------------------------------------------------ eventos de la biblioteca
@@ -268,6 +316,14 @@ namespace L5ArgentinaLauncher.Views
         {
             DeckCounts.Inlines.Clear();
             if (deck == null) return;
+            if (deck.Type == DeckLibrary.ListType)
+            {
+                // una lista no se valida como mazo: no hay lados ni slots que cubrir, solo
+                // cuántas cartas junta (el tope es 1 por carta, ADR-045)
+                DeckCounts.Inlines.Add(new System.Windows.Documents.Run(
+                    Strings.Format("Fmt_ListCount", deck.Cards.Count(c => c.Quantity > 0))));
+                return;
+            }
             var red = (Brush)FindResource("ErrorText");
             var total = Repo.TotalCardCount(deck.Id);
             var dynasty = Repo.DynastyCount(deck.Id);
@@ -335,7 +391,8 @@ namespace L5ArgentinaLauncher.Views
             DeckBody.Children.Clear();
             if (deck == null)
             {
-                DeckBody.Children.Add(BodyText(Strings.Get("Deck_NoDeckSelectedLong"), dim: true));
+                DeckBody.Children.Add(BodyText(
+                    Strings.Get(IsListKind ? "Deck_NoListSelectedLong" : "Deck_NoDeckSelectedLong"), dim: true));
                 return;
             }
 
@@ -473,30 +530,34 @@ namespace L5ArgentinaLauncher.Views
             DockPanel.SetDock(delBtn, Dock.Right);
             dock.Children.Add(delBtn);
 
-            var plusBtn = SmallButton("+", null);
-            plusBtn.Click += (s, e) => ReportAdd(Repo.AddCard(deck.Id, card.Id));
-            DockPanel.SetDock(plusBtn, Dock.Right);
-            dock.Children.Add(plusBtn);
-
-            var max = deck.Type == "list" ? 1 : card.MaxCopies;
-            var qty = new TextBlock
+            // En una lista la carta está o no está (tope 1): −/qty/+ no tendrían nada que hacer,
+            // así que la única acción es sacarla.
+            if (deck.Type != DeckLibrary.ListType)
             {
-                Text = $"{entry.Quantity}/{max}",
-                FontFamily = (FontFamily)FindResource("BodyFont"),
-                FontSize = 12,
-                Foreground = (Brush)FindResource("Gold"),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(7, 0, 7, 0),
-                MinWidth = 26,
-                TextAlignment = TextAlignment.Center,
-            };
-            DockPanel.SetDock(qty, Dock.Right);
-            dock.Children.Add(qty);
+                var plusBtn = SmallButton("+", null);
+                plusBtn.Click += (s, e) => ReportAdd(Repo.AddCard(deck.Id, card.Id));
+                DockPanel.SetDock(plusBtn, Dock.Right);
+                dock.Children.Add(plusBtn);
 
-            var minusBtn = SmallButton("−", null);
-            minusBtn.Click += (s, e) => Repo.RemoveCard(deck.Id, card.Id); // al llegar a 0 la fila se borra
-            DockPanel.SetDock(minusBtn, Dock.Right);
-            dock.Children.Add(minusBtn);
+                var qty = new TextBlock
+                {
+                    Text = $"{entry.Quantity}/{card.MaxCopies}",
+                    FontFamily = (FontFamily)FindResource("BodyFont"),
+                    FontSize = 12,
+                    Foreground = (Brush)FindResource("Gold"),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(7, 0, 7, 0),
+                    MinWidth = 26,
+                    TextAlignment = TextAlignment.Center,
+                };
+                DockPanel.SetDock(qty, Dock.Right);
+                dock.Children.Add(qty);
+
+                var minusBtn = SmallButton("−", null);
+                minusBtn.Click += (s, e) => Repo.RemoveCard(deck.Id, card.Id); // a 0 la fila se borra
+                DockPanel.SetDock(minusBtn, Dock.Right);
+                dock.Children.Add(minusBtn);
+            }
 
             var name = new TextBlock
             {
@@ -585,24 +646,26 @@ namespace L5ArgentinaLauncher.Views
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Center,
             };
-            var minus = SmallButton("−", null);
-            minus.Click += (s, e) => Repo.RemoveCard(deck.Id, card.Id);
-            actions.Children.Add(minus);
-            var max = deck.Type == "list" ? 1 : card.MaxCopies;
-            actions.Children.Add(new TextBlock
+            if (deck.Type != DeckLibrary.ListType) // en una lista la carta está o no está
             {
-                Text = $"{entry.Quantity}/{max}",
-                FontFamily = (FontFamily)FindResource("BodyFont"),
-                FontSize = 12,
-                Foreground = (Brush)FindResource("Gold"),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(7, 0, 7, 0),
-            });
-            var plus = SmallButton("+", null);
-            plus.Click += (s, e) => ReportAdd(Repo.AddCard(deck.Id, card.Id));
-            actions.Children.Add(plus);
+                var minus = SmallButton("−", null);
+                minus.Click += (s, e) => Repo.RemoveCard(deck.Id, card.Id);
+                actions.Children.Add(minus);
+                actions.Children.Add(new TextBlock
+                {
+                    Text = $"{entry.Quantity}/{card.MaxCopies}",
+                    FontFamily = (FontFamily)FindResource("BodyFont"),
+                    FontSize = 12,
+                    Foreground = (Brush)FindResource("Gold"),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(7, 0, 7, 0),
+                });
+                var plus = SmallButton("+", null);
+                plus.Click += (s, e) => ReportAdd(Repo.AddCard(deck.Id, card.Id));
+                actions.Children.Add(plus);
+            }
             var del = SmallButton("✕", Strings.Get("Deck_RemoveEntryTip"));
-            del.Margin = new Thickness(12, 0, 0, 0);
+            del.Margin = new Thickness(deck.Type == DeckLibrary.ListType ? 0 : 12, 0, 0, 0);
             del.Click += (s, e) => Repo.DeleteCardEntry(deck.Id, card.Id);
             actions.Children.Add(del);
             bar.Child = actions;
@@ -866,9 +929,11 @@ namespace L5ArgentinaLauncher.Views
 
         private void NewDeck_Click(object sender, RoutedEventArgs e)
         {
-            var name = Prompt(Strings.Get("Deck_New"), Strings.Get("Deck_NewNamePrompt"), "");
+            var name = Prompt(Strings.Get(IsListKind ? "Search_ListCreateTitle" : "Deck_New"),
+                              Strings.Get(IsListKind ? "Search_ListCreatePrompt" : "Deck_NewNamePrompt"), "");
             if (string.IsNullOrWhiteSpace(name)) return;
-            var id = _library.CreateDeck(name.Trim()); // se activa solo, como la app
+            // se activa solo, como la app
+            var id = IsListKind ? _library.CreateList(name.Trim()) : _library.CreateDeck(name.Trim());
             RefreshDeckList(id);
         }
 
@@ -896,8 +961,9 @@ namespace L5ArgentinaLauncher.Views
             DeckMenuPopup.IsOpen = false;
             var deck = _selectedDeckId != null ? Repo.GetDeckById(_selectedDeckId) : null;
             if (deck == null) return;
-            if (!Dialogs.Confirm(this, Strings.Get("Deck_Delete"),
-                                 Strings.Format("Fmt_DeckDeleteConfirm", deck.Name),
+            var isList = deck.Type == DeckLibrary.ListType;
+            if (!Dialogs.Confirm(this, Strings.Get(isList ? "Search_ListDeleteTitle" : "Deck_Delete"),
+                                 Strings.Format(isList ? "Fmt_ListDeleteConfirm" : "Fmt_DeckDeleteConfirm", deck.Name),
                                  Strings.Get("Btn_Delete"))) return;
             _library.DeleteDeck(deck.Id);
             _selectedDeckId = null;
@@ -946,8 +1012,9 @@ namespace L5ArgentinaLauncher.Views
             DeckMenuPopup.IsOpen = false;
             try
             {
-                Directory.CreateDirectory(_library.DecksDir);
-                System.Diagnostics.Process.Start("explorer.exe", "\"" + _library.DecksDir + "\"");
+                var dir = IsListKind ? _library.ListsDir : _library.DecksDir;
+                Directory.CreateDirectory(dir);
+                System.Diagnostics.Process.Start("explorer.exe", "\"" + dir + "\"");
             }
             catch { }
         }

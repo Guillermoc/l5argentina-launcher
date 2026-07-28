@@ -15,7 +15,7 @@ Handoff original del rediseño: [../design/visual/](../design/visual/).
 | `MainWindow` | **810×540 fija** (3:2), `ResizeMode=NoResize`, `WindowStyle=None` + `WindowChrome` propio | El diseño se **compone a 1080×720** y se escala con un `Viewbox Stretch=Uniform` (810×540 = 75 %). Todo lo que se agregue va en el lienzo de 1080×720. |
 | `FirstRunWindow` | diálogo modal | Detección de instalación + captura de la base Original. Devuelve `true`/`false` a `App`. |
 | `SearchWindow` | 1323×798, `Min` 1060×640, redimensionable/maximizable | Chrome propio (`CaptionHeight=35`). `Ctrl+N` abre otra instancia sobre el mismo catálogo. |
-| `DeckWindow` | 1323×798, `Min` 1060×640 | Mismo chrome. `DeckWindow.Open(...)` reusa la ventana si ya está abierta. |
+| `DeckWindow` | 1323×798, `Min` 1060×640 | Mismo chrome. `DeckWindow.Open(...)` reusa la ventana si ya está abierta. El panel izquierdo tiene un segmentado **Mazos \| Listas**: es la misma ventana editando dos tipos del mismo conjunto ([ADR-045](../DECISIONS.md#adr-045)); en modo lista desaparecen `−`/qty/`+` y los conteos Dynasty/Fate. |
 
 **Dimensionado de `SearchWindow`/`DeckWindow`:** `Views/WindowSizingFix.cs` las acota al **área de
 trabajo** del monitor, en dos momentos que con `WindowStyle=None` fallaban por separado — al
@@ -75,12 +75,18 @@ píldora quedó reservada al único rol que le corresponde. Todos viven en `Card
 |---|---|---|
 | Filtro on/off | `FilterChip` (píldora, rojo = activo) | quick filters del Buscador |
 | Ídem, etiqueta larga y subordinada | `FilterChipSmall` | "Ver todas las impresiones" |
-| Selección exclusiva | `SegmentLeft` + `SegmentRight` (bloque único con divisoria) | Lista \| Grilla |
+| Selección exclusiva | `SegmentLeft` + `SegmentRight` (bloque único con divisoria) | Lista \| Grilla, Mazos \| Listas |
 | Acción con estado en el glifo | `IconToggle` (sin relleno al activarse) | dirección de orden `↑`/`↓` |
 | Colapsar panel lateral | `PaneRail` (riel de altura completa entre panel y centro) | ambas ventanas |
 | Cambiar contenido del panel | `PanelTab` (pestaña adosada sobre una línea base) | Carta \| Stats (solo Mazos; el Buscador dejó de tener pestañas, [ADR-042](../DECISIONS.md#adr-042)) |
-| Selector que convive con toggles | `ChipCombo` (mismo template del ComboBox, paleta oscura) | orden, lista activa, mazo activo |
-| Acción puntual de barra | `IconButton` (círculo de 26 con glifo) | nueva lista `+`, borrar lista `🗑` |
+| Selector que convive con toggles | `ChipCombo` (mismo template del ComboBox, paleta oscura) | orden, conjunto activo, mazo activo |
+| Acción puntual de barra | `IconButton` (círculo de 26 con glifo) | nueva lista `＋`, copiar a lista `⎘`, borrar lista `🗑` |
+
+**Selector de dos niveles** (conjunto activo del Buscador): un `ComboBox` común cuyos ítems incluyen
+**acciones** —`Usar mazo…` y `← Volver a listas`— que no seleccionan nada: cambian el `ItemsSource` y
+vuelven a abrir el desplegable (`IsDropDownOpen` en `BeginInvoke`, para que el reabrir no pelee con
+el cierre del click). Sale más barato que un menú jerárquico y no rompe el teclado: las listas, que
+son lo que se elige a diario, quedan a un click; los mazos, que suelen ser muchos, a dos.
 | Acción sobre la carta del detalle | `DetailActionBtn` (píldora chata con glifo + etiqueta) | `+ Mazo`, `☆ Favorita`, `≡ A la lista`… |
 | Acción dentro de un popup | `MenuRow` (ancho completo, texto a la izquierda, hover rojo) | menú `⋯` del editor de Mazos |
 

@@ -61,7 +61,8 @@ namespace L5ArgentinaLauncher.Views
 
         private readonly CardSearchEngine _engine;
         private readonly CardImageResolver _resolver;
-        private readonly UserCardDataStore _store = UserCardDataStore.Load();
+        // se carga en el ctor: resuelve nombres de carta contra el catálogo del library (ADR-044)
+        private readonly UserCardDataStore _store;
         private readonly FilterPresetStore _presets = FilterPresetStore.Load();
         private readonly DeckLibrary _library;
 
@@ -74,6 +75,9 @@ namespace L5ArgentinaLauncher.Views
         private bool _initializing = true;
         private bool _kwUpdating;
         private bool _listComboSyncing;
+        // el desplegable de conjuntos tiene dos niveles: listas (default) y mazos ("Usar mazo…")
+        private bool _showingDecks;
+        private SetChoice _activeSet;
 
         private List<Card> _results = new List<Card>();
         private CardSearchCriteria _lastCriteria = new CardSearchCriteria();
@@ -102,12 +106,26 @@ namespace L5ArgentinaLauncher.Views
             public override string ToString() => Label;
         }
 
-        /// <summary>Ítem del selector de lista activa de la barra (null = todas las cartas).</summary>
-        private class ListChoice
+        /// <summary>
+        /// Qué es el conjunto activo del selector de la barra. Las dos últimas no son conjuntos:
+        /// son las entradas que cambian de nivel el desplegable (listas ⇄ mazos).
+        /// </summary>
+        private enum SetKind { None, List, Deck, Favorites, Hidden, ShowDecks, BackToLists }
+
+        /// <summary>Ítem del selector de conjunto activo de la barra.</summary>
+        private class SetChoice
         {
-            public string Name; // null = sin lista
+            public SetKind Kind;
+            public string Id;    // id de sesión del mazo/lista (null en los conjuntos virtuales)
+            public string Name;  // nombre persistible (el que va al preset)
             public string Label;
             public override string ToString() => Label;
+
+            /// <summary>Las acciones del desplegable no seleccionan nada, navegan.</summary>
+            public bool IsAction => Kind == SetKind.ShowDecks || Kind == SetKind.BackToLists;
+
+            /// <summary>Solo las listas se cargan con el ≡ de las celdas.</summary>
+            public bool IsToggleable => Kind == SetKind.List;
         }
 
         public SearchWindow(CardCatalog catalog, string installPath)
@@ -119,6 +137,9 @@ namespace L5ArgentinaLauncher.Views
             _installPathRef = installPath;
             _resolver = new CardImageResolver(installPath);
             _library = DeckLibrary.GetOrLoad(catalog, installPath);
+            // después del library: la migración v1 de usercards.json necesita el catálogo para
+            // traducir ids a nombres, y la carpeta Lists para volcar ahí las listas viejas
+            _store = UserCardDataStore.Load(_library);
 
             Title = Strings.Format("Fmt_SearchWindowTitle", catalog.CardsVersion ?? "?");
 
@@ -184,16 +205,20 @@ namespace L5ArgentinaLauncher.Views
             _searchDebounce.Tick += (s, e) => { _searchDebounce.Stop(); Recompute(); };
 
             _library.ActiveDeckChanged += OnActiveDeckChanged;
+            _library.ActiveListChanged += OnActiveListChanged;
             _library.Repo.DeckListChanged += OnDeckListChanged;
             _library.Repo.DeckChanged += OnDeckContentChanged;
             Closed += (s, e) =>
             {
                 _library.ActiveDeckChanged -= OnActiveDeckChanged;
+                _library.ActiveListChanged -= OnActiveListChanged;
                 _library.Repo.DeckListChanged -= OnDeckListChanged;
                 _library.Repo.DeckChanged -= OnDeckContentChanged;
             };
 
-            RefreshListFilterCombo();
+            // el conjunto activo arranca en la lista que quedó activa la última vez
+            _activeSet = ChoiceForList(_library.ActiveList);
+            RefreshSetCombo();
             RefreshActiveDeckLabel();
             RefreshPresetCombo(null);
             UpdateDetailActions();
@@ -363,7 +388,13 @@ namespace L5ArgentinaLauncher.Views
             if (_initializing) return;
 
             _lastCriteria = BuildCriteria();
-            _results = _engine.Search(_lastCriteria, _store.Data);
+            // El conjunto activo se materializa acá, en la copia que va al motor: para el motor
+            // sigue siendo "una lista con estos ids" (lo que verifican los golden), venga de una
+            // lista, de un mazo o de las favoritas.
+            var user = _lastCriteria.ListId == null
+                ? _store.Data
+                : _store.Data.WithList(_lastCriteria.ListId, ActiveSetCardIds());
+            _results = _engine.Search(_lastCriteria, user);
 
             var selectedId = (ResultsList.SelectedItem as Card)?.Id ?? _selectedCell?.Card.Id;
             ResultsList.ItemsSource = _results;
@@ -413,15 +444,17 @@ namespace L5ArgentinaLauncher.Views
             // En modo operador la barra no filtra por nombre; en modo tx. pisa el texto del panel
             var barMode = ParseBar(out var barValue);
 
-            // "Solo lista": muestra únicamente las cartas de la lista activa (p. ej. armar el
-            // mazo de ninjas desde la lista de ninjas). La lista se elige en la barra.
-            var listId = QuickListBtn.IsChecked == true ? SelectedListName : null;
+            // "Solo conjunto": muestra únicamente las cartas del conjunto activo (p. ej. armar el
+            // mazo de ninjas desde la lista de ninjas, o filtrar por lo que ya está en un mazo).
+            // El conjunto se elige en el desplegable de la barra.
+            var set = QuickListBtn.IsChecked == true ? ActiveSet : null;
 
             return new CardSearchCriteria
             {
                 Name = barMode == BarMode.Name ? barValue : "",
                 Text = barMode == BarMode.Text ? barValue : (TextSearchBox.Text ?? ""),
-                ListId = listId,
+                ListId = set?.Name,
+                ListKind = set == null ? null : set.Kind.ToString().ToLowerInvariant(),
                 Types = CheckedTags(TypeChips),
                 Clans = CheckedTags(ClanChips),
                 Rarities = rarities,
@@ -983,15 +1016,44 @@ namespace L5ArgentinaLauncher.Views
                 .FirstOrDefault(o => o.Field == c.SortField) ?? SortCombo.Items[0];
             SortDirBtn.IsChecked = !c.SortAscending;
 
-            if (c.ListId != null && _store.Data.Lists.ContainsKey(c.ListId))
+            var restored = ResolveSetFromCriteria(c);
+            if (restored != null)
             {
-                SelectListInFilterCombo(c.ListId);
-                QuickListBtn.IsChecked = true;
+                _activeSet = restored;
+                _showingDecks = restored.Kind == SetKind.Deck;
+                RefreshSetCombo();
             }
-            else QuickListBtn.IsChecked = false;
+            QuickListBtn.IsChecked = restored != null;
 
             _initializing = false;
             Recompute();
+            // Un preset guardado contra un conjunto que después se borró daba "0 resultados" sin
+            // explicación: ahora se dice, y el filtro por conjunto queda apagado.
+            if (restored == null && c.ListId != null)
+                ShowDeckFeedback(Strings.Format("Fmt_SetGone", c.ListId), error: true);
+        }
+
+        /// <summary>
+        /// Vuelve a resolver el conjunto guardado en un preset. Se guarda kind + nombre (nunca el
+        /// id de sesión de un mazo, que cambia en cada arranque); si el conjunto ya no existe,
+        /// devuelve null.
+        /// </summary>
+        private SetChoice ResolveSetFromCriteria(CardSearchCriteria c)
+        {
+            if (c.ListId == null) return null;
+            switch (c.ListKind)
+            {
+                case "deck":
+                    return ChoiceForDeck(_library.Decks.FirstOrDefault(d =>
+                        string.Equals(d.Name, c.ListId, StringComparison.OrdinalIgnoreCase)));
+                case "favorites":
+                    return new SetChoice { Kind = SetKind.Favorites, Name = "favorites", Label = Strings.Get("Search_SetFavorites") };
+                case "hidden":
+                    return new SetChoice { Kind = SetKind.Hidden, Name = "hidden", Label = Strings.Get("Search_SetHidden") };
+                default: // null o "list": los presets viejos no traían kind y siempre eran listas
+                    return ChoiceForList(_library.Lists.FirstOrDefault(d =>
+                        string.Equals(d.Name, c.ListId, StringComparison.OrdinalIgnoreCase)));
+            }
         }
 
         private static void SetChipsByTags(Panel panel, List<string> tags)
@@ -1009,13 +1071,44 @@ namespace L5ArgentinaLauncher.Views
             UpdateDetailActions();
         }
 
-        private void OnDeckListChanged() => RefreshActiveDeckLabel();
+        /// <summary>Se creó/borró/renombró un mazo o una lista (posiblemente en otra ventana).</summary>
+        private void OnDeckListChanged()
+        {
+            RefreshActiveDeckLabel();
+            RefreshSetCombo();
+        }
+
+        /// <summary>La lista activa es global: otra ventana pudo haberla cambiado.</summary>
+        private void OnActiveListChanged()
+        {
+            var list = _library.ActiveList;
+            // si acá estamos filtrando por un mazo, no se lo pisamos: el mazo elegido como
+            // conjunto es una decisión de esta ventana, la lista activa es del ≡
+            if (_activeSet?.Kind == SetKind.Deck) return;
+            var choice = ChoiceForList(list);
+            if (SameSet(choice, _activeSet)) return;
+            _activeSet = choice;
+            _showingDecks = false;
+            RefreshSetCombo();
+            RefreshCellStates();
+            UpdateDetailActions();
+            if (QuickListBtn.IsChecked == true) Recompute();
+        }
 
         private void OnDeckContentChanged(Models.Deck deck)
         {
-            if (deck.Id != _library.ActiveDeckId) return;
-            RefreshActiveDeckLabel();
-            RefreshCellStates();
+            if (deck.Id == _library.ActiveDeckId)
+            {
+                RefreshActiveDeckLabel();
+                RefreshCellStates();
+            }
+            // cambió el conjunto por el que estamos filtrando → cambian los resultados
+            if (_activeSet != null && deck.Id == _activeSet.Id)
+            {
+                RefreshCellStates();
+                UpdateDetailActions();
+                if (QuickListBtn.IsChecked == true) Recompute();
+            }
         }
 
         /// <summary>
@@ -1138,40 +1231,101 @@ namespace L5ArgentinaLauncher.Views
 
         // ------------------------------------------------------------------ lista activa (filtro)
 
-        /// <summary>Lista activa elegida en la barra (null = todas las cartas).</summary>
-        private string SelectedListName => (ListFilterCombo.SelectedItem as ListChoice)?.Name;
+        /// <summary>Conjunto activo elegido en la barra (null = sin conjunto).</summary>
+        private SetChoice ActiveSet => _activeSet != null && _activeSet.Kind != SetKind.None ? _activeSet : null;
 
-        /// <summary>Rearma el selector de lista activa ("Todas las cartas" + listas).</summary>
-        private void RefreshListFilterCombo(string selectName = null)
+        /// <summary>Lista activa, si el conjunto elegido es una lista (destino del ≡).</summary>
+        private Models.Deck ActiveListOrNull =>
+            _activeSet?.Kind == SetKind.List ? _library.Repo.GetDeckById(_activeSet.Id) : null;
+
+        private SetChoice ChoiceForList(Models.Deck list) =>
+            list == null ? null
+                : new SetChoice { Kind = SetKind.List, Id = list.Id, Name = list.Name, Label = list.Name };
+
+        private SetChoice ChoiceForDeck(Models.Deck deck) =>
+            deck == null ? null
+                : new SetChoice
+                {
+                    Kind = SetKind.Deck, Id = deck.Id, Name = deck.Name,
+                    Label = Strings.Format("Fmt_SetDeckChoice", deck.Name),
+                };
+
+        /// <summary>
+        /// Rearma el desplegable de conjuntos. Tiene dos niveles porque los mazos suelen ser
+        /// muchos y no son lo que se elige habitualmente: el nivel de arriba ofrece las listas
+        /// (más favoritas y ocultas) y una entrada "Usar mazo…"; recién esa entrada baja al nivel
+        /// de los mazos, con un "volver" para salir.
+        /// </summary>
+        private void RefreshSetCombo()
         {
-            var previous = selectName ?? SelectedListName;
-            var items = new List<ListChoice>
+            var items = new List<SetChoice>();
+            if (_showingDecks)
             {
-                new ListChoice { Name = null, Label = Strings.Get("Search_ListFilterAll") },
-            };
-            items.AddRange(_store.ListNames.Select(n => new ListChoice { Name = n, Label = n }));
+                items.Add(new SetChoice { Kind = SetKind.BackToLists, Label = Strings.Get("Search_SetBackToLists") });
+                items.AddRange(_library.Decks
+                    .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(ChoiceForDeck));
+            }
+            else
+            {
+                items.Add(new SetChoice { Kind = SetKind.None, Label = Strings.Get("Search_ListFilterAll") });
+                items.AddRange(_library.Lists
+                    .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(ChoiceForList));
+                items.Add(new SetChoice { Kind = SetKind.Favorites, Name = "favorites", Label = Strings.Get("Search_SetFavorites") });
+                items.Add(new SetChoice { Kind = SetKind.Hidden, Name = "hidden", Label = Strings.Get("Search_SetHidden") });
+                items.Add(new SetChoice { Kind = SetKind.ShowDecks, Label = Strings.Get("Search_SetUseDeck") });
+            }
 
+            // el conjunto activo se re-referencia contra los ítems nuevos (los objetos cambian
+            // en cada rebuild, y el ComboBox selecciona por referencia)
+            var current = items.FirstOrDefault(i => SameSet(i, _activeSet)) ?? items[0];
             _listComboSyncing = true;
-            ListFilterCombo.ItemsSource = items;
-            ListFilterCombo.SelectedItem = items.FirstOrDefault(i => i.Name == previous) ?? items[0];
+            SetFilterCombo.ItemsSource = items;
+            SetFilterCombo.SelectedItem = current;
             _listComboSyncing = false;
-            ListDeleteBtn.IsEnabled = SelectedListName != null;
+            _activeSet = current.IsAction ? _activeSet : current;
+            UpdateSetButtons();
         }
 
-        private void SelectListInFilterCombo(string name)
+        private static bool SameSet(SetChoice a, SetChoice b) =>
+            a != null && b != null && a.Kind == b.Kind &&
+            string.Equals(a.Name, b.Name, StringComparison.Ordinal);
+
+        /// <summary>El 🗑 solo borra listas; el ＋ crea listas siempre.</summary>
+        private void UpdateSetButtons()
         {
-            var match = (ListFilterCombo.ItemsSource as IEnumerable<ListChoice>)
-                ?.FirstOrDefault(i => i.Name == name);
-            if (match == null) return;
-            _listComboSyncing = true;
-            ListFilterCombo.SelectedItem = match;
-            _listComboSyncing = false;
+            ListDeleteBtn.IsEnabled = _activeSet?.Kind == SetKind.List;
+            // favoritas/ocultas no son archivos: se las "baja" a lista con el botón de copiar
+            SetToListBtn.IsEnabled = _activeSet != null &&
+                (_activeSet.Kind == SetKind.Favorites || _activeSet.Kind == SetKind.Hidden ||
+                 _activeSet.Kind == SetKind.Deck);
         }
 
-        private void ListFilterCombo_Changed(object sender, SelectionChangedEventArgs e)
+        private void SetFilterCombo_Changed(object sender, SelectionChangedEventArgs e)
         {
             if (_initializing || _listComboSyncing) return;
-            RefreshCellStates(); // el botón de lista de las celdas apunta a la lista nueva
+            var choice = SetFilterCombo.SelectedItem as SetChoice;
+            if (choice == null) return;
+
+            if (choice.IsAction)
+            {
+                _showingDecks = choice.Kind == SetKind.ShowDecks;
+                RefreshSetCombo();
+                // el usuario pidió ver la otra lista de opciones: se la abrimos, en vez de
+                // obligarlo a un segundo click sobre el mismo combo
+                Dispatcher.BeginInvoke(new Action(() => SetFilterCombo.IsDropDownOpen = true),
+                                       DispatcherPriority.Input);
+                return;
+            }
+
+            _activeSet = choice;
+            // la lista activa es global (la comparten las ventanas del Buscador); un mazo o las
+            // favoritas como conjunto de filtro no cambian a dónde escribe el ≡
+            if (choice.Kind == SetKind.List) _library.ActiveListId = choice.Id;
+            UpdateSetButtons();
+            RefreshCellStates(); // el ≡ de las celdas apunta al conjunto nuevo
+            UpdateDetailActions();
             if (QuickListBtn.IsChecked == true) Recompute();
         }
 
@@ -1179,15 +1333,16 @@ namespace L5ArgentinaLauncher.Views
         private void ToggleInActiveList(Card card)
         {
             if (card == null) return;
-            var list = SelectedListName;
+            var list = ActiveListOrNull;
             if (list == null)
             {
-                ShowDeckFeedback(Strings.Get("Search_NoListSelected"), error: true);
+                ShowDeckFeedback(Strings.Get(_activeSet == null || _activeSet.Kind == SetKind.None
+                    ? "Search_NoListSelected" : "Search_SetNotAList"), error: true);
                 return;
             }
-            var added = _store.ToggleInList(list, card.Id);
+            var added = _library.Repo.ToggleInList(list.Id, card.Id);
             ShowDeckFeedback(
-                Strings.Format(added ? "Fmt_ListAdd2" : "Fmt_ListRemove2", card.Name, list),
+                Strings.Format(added ? "Fmt_ListAdd2" : "Fmt_ListRemove2", card.Name, list.Name),
                 error: false);
             RefreshCellStates();
             if (QuickListBtn.IsChecked == true) Recompute();
@@ -1199,26 +1354,71 @@ namespace L5ArgentinaLauncher.Views
             var name = (Dialogs.Prompt(this, Strings.Get("Search_ListCreateTitle"),
                                        Strings.Get("Search_ListCreatePrompt"), "") ?? "").Trim();
             if (name.Length == 0) return;
-            // Si ya existía, CreateList devuelve false: en vez de no hacer nada en silencio,
-            // la dejamos activa igual — el usuario pidió trabajar sobre esa lista.
-            _store.CreateList(name);
-            // queda como lista activa para ir cargándola con el botón de las celdas
-            RefreshListFilterCombo(name);
+            var id = _library.CreateList(name);
+            // queda como conjunto activo para ir cargándola con el ≡ de las celdas
+            _showingDecks = false;
+            _activeSet = ChoiceForList(_library.Repo.GetDeckById(id));
+            RefreshSetCombo();
             RefreshCellStates();
+            UpdateDetailActions();
         }
 
-        /// <summary>Borra la lista activa (la elegida en la barra).</summary>
+        /// <summary>Borra la lista activa (la elegida en la barra). Solo listas.</summary>
         private void ListDelete_Click(object sender, RoutedEventArgs e)
         {
-            var list = SelectedListName;
+            var list = ActiveListOrNull;
             if (list == null) return;
             if (!Dialogs.Confirm(this, Strings.Get("Search_ListDeleteTitle"),
-                                 Strings.Format("Fmt_ListDeleteConfirm", list),
+                                 Strings.Format("Fmt_ListDeleteConfirm", list.Name),
                                  Strings.Get("Btn_Delete"))) return;
-            _store.DeleteList(list);
-            RefreshListFilterCombo();
+            _library.DeleteDeck(list.Id);
+            _activeSet = null;
+            RefreshSetCombo();
             RefreshCellStates();
             if (QuickListBtn.IsChecked == true) Recompute();
+        }
+
+        /// <summary>
+        /// Copia el conjunto activo a una lista nueva. Es el camino para editar favoritas u
+        /// ocultas como se edita cualquier otra cosa: no son archivos, así que se bajan a una
+        /// lista que sí lo es. Con un mazo elegido, sirve para partir de él sin tocarlo.
+        /// </summary>
+        private void SetToList_Click(object sender, RoutedEventArgs e)
+        {
+            if (_activeSet == null || _activeSet.Kind == SetKind.None || _activeSet.Kind == SetKind.List) return;
+            var suggested = _activeSet.Kind == SetKind.Deck ? _activeSet.Name : _activeSet.Label;
+            var name = (Dialogs.Prompt(this, Strings.Get("Search_SetToListTitle"),
+                                       Strings.Get("Search_ListCreatePrompt"), suggested) ?? "").Trim();
+            if (name.Length == 0) return;
+            var ids = ActiveSetCardIds().ToList();
+            var id = _library.CreateListFrom(name, ids);
+            var created = _library.Repo.GetDeckById(id);
+            ShowDeckFeedback(Strings.Format("Fmt_SetSavedAsList", created.Name, created.Cards.Count), error: false);
+            _showingDecks = false;
+            _activeSet = ChoiceForList(created);
+            RefreshSetCombo();
+            RefreshCellStates();
+            UpdateDetailActions();
+        }
+
+        /// <summary>
+        /// Cartas del conjunto activo. Es lo único que el motor necesita saber de un conjunto:
+        /// de ahí que un mazo, una lista y las favoritas sean intercambiables como filtro.
+        /// </summary>
+        private IEnumerable<string> ActiveSetCardIds()
+        {
+            switch (_activeSet?.Kind)
+            {
+                case SetKind.List:
+                case SetKind.Deck:
+                    var deck = _library.Repo.GetDeckById(_activeSet.Id);
+                    return deck == null
+                        ? Enumerable.Empty<string>()
+                        : deck.Cards.Where(en => en.Quantity > 0).Select(en => en.CardId);
+                case SetKind.Favorites: return _store.Data.Favorites;
+                case SetKind.Hidden: return _store.Data.Hidden;
+                default: return Enumerable.Empty<string>();
+            }
         }
 
         // ---------------------------------------- favoritas / ocultas / acciones de celda
@@ -1260,35 +1460,39 @@ namespace L5ArgentinaLauncher.Views
         private void RefreshCellStates()
         {
             var deck = _library.ActiveDeck;
-            var list = SelectedListName;
+            var list = ActiveListOrNull;
             foreach (var cell in _gridCells)
             {
                 var qty = deck?.Cards.FirstOrDefault(en =>
                     string.Equals(en.CardId, cell.Card.Id, StringComparison.Ordinal))?.Quantity ?? 0;
                 cell.DeckQtyText = qty > 0
-                    ? qty + "/" + (deck.Type == "list" ? 1 : cell.Card.MaxCopies)
+                    ? qty + "/" + (deck.Type == DeckLibrary.ListType ? 1 : cell.Card.MaxCopies)
                     : "";
                 cell.IsFav = _store.Data.Favorites.Contains(cell.Card.Id);
                 cell.IsHidden = _store.Data.Hidden.Contains(cell.Card.Id);
-                cell.InList = list != null && _store.ListContains(list, cell.Card.Id);
+                cell.InList = list != null &&
+                    list.Cards.Any(en => string.Equals(en.CardId, cell.Card.Id, StringComparison.Ordinal));
             }
         }
 
         private void UpdateDetailActions()
         {
             var hasCard = _detailCard != null;
-            var list = SelectedListName;
+            var list = ActiveListOrNull;
             FavBtn.IsEnabled = hasCard;
             HideBtn.IsEnabled = hasCard;
             AddToDeckBtn.IsEnabled = hasCard && _library.ActiveDeckId != null;
             RemoveFromDeckBtn.IsEnabled = AddToDeckBtn.IsEnabled;
-            // sin lista activa no hay a dónde agregar: el botón se apaga en vez de avisar al clickear
+            // sin lista activa no hay a dónde agregar: el botón se apaga en vez de avisar al
+            // clickear (con un mazo o las favoritas como conjunto, el ≡ no aplica: los mazos
+            // tienen sus +/− y las favoritas su ★)
             ListBtn.IsEnabled = hasCard && list != null;
             FavBtn.Content = hasCard && _store.Data.Favorites.Contains(_detailCard.Id)
                 ? Strings.Get("Search_Fav_Remove") : Strings.Get("Search_Fav_Add");
             HideBtn.Content = hasCard && _store.Data.Hidden.Contains(_detailCard.Id)
                 ? Strings.Get("Search_Unhide") : Strings.Get("Search_Hide");
-            ListBtn.Content = hasCard && list != null && _store.ListContains(list, _detailCard.Id)
+            ListBtn.Content = hasCard && list != null &&
+                list.Cards.Any(en => string.Equals(en.CardId, _detailCard.Id, StringComparison.Ordinal))
                 ? Strings.Get("Search_ListRemove") : Strings.Get("Search_ListAdd");
         }
 

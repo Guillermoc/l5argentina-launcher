@@ -10,10 +10,11 @@ agrega estado nuevo, se decide acá primero.
 | Qué | Dónde | Formato | Escribe |
 |---|---|---|---|
 | Config del usuario | `%APPDATA%\L5Argentina Launcher\config.json` | JSON (`UserConfig`) | `ConfigService` |
-| Favoritas / ocultas / listas | `%APPDATA%\...\usercards.json` | JSON | `UserCardDataStore` |
+| Favoritas / ocultas | `%APPDATA%\...\usercards.json` | JSON v2, **por nombre de carta** | `UserCardDataStore` |
 | Presets de filtros | `%APPDATA%\...\presets.json` | JSON (nombres compatibles con los golden) | `FilterPresetStore` |
-| Metadata de mazos | `%APPDATA%\...\decksmeta.json` | JSON, indexado por **nombre de archivo** | `DeckLibrary` |
+| Metadata de mazos y listas | `%APPDATA%\...\decksmeta.json` | JSON, indexado por **nombre de archivo** (listas prefijadas `list:`) | `DeckLibrary` |
 | **Los mazos** | `<SunAndMoon>\Decks\<Nombre>.txt` | formato del juego | `DeckLibrary` + `SunAndMoonDeckFile` |
+| **Las listas** | `<SunAndMoon>\Lists\<Nombre>.txt` | mismo formato, 1 copia por carta | `DeckLibrary` + `SunAndMoonDeckFile` |
 | Descargas verificadas | `%LOCALAPPDATA%\...\cache\` (`catalog\`, `packs\`) | archivos tal cual | `DownloadService` |
 | Base Original | `%LOCALAPPDATA%\...\backups\database.original.xml` | XML | `DatabaseService` |
 | Backups con timestamp | `%LOCALAPPDATA%\...\backups\database.<stamp>.xml` | XML | `DatabaseService` |
@@ -30,11 +31,14 @@ juego). Ninguna se arma a mano en otro lado. Las filas de `%APPDATA%`/`%LOCALAPP
 
 **0. Hay dos raíces y `L5A_DATA_ROOT` solo mueve una.** Lo que es **del launcher** (config, caché,
 backups, `usercards.json`, `presets.json`, `decksmeta.json`) cuelga del perfil del usuario y sí se
-redirige. Lo que es **del juego** (`database.xml`, `images\`, los `.txt` de `Decks\`) cuelga de la
-instalación configurada en `sunAndMoonPath` y **no** se redirige nunca: si `Decks` se moviera, el
-juego dejaría de leer el mazo y se perdería el sentido de [ADR-022](../DECISIONS.md#adr-022).
-Único fallback: `DeckLibrary.ResolveDecksDir` cae en `%APPDATA%\...\Decks` **solo** cuando no hay
-instalación configurada.
+redirige. Lo que es **del juego** (`database.xml`, `images\`, los `.txt` de `Decks\` y `Lists\`)
+cuelga de la instalación configurada en `sunAndMoonPath` y **no** se redirige nunca: si `Decks` se
+moviera, el juego dejaría de leer el mazo y se perdería el sentido de
+[ADR-022](../DECISIONS.md#adr-022). `Lists\` va **al lado** de `Decks\`, no adentro, para que el
+juego no pueda tomar una lista por un mazo ([ADR-045](../DECISIONS.md#adr-045)); acompaña a los
+mazos aunque el juego no la lea, porque es material del mismo mazo y viaja con él.
+Único fallback: `ResolveDecksDir`/`ResolveListsDir` caen en `%APPDATA%\...\Decks|Lists` **solo**
+cuando no hay instalación configurada.
 
 > **Consecuencia para pruebas manuales:** `L5A_DATA_ROOT` **no** protege los mazos del usuario. Para
 > probar mazos a mano hay que apuntar `sunAndMoonPath` a una copia del juego, o dejarlo vacío para
@@ -70,7 +74,13 @@ la Original se captura una sola vez y no se pisa nunca; las líneas de un `.txt`
 se reescriben verbatim ([ADR-024](../DECISIONS.md#adr-024)); los packs de imágenes se **fusionan**
 con los existentes (agregan/actualizan, no reemplazan la carpeta).
 
-**7. Los zips grandes no se conservan.** Los packs de imágenes del pool (hasta ~280 MB) se borran
+**7. Una carta se referencia por NOMBRE, nunca por id** ([ADR-044](../DECISIONS.md#adr-044)). El
+`id` sale del `cards_db.json` y lo reasigna quien genera la base: guardarlo hace que, al entrar una
+base nueva, una favorita desaparezca o —peor, y en silencio— pase a ser otra carta. El nombre es lo
+único que el juego y el launcher acuerdan. En memoria se usa el id; la traducción ocurre al cargar
+y al guardar. Aplica a **todo** estado nuevo que referencie cartas.
+
+**8. Los zips grandes no se conservan.** Los packs de imágenes del pool (hasta ~280 MB) se borran
 después de aplicarse; lo que queda es el registro por hash en `config.json`.
 
 ---
@@ -81,5 +91,7 @@ después de aplicarse; lo que queda es el registro por hash en `config.json`.
 2. Decidir `%APPDATA%` (config del usuario) vs `%LOCALAPPDATA%` (regenerable).
 3. Si es JSON de usuario: modelo con `[JsonPropertyName]` explícito y tolerancia a archivo ausente o
    corrupto (arrancar con valores por defecto, nunca crashear).
+3b. **Si referencia cartas, se guarda por nombre** (criterio 7). Si el formato cambia, versionarlo
+   con un campo `version` y migrar en la carga, respaldando el archivo viejo al lado.
 4. Si afecta el pipeline de descarga/aplicación: sumar checks al self-test.
 5. Anotarlo acá y en [../index/OVERVIEW.md](../index/OVERVIEW.md).

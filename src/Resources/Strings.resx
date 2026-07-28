@@ -86,7 +86,7 @@
   <data name="Close_ConfirmBusy" xml:space="preserve"><value>Hay una descarga o una actualización de la base en curso. Si cerrás ahora se interrumpe y puede quedar a medio aplicar.</value></data>
   <data name="Close_ConfirmYes" xml:space="preserve"><value>Cerrar</value></data>
   <data name="Search_ListDeleteTitle" xml:space="preserve"><value>Borrar lista</value></data>
-  <data name="Fmt_ListDeleteConfirm" xml:space="preserve"><value>¿Borrar la lista "{0}"? Las cartas no se tocan, solo se pierde la lista.</value></data>
+  <data name="Fmt_ListDeleteConfirm" xml:space="preserve"><value>¿Borrar la lista "{0}"? Se elimina su archivo .txt de la carpeta Lists. Las cartas y los mazos no se tocan.</value></data>
   <data name="Dlg_InstallNotFoundTitle" xml:space="preserve"><value>Instalación no encontrada</value></data>
   <data name="Dlg_InstallNotFoundMsg" xml:space="preserve"><value>La carpeta de Sun and Moon no es válida. Revisala en Configuración.</value></data>
   <data name="Err_NoManifestForCommunity" xml:space="preserve"><value>No hay conexión al manifest, así que no puedo bajar ni actualizar la base Comunidad. Reintentá con internet, o jugá con la base Original.</value></data>
@@ -281,7 +281,7 @@
   <data name="Search_AddToDeckTip" xml:space="preserve"><value>Agregar la carta seleccionada al mazo/lista activa (doble click en una carta hace lo mismo)</value></data>
   <data name="Search_RemoveFromDeck" xml:space="preserve"><value>− Mazo</value></data>
   <data name="Search_NoDeckSelected" xml:space="preserve"><value>(ninguno)</value></data>
-  <data name="Search_ListDeleteTip" xml:space="preserve"><value>Borra la lista elegida en el selector del panel derecho</value></data>
+  <data name="Search_ListDeleteTip" xml:space="preserve"><value>Borra la lista elegida en el selector (solo listas: los mazos se borran desde la ventana de Mazos)</value></data>
   <data name="Fmt_ListChoice" xml:space="preserve"><value>{0} (lista)</value></data>
   <data name="Fmt_ListCount" xml:space="preserve"><value>{0} cartas</value></data>
   <data name="Fmt_DeckTotal" xml:space="preserve"><value>Total {0}</value></data>
@@ -353,11 +353,29 @@
   <data name="Search_ActiveDeckTip" xml:space="preserve"><value>Es el mazo seleccionado en la ventana de Mazos. Click para abrirla y cambiarlo.</value></data>
   <data name="Search_ActiveDeckCountsTip" xml:space="preserve"><value>Total de cartas · Dynasty · Fate (en rojo si no llegan a 40)</value></data>
   <data name="Search_ActiveDeckLabel" xml:space="preserve"><value>Mazo activo:</value></data>
-  <data name="Search_ListFilterAll" xml:space="preserve"><value>Lista: (ninguna)</value></data>
-  <data name="Search_ListFilterTip" xml:space="preserve"><value>Lista activa: el botón ≡ de las cartas agrega/quita de esta lista, y "Solo lista" filtra los resultados a sus cartas (p. ej. armá una lista de ninjas y filtrá por ella al armar el mazo)</value></data>
-  <data name="Search_OnlyListShort" xml:space="preserve"><value>Solo lista</value></data>
-  <data name="Search_OnlyListTip" xml:space="preserve"><value>Mostrar solo las cartas de la lista activa (elegila en el selector de al lado)</value></data>
-  <data name="Search_NoListSelected" xml:space="preserve"><value>Elegí una lista activa en la barra (o creá una en Filtros → Listas)</value></data>
+  <data name="Search_ListFilterAll" xml:space="preserve"><value>Conjunto: (ninguno)</value></data>
+  <data name="Search_ListFilterTip" xml:space="preserve"><value>Conjunto activo: puede ser una lista, un mazo ("Usar mazo…"), tus favoritas o tus ocultas. "Solo conjunto" filtra los resultados a sus cartas, y el ≡ de las cartas carga la lista activa (p. ej. armá una lista de ninjas y filtrá por ella al armar el mazo)</value></data>
+  <data name="Search_OnlyListShort" xml:space="preserve"><value>Solo conjunto</value></data>
+  <data name="Search_OnlyListTip" xml:space="preserve"><value>Mostrar solo las cartas del conjunto activo (elegilo en el selector de al lado)</value></data>
+  <data name="Search_NoListSelected" xml:space="preserve"><value>Elegí una lista en el selector de la barra (o creá una con ＋)</value></data>
+  <!-- ═══════ v4.2: conjuntos de cartas (listas = .txt en Lists, mazo/favoritas como filtro) ═══════ -->
+  <data name="Search_SetUseDeck" xml:space="preserve"><value>Usar mazo…</value></data>
+  <data name="Search_SetBackToLists" xml:space="preserve"><value>← Volver a listas</value></data>
+  <data name="Search_SetFavorites" xml:space="preserve"><value>★ Favoritas</value></data>
+  <data name="Search_SetHidden" xml:space="preserve"><value>🚫 Ocultas</value></data>
+  <data name="Fmt_SetDeckChoice" xml:space="preserve"><value>{0} (mazo)</value></data>
+  <data name="Search_SetToListTitle" xml:space="preserve"><value>Guardar como lista</value></data>
+  <data name="Search_SetToListTip" xml:space="preserve"><value>Copiar el conjunto activo a una lista nueva. Favoritas y ocultas no son archivos: así se editan como cualquier lista. Con un mazo elegido, parte de él sin tocarlo.</value></data>
+  <data name="Fmt_SetSavedAsList" xml:space="preserve"><value>Lista "{0}" creada con {1} cartas</value></data>
+  <data name="Fmt_SetGone" xml:space="preserve"><value>El conjunto "{0}" del preset ya no existe — filtro por conjunto apagado</value></data>
+  <data name="Search_SetNotAList" xml:space="preserve"><value>El conjunto activo no es una lista: el ≡ solo carga listas</value></data>
+  <data name="Deck_TabDecks" xml:space="preserve"><value>Mazos</value></data>
+  <data name="Deck_TabLists" xml:space="preserve"><value>Listas</value></data>
+  <data name="Deck_TabDecksTip" xml:space="preserve"><value>Los mazos que lee Sun and Moon (.txt de la carpeta Decks)</value></data>
+  <data name="Deck_TabListsTip" xml:space="preserve"><value>Listas: material de armado, 1 copia por carta. Son .txt de la carpeta Lists, al lado de Decks, y el juego no las ve.</value></data>
+  <data name="Deck_ListsHeader" xml:space="preserve"><value>Listas</value></data>
+  <data name="Deck_NewListTip" xml:space="preserve"><value>Nueva lista</value></data>
+  <data name="Deck_NoListSelectedLong" xml:space="preserve"><value>Elegí una lista a la izquierda o creá una con ＋. Las listas juntan cartas para armar (1 copia de cada una) y se pueden usar como filtro en el Buscador.</value></data>
   <data name="Cell_PlusTip" xml:space="preserve"><value>Agregar al mazo activo (Ctrl+click sobre la carta hace lo mismo)</value></data>
   <data name="Cell_MinusTip" xml:space="preserve"><value>Quitar del mazo activo</value></data>
   <data name="Cell_FavTip" xml:space="preserve"><value>Favorita</value></data>

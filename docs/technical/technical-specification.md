@@ -3,7 +3,7 @@
 Qué hace el launcher hoy y cómo está construido, en prosa y de corrido. Es el documento para leer
 entero: para consulta rápida están los índices ([../index/](../index/)), que son densos a propósito.
 
-**Versión descrita:** v0.4.0 · **Última pasada contra el código:** 2026-07-26.
+**Versión descrita:** v0.5.0 · **Última pasada contra el código:** 2026-07-28.
 Se actualiza en cada **cierre de fase o release**, sección por sección, contra el código real (o
 contra `docs/index/`, que debería estar al día). No en cada commit.
 
@@ -163,9 +163,9 @@ que centraliza `InstallationService`.
 
 El estado del usuario se reparte entre `%APPDATA%` —lo que es configuración— y `%LOCALAPPDATA%` —lo
 que es regenerable o pesado—. En el primero viven `config.json` (instalación, URL del manifest, base
-seleccionada y aplicada, hashes cacheados, packs aplicados), `usercards.json` (favoritas, ocultas y
-listas del Buscador), `presets.json` (presets de filtros) y `decksmeta.json` (el sidecar de los
-mazos). En el segundo, la caché de descargas —incluidas `catalog\` y `packs\`— y los backups.
+seleccionada y aplicada, hashes cacheados, packs aplicados), `usercards.json` (favoritas y ocultas
+del Buscador), `presets.json` (presets de filtros) y `decksmeta.json` (el sidecar de los mazos y las
+listas). En el segundo, la caché de descargas —incluidas `catalog\` y `packs\`— y los backups.
 
 Todas esas rutas salen de `AppConstants`, y ninguna se arma a mano en otro lado. El motivo es la
 variable de entorno **`L5A_DATA_ROOT`**: si está seteada, todo el árbol de estado cuelga de ahí. Es
@@ -220,7 +220,8 @@ verificable y una UI de escritorio decente al mismo tiempo.
 
 Sobre esa base, la ventana del Buscador ofrece filtros que aplican en vivo (sin modal ni botón
 Aplicar), operadores de barra (`tx.`, `k.`, `c.`, `t.`), vista de grilla virtualizada o tabla con
-orden por cabecera, expansión por impresión, favoritas y ocultas, listas de cartas con nombre,
+orden por cabecera, expansión por impresión, favoritas y ocultas, un selector de **conjunto activo**
+—una lista, un mazo, las favoritas o las ocultas— por el que se puede filtrar,
 presets de filtros y varias ventanas simultáneas con `Ctrl+N`. Las imágenes se leen de la instalación
 del usuario con la cadena de fallback de la app y un alias extra —la base referencia las promos como
 `cards/P/` y el juego las guarda en `cards/Promo/`—; el Buscador es 100 % lectura y no toca ni la red
@@ -238,11 +239,18 @@ mismos nombres de mazo y el string de export byte a byte. Hasta los nombres enga
 contra el Kotlin.
 
 Donde el launcher se aparta por completo de la app es en la **persistencia**. La app usa SQLite; acá
-cada mazo es un `.txt` en `<SunAndMoon>\Decks\`, exactamente los archivos que el juego carga. El mazo
+cada mazo es un `.txt` en `<SunAndMoon>\Decks\`, exactamente los archivos que el juego carga, y cada
+lista un `.txt` en `<SunAndMoon>\Lists\`, la carpeta hermana que el juego no lee. El mazo
 que se arma en el launcher se juega directo, sin exportar nada, y los mazos que el usuario ya tenía
 aparecen solos la primera vez. Lo que el formato del juego no puede representar —notas, modo de
-orden, fecha, orden en la lista, cuál es el mazo activo— va a un sidecar `decksmeta.json` indexado
-por nombre de archivo: si se pierde, no se pierde ningún mazo.
+orden, fecha, orden en la lista, cuál es el mazo y la lista activos— va a un sidecar
+`decksmeta.json` indexado por nombre de archivo: si se pierde, no se pierde ningún mazo.
+
+De ahí sale una regla que gobierna todo el estado del usuario: **una carta se referencia por nombre,
+nunca por su id de catálogo**. El id lo asigna quien genera la base de la comunidad y puede
+reasignarse entre versiones; el nombre es lo único que el juego y el launcher acuerdan. Los mazos ya
+lo cumplían por venir del formato del juego, y en la v0.5.0 se extendió a favoritas y ocultas, con
+migración automática del archivo viejo.
 
 **Hay un solo mazo activo y una sola forma de cambiarlo**: el seleccionado en la ventana de Mazos.
 `DeckLibrary` es un singleton de proceso, así que todas las ventanas del Buscador —incluidas las que
@@ -265,8 +273,10 @@ silencio—, porque un `+` que no hace nada sin explicar por qué es un bug de e
 
 Los mazos se editan en su ventana propia y también desde el Buscador, que tiene un panel derecho con
 el mazo activo y botones `+`/`−` por carta. Ambas ventanas comparten la misma instancia de
-`DeckLibrary`, así que comparten el mazo activo y ven los mismos archivos. Las "listas" del Buscador
-son otra cosa: material de armado que vive en `usercards.json` y no llega nunca a la carpeta `Decks`.
+`DeckLibrary`, así que comparten el mazo activo y ven los mismos archivos. Las **listas** son el
+mismo modelo con otro tipo: se editan con el mismo editor, tienen tope de una copia por carta y sus
+mutaciones no pasan por `AddCard` —una lista es material de armado, no un mazo legal, y no le aplican
+ni la banlist ni la regla de slot inicial—.
 
 ## 10. Presentación: ventanas, tema e idioma
 
@@ -358,7 +368,8 @@ del manifest. Cuando se hagan, se renderizan con Markdig a `FlowDocument`; nunca
 
 El **Goldfish** (sandbox de testeo de mazos), los grupos de usuario, los subgrupos dentro del mazo y
 el export a PDF están en el handoff del deckbuilder pero no se portaron. En el Buscador falta el
-contador de cartas por lista y poder renombrar listas.
+contador de cartas en el selector de conjunto y poder renombrar una lista sin ir a la ventana de
+Mazos; favoritas y ocultas se filtran y se copian a una lista, pero no se editan dentro del editor.
 
 Y sobre el propio launcher: sigue **sin firmar** y el manifest sigue **sin firmar**. Las constantes
 de URL de `AppConstants` apuntan a producción; falta confirmar con el mantenedor que son las

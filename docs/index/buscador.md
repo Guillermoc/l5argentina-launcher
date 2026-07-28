@@ -22,7 +22,7 @@ Kotlin) — que además sigue siendo la referencia viva de paridad: sus golden t
 | Criterios | `Services/Search/CardSearchCriteria.cs` | Port de `CardSearchCriteria.kt`; nombres JSON compatibles con los golden. |
 | Carga | `Services/Search/CatalogStore.cs` | Encuentra el trío de versión más alta en `cache/catalog/` (`cards_db-X.Y.Z.zip` o `cards-X.Y.Z.json`, `rules-X.Y.Z.json`, `filters-X.Y.Z.json`). `rules`/`filters` son opcionales (sin rules no hay banlist; sin filters no hay orden canónico de sets ni autocomplete). |
 | Sync | `LauncherEngine.SyncCatalogFromPoolAsync` (primaria) / `SyncCatalogAsync` (fallback) | Ver [sincronizacion.md](sincronizacion.md). |
-| Datos de usuario | `UserCardDataStore.cs`, `FilterPresetStore.cs` | Favoritas/ocultas/listas (`usercards.json`) y presets de filtros (`presets.json`). |
+| Datos de usuario | `UserCardDataStore.cs`, `FilterPresetStore.cs` | Favoritas/ocultas (`usercards.json` v2, **por nombre de carta**, [ADR-044](../DECISIONS.md#adr-044)) y presets de filtros (`presets.json`). Las listas ya **no** viven acá: son `.txt` de `Lists\` ([mazos.md](mazos.md)). |
 | UI | `Views/SearchWindow.xaml(.cs)` | Ventana redimensionable, filtros en vivo, tabla/grilla, panel derecho Carta \| Mazo. |
 | Render | `Views/CardTextRenderer.cs` | `<b>/<i>/<br>` + bullets → `Inline`s de WPF (sin WebView). |
 | Paridad | `SelfTest.RunGoldenSearchTests` | **53 golden tests** generados con la lógica real de la app. |
@@ -68,9 +68,10 @@ Anchos calibrados para 1080p a 125 % (~1530 DIP útiles).
 
 La barra superior va en dos filas: **caja de búsqueda + contador de resultados** pegados a la
 izquierda y vista/orden a la derecha arriba (sin título: ya lo muestra la barra de título propia);
-Limpiar filtros, toggles rápidos, **Solo lista + combo de listas + `+`/`🗑`** y **mazo activo +
-Mazos…** abajo. Crear y borrar listas salió del panel de filtros a esos dos íconos pegados al combo
-(el nombre se pide con `Dialogs.Prompt`, y borrar confirma): elegir lista es navegación, no un filtro más. El selector de mazo
+Limpiar filtros, toggles rápidos, **Solo conjunto + selector de conjunto + `＋`/`⎘`/`🗑`** y **mazo
+activo + Mazos…** abajo. Crear, copiar y borrar listas salió del panel de filtros a esos íconos
+pegados al combo (el nombre se pide con `Dialogs.Prompt`, y borrar confirma): elegir conjunto es
+navegación, no un filtro más. El selector de mazo
 activo vive acá y no en el panel derecho: colapsar el panel no debe esconder el destino de los `+`/`−`.
 
 **Barra de acciones por celda** — `−`/`+` contra el mazo activo (con feedback del `AddCardResult`),
@@ -88,10 +89,27 @@ que el modo no quede pegado si se suelta Ctrl fuera de la ventana.
 data-driven de `rules.json`) más la fila de acciones sobre la carta seleccionada. Ya no hay pestañas
 ni contenido del mazo: eso vive en la ventana de Mazos ([ADR-042](../DECISIONS.md#adr-042)).
 
-**Listas de cartas** — crear/borrar listas con nombre desde la barra (el nombre **es** el id, como el
-seed de los golden), agregar/quitar desde el botón `≡ A la lista` del detalle o el `≡` de la celda, y
-filtro "Solo lista". Persisten en
-`usercards.json`. Son material de armado, **no** mazos ([ADR-028](../DECISIONS.md#adr-028)).
+**Conjunto activo** ([ADR-045](../DECISIONS.md#adr-045)) — el selector de la barra elige **un
+conjunto de cartas**, que puede ser una lista, un mazo, las favoritas o las ocultas; "Solo conjunto"
+filtra los resultados a sus cartas. El desplegable tiene **dos niveles**: arriba las listas +
+`★ Favoritas` + `🚫 Ocultas` + una entrada `Usar mazo…`, que recién ahí baja a la lista de mazos
+(con `← Volver a listas` para salir). Los mazos suelen ser muchos y no son lo que se elige
+habitualmente.
+
+Cómo llega al motor: la UI **materializa** las cartas del conjunto en `UserCardData.Lists` al momento
+de buscar (`UserCardData.WithList`), así que para `CardSearchEngine` sigue siendo el `listId` de
+siempre — el que verifican los golden. Sumar un tipo de conjunto nuevo no toca el motor.
+
+- **Listas**: crear con `＋` y borrar con `🗑` desde la barra. Cargarlas es el `≡` de la celda o
+  `≡ A la lista` del detalle. Son `.txt` de `<juego>\Lists\`, 1 copia por carta, y se editan en la
+  ventana de Mazos (solapa **Listas**).
+- **Favoritas / ocultas**: se togglean con `★` / `⊘` como siempre. Como conjunto solo se filtran; para
+  editarlas como una lista está `⎘ Guardar como lista`, que las copia a una lista nueva.
+- **Mazos**: solo como filtro. El `≡` se apaga (para el mazo activo están los `+`/`−`). `⎘` también
+  sirve acá para partir de un mazo sin tocarlo.
+
+Un preset guarda `listKind` + nombre del conjunto; si el conjunto ya no existe, **lo avisa** y apaga
+el filtro en vez de devolver 0 resultados en silencio.
 
 **Presets de filtros** — guardar/cargar/borrar el criteria completo con nombre (superset del slot
 único de la app), en `presets.json` con los mismos nombres JSON que los golden.
@@ -135,8 +153,11 @@ no están cubiertos por goldens ([ADR-030](../DECISIONS.md#adr-030)).
 [ADR-019](../DECISIONS.md#adr-019) UX desktop ·
 [ADR-020](../DECISIONS.md#adr-020) imágenes de la instalación ·
 [ADR-021](../DECISIONS.md#adr-021) catálogo desde el pool ·
-[ADR-028](../DECISIONS.md#adr-028) listas ≠ mazos.
+[ADR-044](../DECISIONS.md#adr-044) identidad de carta por nombre ·
+[ADR-045](../DECISIONS.md#adr-045) listas y mazos son el mismo conjunto (sustituye a
+[ADR-028](../DECISIONS.md#adr-028)).
 
 ## Puntos abiertos
 
-- Contador de cartas por lista en el selector; renombrar listas.
+- Contador de cartas en el selector de conjunto (hoy solo se ve en la solapa Listas del editor).
+- Renombrar una lista solo se puede desde la ventana de Mazos, no desde la barra del Buscador.

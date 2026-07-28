@@ -406,22 +406,27 @@
                                           Checked="Filter_Changed" Unchecked="Filter_Changed" />
                         </StackPanel>
 
-                        <!-- Lista activa: se elige acá; ≡ en las cartas la carga y "Solo lista"
-                             filtra los resultados a sus cartas (armar el mazo de ninjas desde
-                             la lista de ninjas) -->
+                        <!-- Conjunto activo: se elige acá. El desplegable ofrece las listas,
+                             favoritas y ocultas, y una entrada "Usar mazo…" que recién ahí baja
+                             a la lista de mazos. "Solo conjunto" filtra los resultados a sus
+                             cartas (armar el mazo de ninjas desde la lista de ninjas, o filtrar
+                             por lo que ya está en un mazo). El ≡ de las cartas carga la lista. -->
                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                             <ToggleButton x:Name="QuickListBtn" Style="{StaticResource FilterChipSmall}"
                                           Margin="0,0,6,0" Content="{loc:Loc Search_OnlyListShort}"
                                           ToolTip="{loc:Loc Search_OnlyListTip}"
                                           Checked="Filter_Changed" Unchecked="Filter_Changed" />
-                            <ComboBox x:Name="ListFilterCombo" Style="{StaticResource ChipCombo}" Width="150"
+                            <ComboBox x:Name="SetFilterCombo" Style="{StaticResource ChipCombo}" Width="172"
                                       ToolTip="{loc:Loc Search_ListFilterTip}"
-                                      SelectionChanged="ListFilterCombo_Changed" />
+                                      SelectionChanged="SetFilterCombo_Changed" />
                             <!-- Crear/borrar lista: salieron del panel de filtros a íconos discretos
-                                 pegados al combo, que es donde se elige la lista. -->
+                                 pegados al combo, que es donde se elige el conjunto. -->
                             <Button x:Name="ListNewBtn" Style="{StaticResource IconButton}" Margin="6,0,0,0"
                                     Content="+" ToolTip="{loc:Loc Search_ListCreateTip}"
                                     Click="ListCreate_Click" />
+                            <Button x:Name="SetToListBtn" Style="{StaticResource IconButton}" Margin="3,0,0,0"
+                                    Content="⎘" FontSize="12" ToolTip="{loc:Loc Search_SetToListTip}"
+                                    Click="SetToList_Click" />
                             <Button x:Name="ListDeleteBtn" Style="{StaticResource IconButton}" Margin="3,0,0,0"
                                     Content="🗑" FontSize="12" ToolTip="{loc:Loc Search_ListDeleteTip}"
                                     Click="ListDelete_Click" />
