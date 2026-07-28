@@ -26,22 +26,22 @@ Versión actual: **0.4.0**.
 | Aviso de versión nueva del launcher | ✅ | v0.1.0 | [DECISIONS ADR-009](docs/DECISIONS.md#adr-009) |
 | Configuración (carpeta del juego, URL del manifest) + modo offline | ✅ | v0.1.0 | [index/sincronizacion.md](docs/index/sincronizacion.md) |
 | Buscador de cartas (filtros, grilla/tabla, detalle) | ✅ | v0.2.0 | [index/buscador.md](docs/index/buscador.md) |
-| Favoritas, ocultas, listas y presets de filtros | ✅ | v0.2.0 | [index/buscador.md](docs/index/buscador.md) |
+| Favoritas, ocultas, listas y presets de filtros | ✅ | v0.2.0 | [index/buscador.md](docs/index/buscador.md) — las listas cambiaron de forma en v0.6.0 |
 | Packs de imágenes oficiales por arco (pool) | ✅ | v0.2.0 | [index/sincronizacion.md](docs/index/sincronizacion.md) |
 | Mazos / deckbuilder (editor + integración en el Buscador) | ✅ | v0.3.0 | [index/mazos.md](docs/index/mazos.md) |
 | Mazos guardados como `.txt` en la carpeta `Decks` del juego | ✅ | v0.3.0 | [DECISIONS ADR-022](docs/DECISIONS.md#adr-022) |
 | Un solo mazo activo, compartido por todas las ventanas | ✅ | v0.4.0 | [DECISIONS ADR-042](docs/DECISIONS.md#adr-042) |
 | `Ctrl+click` para agregar al mazo, con ayuda visual | ✅ | v0.4.0 | [DECISIONS ADR-041](docs/DECISIONS.md#adr-041) |
+| Copiar el arte de la carta al portapapeles | ✅ | v0.4.0 | [index/ui.md](docs/index/ui.md) |
+| Rediseño de controles (rieles, pestañas, menús, diálogos) | ✅ | v0.4.0 | [DECISIONS ADR-035](docs/DECISIONS.md#adr-035) |
 | Listas editables como mazos (`.txt` en `Lists`, tope 1 por carta) | ✅ | v0.6.0 | [DECISIONS ADR-045](docs/DECISIONS.md#adr-045) |
-| Filtrar el Buscador por un mazo, una lista o las favoritas | ✅ | v0.6.0 | [index/buscador.md](docs/index/buscador.md) |
+| Filtrar el Buscador por un mazo, una lista o las ocultas | ✅ | v0.6.0 | [index/buscador.md](docs/index/buscador.md) |
 | Estado del usuario referenciado por nombre de carta, no por id | ✅ | v0.6.0 | [DECISIONS ADR-044](docs/DECISIONS.md#adr-044) |
 | Cartas recortadas en el mazo (bajar a 0 sin perderlas) | ✅ | v0.6.0 | [DECISIONS ADR-046](docs/DECISIONS.md#adr-046) |
 | Abrir mazos con orden, filtro por clan y estado (terminado/pendiente) | ✅ | v0.6.0 | [DECISIONS ADR-047](docs/DECISIONS.md#adr-047) |
 | Resumen de filtros activos y copiar imagen con click derecho | ✅ | v0.6.0 | [index/buscador.md](docs/index/buscador.md) |
 | Zoom de grilla en 4 tamaños, previsualización con Alt y atajos (`?`) | ✅ | v0.6.0 | [index/ui.md](docs/index/ui.md) |
 | Ventanas lado a lado y adaptación a ventanas angostas | ✅ | v0.6.0 | [index/ui.md](docs/index/ui.md) |
-| Copiar el arte de la carta al portapapeles | ✅ | v0.4.0 | [index/ui.md](docs/index/ui.md) |
-| Rediseño de controles (rieles, pestañas, menús, diálogos) | ✅ | v0.4.0 | [DECISIONS ADR-035](docs/DECISIONS.md#adr-035) |
 | Firma del ejecutable (SignPath) | ⏳ esperando aprobación OSS | — | [ROADMAP §1](docs/ROADMAP.md) |
 | Noticias y torneos | ⬜ placeholder en UI, sin implementar | — | [functional/noticias-v2-borrador.md](docs/functional/noticias-v2-borrador.md) |
 | Firma del `manifest.json` | ⏸️ diferido con criterio | — | [DECISIONS ADR-015](docs/DECISIONS.md#adr-015) |
@@ -75,19 +75,35 @@ Versión actual: **0.4.0**.
   **grilla de miniaturas** con expansión por impresión; favoritas/ocultas persistentes; detalle con el
   arte de la carta, texto renderizado y etiquetas UNIQUE/BANNED data-driven del `rules.json`. El catálogo
   (cards_db/rules/filters) se sincroniza solo desde el manifest de producción del CDN de la app.
+  Desde 0.6.0 suma **listas de cartas** y la posibilidad de filtrar por un conjunto cualquiera —una
+  lista, un mazo o tus ocultas—, resumen de los filtros activos al lado del contador, **cuatro tamaños
+  de grilla** (`Ctrl + rueda`), **Alt + pasar el mouse** para ver la carta en grande, click derecho para
+  copiar el arte y un `?` con todos los atajos.
 - **Packs de imágenes opcionales** (desde 0.2.0): menú para descargar el arte oficial de cartas por arco
-  (Lotus, Samurai, Celestial, Emperor, Ivory, Twenty Festivals, Promo, Samurai Extended) desde el CDN de
-  la app; cada pack se verifica por SHA-256 y se instala sobre la carpeta `images` de Sun and Moon —
-  sirve al juego y al Buscador.
+  (Lotus, Samurai, Celestial, Emperor, Ivory, Twenty Festivals, Promo) desde el CDN de la app; cada pack
+  se verifica por SHA-256 y se instala sobre la carpeta `images` de Sun and Moon — sirve al juego y al
+  Buscador. El pack **Samurai Extended** no aparece ahí: es el nuestro, se aplica solo durante la
+  sincronización y se muestra en la barra de "Imágenes Samurai Extended". Antes salía en los dos lados
+  y se descargaba dos veces.
 - **Mazos / deckbuilder** (desde 0.3.0): editor de mazos, port 1:1 del `DeckRepository` de la app
   Android (mismo orden de validaciones: baneada → slot → tope de copias). **Persiste como .txt en la
   carpeta `Decks` de Sun and Moon** — el mazo que armás acá se juega directo, sin exportar nada — con un
-  sidecar (`decksmeta.json`) para lo que el formato del juego no representa (notas, orden, mazo activo).
+  sidecar (`decksmeta.json`) para lo que el formato del juego no representa (notas, orden, mazo y lista
+  activos, cartas recortadas).
   Ventana propia (crear/renombrar/duplicar/borrar mazos, importar/exportar por portapapeles, vista lista
   o grilla, agrupado Starter/Dynasty/Fate). **El mazo seleccionado ahí es el mazo activo** de todas las
   ventanas del Buscador, que muestran su nombre y sus conteos en la barra y agregan cartas con `+`,
   doble click o **Ctrl+click** sobre la carta. A diferencia de la app, acá **sí se muestra** por qué una
   carta no entró (baneada, slot cubierto, tope alcanzado).
+  Desde 0.6.0 el mismo editor abre también **listas** —material de armado, 1 copia por carta, `.txt` en
+  la carpeta `Lists`—, bajar una carta a 0 la deja **recortada** en vez de borrarla, la lista de mazos
+  se ordena y se filtra por clan y por **estado de armado**, y un botón acomoda el Buscador y el editor
+  **lado a lado** para armar mirando las dos cosas.
+- **Tu estado se guarda por nombre de carta, no por id** (desde 0.6.0). El id lo asigna quien genera la
+  base de la comunidad y puede reasignarse entre versiones, así que guardarlo hacía que una favorita
+  pudiera desaparecer —o pasar a ser otra carta— al actualizar. Al abrir el Buscador por primera vez
+  después de actualizar, el `usercards.json` se migra solo y el archivo viejo queda al lado como
+  `usercards.v1.json`.
 - **Avisa si hay un launcher nuevo.** Si el manifest indica una versión más nueva, muestra un banner con
   link a la página de descargas (el link va **hardcodeado en el exe**, nunca se toma del manifest).
 - **Configuración:** permite cambiar la carpeta de Sun and Moon y la URL del manifest (con default
@@ -120,8 +136,9 @@ v1.0 (§8–§10).
 
 WPF con estética **Rokugán / pergamino** (rojo lacado para acción, oro decorativo, tipografía de marca
 L5RTitles). Ventana principal **fija 810×540 (3:2)**, no redimensionable, con barra de título propia (el
-diseño se compone a 1080×720 y se escala con un `Viewbox`). El **Buscador** es una segunda ventana,
-redimensionable y maximizable, con el mismo tema y chrome propio.
+diseño se compone a 1080×720 y se escala con un `Viewbox`). El **Buscador** y el **editor de Mazos**
+son ventanas aparte, redimensionables y maximizables, con el mismo tema y chrome propio; se adaptan al
+ancho cerrando sus paneles laterales y escondiendo lo accesorio de la barra cuando quedan angostas.
 Diálogos de error/confirmación, Configuración y Packs de imágenes son *overlays* dentro de la ventana
 (no `MessageBox` del sistema).
 
@@ -233,9 +250,10 @@ src/
 ├─ Views/
 │  ├─ FirstRunWindow          primer arranque (detección + captura de la Original)
 │  ├─ SearchWindow            Buscador de cartas (filtros vivos, tabla/grilla, detalle, mazo activo)
-│  ├─ DeckWindow               editor de Mazos (rail de mazos, grupos Starter/Dynasty/Fate, import/export)
-│  ├─ CardDetailPanel          detalle de carta compartido entre Buscador y editor de Mazos
-│  ├─ CardUiStyles             estilos XAML compartidos (chips, checkboxes, celdas) entre ambas ventanas
+│  ├─ DeckWindow              editor de Mazos y listas (solapas Abrir/Filtros, Starter/Dynasty/Fate, recorte)
+│  ├─ CardDetailPanel         detalle de carta compartido entre Buscador y editor de Mazos
+│  ├─ CardUiStyles            estilos XAML compartidos (chips, checkboxes, celdas) entre ambas ventanas
+│  ├─ CardImageClipboard      arte a tamaño completo al portapapeles y a la previsualización con Alt
 │  └─ CardTextRenderer        HTML acotado de cartas → Inlines (sin WebView)
 └─ Services/
    ├─ ManifestService         fetch + parseo + resolución confinada (relativa y same-origin)
@@ -257,7 +275,7 @@ src/
    └─ Deck/
       ├─ DeckRepository       port 1:1 de DeckRepository.kt (AddCard, import/export, CRUD, conteos)
       ├─ SunAndMoonDeckFile   lee/escribe el formato .txt de la carpeta Decks del juego
-      └─ DeckLibrary          un .txt por mazo en Decks + sidecar decksmeta.json en %APPDATA%
+      └─ DeckLibrary          un .txt por mazo en Decks y por lista en Lists + sidecar decksmeta.json
 ```
 
 Stack: **WPF sobre .NET Framework 4.8**, csproj SDK-style compilado con el **.NET SDK 8**, empaquetado en
