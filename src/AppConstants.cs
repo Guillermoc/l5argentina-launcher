@@ -9,7 +9,7 @@ namespace L5ArgentinaLauncher
     ///   - PoolManifestUrl: manifest del CDN de la app Android (HARDCODEADO).
     ///   - ReleasesPageUrl: página de GitHub Releases (link de update, HARDCODEADO a propósito
     ///     para que un manifest comprometido no pueda apuntar a un exe malicioso).
-    /// Las rutas de estado respetan L5A_DATA_ROOT; las del juego (database.xml, images, Decks)
+    /// Las rutas de estado respetan L5A_DATA_ROOT; las del juego (database.xml, images, Decks, Lists)
     /// NO — cuelgan de la instalación configurada. Ver docs/design/persistencia.md.
     /// </summary>
     public static class AppConstants
@@ -17,7 +17,7 @@ namespace L5ArgentinaLauncher
         public const string AppName = "L5Argentina Launcher";
 
         /// <summary>Versión embebida del launcher; se compara contra manifest.launcher.latest_version.</summary>
-        public const string LauncherVersion = "0.5.0";
+        public const string LauncherVersion = "0.6.0";
 
         // URL del manifest en el bucket R2 público (origen de datos por defecto).
         public const string DefaultManifestUrl = "https://pub-4ab8e43f10604d7fa0f9402a8259a855.r2.dev/sunandmoon/manifest.json";
@@ -55,16 +55,17 @@ namespace L5ArgentinaLauncher
 
         public static string ConfigPath => Path.Combine(AppDataDir, "config.json");
 
-        /// <summary>Favoritas/ocultas/listas del Buscador (equivale a user_card_data de la app Android).</summary>
+        /// <summary>Favoritas/ocultas del Buscador, por NOMBRE de carta (ADR-044). Las listas
+        /// ya no viven acá: son .txt de la carpeta Lists (ADR-045).</summary>
         public static string UserCardsPath => Path.Combine(AppDataDir, "usercards.json");
 
         /// <summary>Presets de filtros del Buscador (criterios guardados con nombre).</summary>
         public static string PresetsPath => Path.Combine(AppDataDir, "presets.json");
 
         /// <summary>
-        /// Sidecar de los mazos: lo que el .txt de Sun and Moon no puede representar
-        /// (notas, sort_mode, fecha, mazo activo). Los mazos en sí son .txt en la carpeta
-        /// Decks de la instalación (ver DeckLibrary).
+        /// Sidecar de mazos y listas: lo que el .txt de Sun and Moon no puede representar
+        /// (notas, sort_mode, fecha, mazo y lista activos, cartas recortadas). Los conjuntos en sí
+        /// son .txt en las carpetas Decks y Lists de la instalación (ver DeckLibrary).
         /// </summary>
         public static string DecksMetaPath => Path.Combine(AppDataDir, "decksmeta.json");
         public static string CacheDir => Path.Combine(LocalAppDataDir, "cache");
