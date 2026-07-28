@@ -5,7 +5,7 @@ Rings* en la app **Sun and Moon**. Resuelve el problema de mantener sincronizada
 nuestra base de cartas curada: en lugar de copiar archivos a mano, el launcher chequea si hay una base
 nueva en nuestro bucket, deja **elegir con qué base jugar**, la aplica de forma segura y lanza el juego.
 
-Versión actual: **0.4.0**.
+Versión actual: **0.6.0**.
 
 > **Documentación:** mapa completo en [docs/README.md](docs/README.md) · estado actual del código en
 > [docs/index/](docs/index/) (empezar por

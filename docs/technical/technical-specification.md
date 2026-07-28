@@ -107,7 +107,10 @@ El **manifest del pool** es el del CDN de la app Android (canal `production`), y
 **hardcodeada**. Publica una lista plana de paquetes con URL absoluta y SHA-256 —el hash se agregó a
 ese pipeline específicamente para el launcher; la app Android ignora el campo—. De acá salen los
 packs de imágenes oficiales por arco (Lotus, Samurai, Celestial, Emperor, Ivory, Twenty Festivals,
-Promo, Samurai Extended) y, desde v0.2.0, el catálogo del Buscador. Como sus URLs son absolutas se
+Promo) y, desde v0.2.0, el catálogo del Buscador. El pool publica **también** el pack Samurai
+Extended, que es el mismo archivo que la sección `images` de nuestro manifest: el launcher lo
+reconoce por hash y no lo ofrece en el overlay de packs, porque estaba haciendo que se descargara dos
+veces y que cada camino llevara su propio registro de "aplicado" ([ADR-048](../DECISIONS.md#adr-048)). Como sus URLs son absolutas se
 validan distinto: se exige **mismo origen** que el manifest, sin exigir mismo directorio, porque el
 pool publica el manifest en `/production/` y los archivos en `/pool/`. La confianza sigue confinada
 al mismo bucket.
