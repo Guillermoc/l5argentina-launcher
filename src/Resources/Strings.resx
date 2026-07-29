@@ -300,8 +300,8 @@
 
   <!-- ═══════ Editor de mazos ═══════ -->
   <data name="Deck_WindowTitle" xml:space="preserve"><value>Mazos</value></data>
-  <data name="Deck_PaneDecksTip" xml:space="preserve"><value>Mostrar u ocultar la lista de mazos y los filtros</value></data>
-  <data name="Deck_PaneSideTip" xml:space="preserve"><value>Mostrar u ocultar el detalle de carta / stats del mazo</value></data>
+  <data name="Deck_PaneDecksTip" xml:space="preserve"><value>Mostrar u ocultar los filtros y las stats del mazo</value></data>
+  <data name="Deck_PaneSideTip" xml:space="preserve"><value>Mostrar u ocultar el detalle de la carta</value></data>
   <data name="Deck_ListHeader" xml:space="preserve"><value>Mazos</value></data>
   <data name="Deck_NewTip" xml:space="preserve"><value>Crear un mazo nuevo (queda activo)</value></data>
   <data name="Deck_New" xml:space="preserve"><value>Nuevo mazo</value></data>
@@ -326,14 +326,13 @@
   <data name="Fmt_DeckDeleteConfirm" xml:space="preserve"><value>¿Eliminar el mazo "{0}"? Se borra su archivo .txt de la carpeta Decks.</value></data>
   <data name="Deck_OpenFolder" xml:space="preserve"><value>Carpeta</value></data>
   <data name="Deck_OpenFolderTip" xml:space="preserve"><value>Abrir la carpeta Decks de Sun and Moon (ahí viven los .txt de los mazos)</value></data>
-  <data name="Deck_FiltersHeader" xml:space="preserve"><value>Filtros</value></data>
   <data name="Deck_FilterHint" xml:space="preserve"><value>Filtrar cartas del mazo…</value></data>
   <data name="Deck_AddFromSearchHint" xml:space="preserve"><value>Las cartas nuevas se agregan desde el Buscador (+ sobre el mazo activo) o con Importar.</value></data>
   <data name="Deck_TabCard" xml:space="preserve"><value>Carta</value></data>
   <data name="Deck_TabStats" xml:space="preserve"><value>Stats</value></data>
   <data name="Deck_NotesHeader" xml:space="preserve"><value>Notas</value></data>
   <data name="Deck_NoDeckSelected" xml:space="preserve"><value>Sin mazo</value></data>
-  <data name="Deck_NoDeckSelectedLong" xml:space="preserve"><value>Elegí un mazo a la izquierda o creá uno con ＋. También se cargan los .txt que ya estén en la carpeta Decks de Sun and Moon.</value></data>
+  <data name="Deck_NoDeckSelectedLong" xml:space="preserve"><value>Elegí un mazo desde el título de arriba, o creá uno con ＋. También se cargan los .txt que ya estén en la carpeta Decks de Sun and Moon.</value></data>
   <data name="Deck_EmptyDeck" xml:space="preserve"><value>Mazo vacío (o el filtro no matchea nada). Agregá cartas desde el Buscador con el mazo activo.</value></data>
   <data name="Deck_UnknownHeader" xml:space="preserve"><value>Líneas no reconocidas</value></data>
   <data name="Deck_UnknownTip" xml:space="preserve"><value>Línea del .txt que no matchea el catálogo actual. Se conserva tal cual al guardar (no se pierde); reaparece como carta si el catálogo la trae.</value></data>
@@ -372,7 +371,7 @@
   <data name="Deck_TabListsTip" xml:space="preserve"><value>Listas: material de armado, 1 copia por carta. Son .txt de la carpeta Lists, al lado de Decks, y el juego no las ve.</value></data>
   <data name="Deck_ListsHeader" xml:space="preserve"><value>Listas</value></data>
   <data name="Deck_NewListTip" xml:space="preserve"><value>Nueva lista</value></data>
-  <data name="Deck_NoListSelectedLong" xml:space="preserve"><value>Elegí una lista a la izquierda o creá una con ＋. Las listas juntan cartas para armar (1 copia de cada una) y se pueden usar como filtro en el Buscador.</value></data>
+  <data name="Deck_NoListSelectedLong" xml:space="preserve"><value>Elegí una lista desde el título de arriba, o creá una con ＋. Las listas juntan cartas para armar (1 copia de cada una) y se pueden usar como filtro en el Buscador.</value></data>
   <!-- ═══════ Recorte: bajar a 0 conserva la carta en el mazo (SPEC-DECK-CRUD §4) ═══════ -->
   <data name="Deck_ShowTrimmed" xml:space="preserve"><value>Recortadas</value></data>
   <data name="Deck_ShowTrimmedTip" xml:space="preserve"><value>Mostrar las cartas recortadas (las que bajaste a 0). Siguen en el mazo, grisadas, pero no se juegan ni cuentan; apagalo para ver el mazo tal como se juega.</value></data>
@@ -399,7 +398,7 @@
   <data name="Fmt_Sum_Set" xml:space="preserve"><value>solo {0}</value></data>
   <data name="Fmt_CopiedImage" xml:space="preserve"><value>Imagen de {0} copiada</value></data>
   <!-- ═══════ Panel del editor: pestañas Abrir | Filtros ═══════ -->
-  <data name="Deck_PaneOpen" xml:space="preserve"><value>Abrir</value></data>
+  <data name="Deck_PickerTip" xml:space="preserve"><value>Elegir qué mazo o lista abrir (y crear, buscar, ordenar o filtrar por clan y estado)</value></data>
   <data name="Deck_PaneFilters" xml:space="preserve"><value>Filtros</value></data>
   <data name="Deck_SearchHint" xml:space="preserve"><value>Buscar por nombre o carta…</value></data>
   <data name="Deck_SortTip" xml:space="preserve"><value>Orden de la lista: lo último que tocaste primero, o alfabético</value></data>
@@ -458,6 +457,7 @@ EN LA LISTA DE CARTAS DEL MAZO
 ✕  —  sacar la carta del mazo del todo
 
 BOTONES DE LA BARRA
+Click en el nombre del mazo  —  elegir qué mazo o lista abrir
 Buscador  —  abrir el Buscador para agregar cartas
 ⋯  —  renombrar, duplicar, importar, exportar, PDF, carpeta, lado a lado, limpiar recortadas, eliminar</value></data>
   <data name="Cell_PlusTip" xml:space="preserve"><value>Agregar al mazo activo (Ctrl+click sobre la carta hace lo mismo)</value></data>

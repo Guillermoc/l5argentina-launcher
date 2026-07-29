@@ -57,6 +57,125 @@
             </Border>
         </Popup>
 
+        <!-- ══ Selector de mazo: era el panel "Abrir" ══
+             Elegir QUÉ mazo abrir es navegación sobre la biblioteca; filtrar el mazo ya abierto es
+             otra tarea sobre otro objeto. Compartían el panel izquierdo y, peor, colapsarlo para ver
+             más cartas apagaba las dos cosas de una. Ahora cuelga del título (ADR-051) y conserva
+             todo lo que tenía: solapa Mazos|Listas, buscador, orden, clan y estado. -->
+        <Popup x:Name="DeckPickerPopup" PlacementTarget="{Binding ElementName=DeckPickerBtn}"
+               Placement="Bottom" VerticalOffset="6" HorizontalOffset="0"
+               AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade"
+               Closed="DeckPickerPopup_Closed">
+            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource GoldDim}"
+                    BorderThickness="1" CornerRadius="10" Width="330" Padding="12,10,12,12">
+                <StackPanel>
+                    <StackPanel x:Name="OpenPane" Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="DeckListHeader" Text="{loc:Loc Deck_ListHeader}"
+                                           FontFamily="{StaticResource BrushFont}"
+                                           FontSize="18" Foreground="{StaticResource GoldSoft}"
+                                           VerticalAlignment="Center" />
+                                <Button x:Name="NewDeckBtn" Grid.Column="1" Content="＋"
+                                        Style="{StaticResource GhostButton}"
+                                        Height="28" FontSize="16" Padding="10,0"
+                                        ToolTip="{loc:Loc Deck_NewTip}" Click="NewDeck_Click" />
+                            </Grid>
+                            <!-- Mazos y listas son lo mismo salvo dónde vive el .txt y el tope
+                                 de copias: un solo editor, dos solapas (ADR-045) -->
+                            <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+                                <ToggleButton x:Name="TabDecksBtn" Style="{StaticResource SegmentLeft}"
+                                              IsChecked="True" Content="{loc:Loc Deck_TabDecks}"
+                                              ToolTip="{loc:Loc Deck_TabDecksTip}" Click="KindTab_Click" />
+                                <ToggleButton x:Name="TabListsBtn" Style="{StaticResource SegmentRight}"
+                                              Content="{loc:Loc Deck_TabLists}"
+                                              ToolTip="{loc:Loc Deck_TabListsTip}" Click="KindTab_Click" />
+                            </StackPanel>
+                    
+                            <!-- Buscar por nombre del mazo o por una carta que contenga -->
+                            <Grid Margin="0,7,0,0">
+                                <TextBox x:Name="DeckSearchBox" Style="{StaticResource InvertedTextBox}"
+                                         Height="28" FontSize="12" TextChanged="DeckSearch_Changed" />
+                                <TextBlock Text="{loc:Loc Deck_SearchHint}" Foreground="{StaticResource InputPlace}"
+                                           Margin="12,0" VerticalAlignment="Center"
+                                           IsHitTestVisible="False" FontSize="11">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Text, ElementName=DeckSearchBox}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                    
+                            <WrapPanel Margin="0,7,0,0">
+                                <ComboBox x:Name="DeckSortCombo" Style="{StaticResource ChipCombo}"
+                                          Width="118" Margin="0,0,6,4"
+                                          ToolTip="{loc:Loc Deck_SortTip}"
+                                          SelectionChanged="DeckListFilter_Changed" />
+                                <ComboBox x:Name="DeckClanCombo" Style="{StaticResource ChipCombo}"
+                                          Width="112" Margin="0,0,6,4"
+                                          ToolTip="{loc:Loc Deck_ClanFilterTip}"
+                                          SelectionChanged="DeckListFilter_Changed" />
+                                <ComboBox x:Name="DeckStateCombo" Style="{StaticResource ChipCombo}"
+                                          Width="118" Margin="0,0,0,4"
+                                          ToolTip="{loc:Loc Deck_StateFilterTip}"
+                                          SelectionChanged="DeckListFilter_Changed" />
+                            </WrapPanel>
+                        </StackPanel>
+
+                    <ListBox x:Name="DeckList" MaxHeight="420" Background="#40140A05"
+                                 BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1"
+                                 HorizontalContentAlignment="Stretch"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 SelectionChanged="DeckList_SelectionChanged">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                    <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border x:Name="bd" Background="Transparent" Padding="9,6">
+                                                    <ContentPresenter />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="bd" Property="Background" Value="#22C9A961" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="bd" Property="Background" Value="#CC7D1F1C" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}" FontSize="14"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Subtitle}" FontSize="11"
+                                                   Foreground="{StaticResource TextDim}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                </StackPanel>
+            </Border>
+        </Popup>
+
         <!-- Capas de fondo -->
         <Rectangle Fill="{StaticResource PaperOverlayBrush}" IsHitTestVisible="False" />
         <Rectangle Fill="{StaticResource BackgroundScrim}" IsHitTestVisible="False" />
@@ -101,11 +220,24 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
+                        <!-- El título ES el selector de mazo (ADR-051): elegir qué abrir es
+                             navegación, y competía por el panel izquierdo con los filtros del mazo
+                             ya abierto, que es otra tarea sobre otro objeto.
+                             Sin "Activar" ni badge "● Activo": el mazo seleccionado acá ES el
+                             activo del Buscador (ADR-042). -->
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock x:Name="DeckTitle" Style="{StaticResource CardTitle}" FontSize="24"
-                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                            <!-- Sin "Activar" ni badge "● Activo": el mazo seleccionado acá ES el
-                                 activo del Buscador (ADR-042). -->
+                            <ToggleButton x:Name="DeckPickerBtn" Style="{StaticResource TitlePicker}"
+                                          ToolTip="{loc:Loc Deck_PickerTip}"
+                                          Checked="DeckPicker_Checked" Unchecked="DeckPicker_Unchecked">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="DeckTitle" Style="{StaticResource CardTitle}" FontSize="24"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                               MaxWidth="520" />
+                                    <TextBlock Text="▾" FontSize="15" Margin="10,4,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="{StaticResource GoldDim}" />
+                                </StackPanel>
+                            </ToggleButton>
                         </StackPanel>
 
                         <!-- Seis botones permanentes para acciones que se usan una vez cada
@@ -235,135 +367,30 @@
                             Padding="12,8,12,12">
                         <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />  <!-- pestañas Abrir | Filtros -->
-                                <RowDefinition Height="Auto" />  <!-- controles de "Abrir" -->
-                                <RowDefinition Height="*" />     <!-- lista de mazos O filtros -->
+                                <RowDefinition Height="Auto" />  <!-- pestañas Filtros | Stats -->
+                                <RowDefinition Height="*" />     <!-- filtros O stats -->
                             </Grid.RowDefinitions>
 
-                            <!-- Dos pestañas: elegir qué abrir vs. filtrar lo que ya está abierto.
-                                 Son tareas distintas y competían por el mismo panel. -->
+                            <!-- Las dos pestañas hablan del MISMO objeto: el mazo abierto. Filtrarlo
+                                 y medirlo son dos lecturas de lo mismo, así que comparten panel y
+                                 colapsarlo esconde una sola cosa (ADR-051). Antes acá convivían
+                                 "Abrir" (otra biblioteca) y "Filtros", y las stats estaban del otro
+                                 lado, pegadas al detalle de una carta. -->
                             <Grid Grid.Row="0" Margin="0,0,0,8">
                                 <Border Height="1" VerticalAlignment="Bottom"
                                         Background="{StaticResource OutlineSoft}" />
                                 <StackPanel Orientation="Horizontal">
-                                    <ToggleButton x:Name="PaneOpenBtn" Style="{StaticResource PanelTab}"
-                                                  IsChecked="True" Content="{loc:Loc Deck_PaneOpen}"
-                                                  Click="PaneTab_Click" />
                                     <ToggleButton x:Name="PaneFiltersBtn" Style="{StaticResource PanelTab}"
-                                                  Content="{loc:Loc Deck_PaneFilters}"
+                                                  IsChecked="True" Content="{loc:Loc Deck_PaneFilters}"
+                                                  Click="PaneTab_Click" />
+                                    <ToggleButton x:Name="PaneStatsBtn" Style="{StaticResource PanelTab}"
+                                                  Content="{loc:Loc Deck_TabStats}"
                                                   Click="PaneTab_Click" />
                                 </StackPanel>
                             </Grid>
 
-                            <StackPanel x:Name="OpenPane" Grid.Row="1" Margin="0,0,0,6">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="DeckListHeader" Text="{loc:Loc Deck_ListHeader}"
-                                               FontFamily="{StaticResource BrushFont}"
-                                               FontSize="18" Foreground="{StaticResource GoldSoft}"
-                                               VerticalAlignment="Center" />
-                                    <Button x:Name="NewDeckBtn" Grid.Column="1" Content="＋"
-                                            Style="{StaticResource GhostButton}"
-                                            Height="28" FontSize="16" Padding="10,0"
-                                            ToolTip="{loc:Loc Deck_NewTip}" Click="NewDeck_Click" />
-                                </Grid>
-                                <!-- Mazos y listas son lo mismo salvo dónde vive el .txt y el tope
-                                     de copias: un solo editor, dos solapas (ADR-045) -->
-                                <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
-                                    <ToggleButton x:Name="TabDecksBtn" Style="{StaticResource SegmentLeft}"
-                                                  IsChecked="True" Content="{loc:Loc Deck_TabDecks}"
-                                                  ToolTip="{loc:Loc Deck_TabDecksTip}" Click="KindTab_Click" />
-                                    <ToggleButton x:Name="TabListsBtn" Style="{StaticResource SegmentRight}"
-                                                  Content="{loc:Loc Deck_TabLists}"
-                                                  ToolTip="{loc:Loc Deck_TabListsTip}" Click="KindTab_Click" />
-                                </StackPanel>
-
-                                <!-- Buscar por nombre del mazo o por una carta que contenga -->
-                                <Grid Margin="0,7,0,0">
-                                    <TextBox x:Name="DeckSearchBox" Style="{StaticResource InvertedTextBox}"
-                                             Height="28" FontSize="12" TextChanged="DeckSearch_Changed" />
-                                    <TextBlock Text="{loc:Loc Deck_SearchHint}" Foreground="{StaticResource InputPlace}"
-                                               Margin="12,0" VerticalAlignment="Center"
-                                               IsHitTestVisible="False" FontSize="11">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Text, ElementName=DeckSearchBox}" Value="">
-                                                        <Setter Property="Visibility" Value="Visible" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </Grid>
-
-                                <WrapPanel Margin="0,7,0,0">
-                                    <ComboBox x:Name="DeckSortCombo" Style="{StaticResource ChipCombo}"
-                                              Width="118" Margin="0,0,6,4"
-                                              ToolTip="{loc:Loc Deck_SortTip}"
-                                              SelectionChanged="DeckListFilter_Changed" />
-                                    <ComboBox x:Name="DeckClanCombo" Style="{StaticResource ChipCombo}"
-                                              Width="112" Margin="0,0,6,4"
-                                              ToolTip="{loc:Loc Deck_ClanFilterTip}"
-                                              SelectionChanged="DeckListFilter_Changed" />
-                                    <ComboBox x:Name="DeckStateCombo" Style="{StaticResource ChipCombo}"
-                                              Width="118" Margin="0,0,0,4"
-                                              ToolTip="{loc:Loc Deck_StateFilterTip}"
-                                              SelectionChanged="DeckListFilter_Changed" />
-                                </WrapPanel>
-                            </StackPanel>
-
-                            <ListBox x:Name="DeckList" Grid.Row="2" Background="#40140A05"
-                                     BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1"
-                                     HorizontalContentAlignment="Stretch"
-                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                     SelectionChanged="DeckList_SelectionChanged">
-                                <ListBox.ItemContainerStyle>
-                                    <Style TargetType="ListBoxItem">
-                                        <Setter Property="Foreground" Value="{StaticResource Text}" />
-                                        <Setter Property="FontFamily" Value="{StaticResource BodyFont}" />
-                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="ListBoxItem">
-                                                    <Border x:Name="bd" Background="Transparent" Padding="9,6">
-                                                        <ContentPresenter />
-                                                    </Border>
-                                                    <ControlTemplate.Triggers>
-                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter TargetName="bd" Property="Background" Value="#22C9A961" />
-                                                        </Trigger>
-                                                        <Trigger Property="IsSelected" Value="True">
-                                                            <Setter TargetName="bd" Property="Background" Value="#CC7D1F1C" />
-                                                        </Trigger>
-                                                    </ControlTemplate.Triggers>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </Style>
-                                </ListBox.ItemContainerStyle>
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <StackPanel>
-                                            <TextBlock Text="{Binding Title}" FontSize="14"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding Subtitle}" FontSize="11"
-                                                       Foreground="{StaticResource TextDim}"
-                                                       TextTrimming="CharacterEllipsis" />
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-
                             <!-- Filtros sobre las cartas del mazo abierto -->
-                            <StackPanel x:Name="FiltersPane" Grid.Row="2" VerticalAlignment="Top"
-                                        Visibility="Collapsed">
-                                <TextBlock Text="{loc:Loc Deck_FiltersHeader}" FontFamily="{StaticResource BrushFont}"
-                                           FontSize="16" Foreground="{StaticResource GoldSoft}" Margin="0,0,0,6" />
+                            <StackPanel x:Name="FiltersPane" Grid.Row="1" VerticalAlignment="Top">
                                 <Grid>
                                     <TextBox x:Name="FilterBox" Style="{StaticResource InvertedTextBox}" Height="30"
                                              FontSize="13" TextChanged="Filter_Changed" />
@@ -404,6 +431,12 @@
                                 <TextBlock Text="{loc:Loc Deck_AddFromSearchHint}" Style="{StaticResource BodySmall}"
                                            FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
                             </StackPanel>
+
+                            <!-- Stats del mazo: mismo objeto que los filtros, así que mismo panel -->
+                            <ScrollViewer x:Name="StatsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                                          Visibility="Collapsed">
+                                <StackPanel x:Name="StatsBody" />
+                            </ScrollViewer>
                         </Grid>
                     </Border>
 
@@ -431,7 +464,10 @@
                         </Grid>
                     </Border>
 
-                    <!-- Panel derecho: detalle de carta / stats del mazo -->
+                    <!-- Panel derecho: SOLO el detalle de la carta. Las stats se fueron al panel
+                         izquierdo, con los filtros: las dos hablan del mazo, y acá quedaban pegadas
+                         a la carta seleccionada, que es otro objeto (ADR-051). Sin pestañas: una
+                         sola cosa no necesita elegirse. -->
                     <Border x:Name="SidePanel" Grid.Column="4" Background="{StaticResource SurfaceGlass}"
                             CornerRadius="9" BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1"
                             Padding="14">
@@ -441,24 +477,10 @@
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
-                            <!-- Pestañas Carta / Stats: la activa tapa la línea base y no dibuja
-                                 borde inferior, así se funde con el contenido. -->
-                            <Grid Margin="0,0,0,8">
-                                <Border Height="1" VerticalAlignment="Bottom"
-                                        Background="{StaticResource OutlineSoft}" />
-                                <StackPanel Orientation="Horizontal">
-                                    <ToggleButton x:Name="TabCardBtn" Style="{StaticResource PanelTab}"
-                                                  Content="{loc:Loc Deck_TabCard}" Click="Tab_Click" />
-                                    <ToggleButton x:Name="TabStatsBtn" Style="{StaticResource PanelTab}"
-                                                  IsChecked="True" Content="{loc:Loc Deck_TabStats}"
-                                                  Click="Tab_Click" />
-                                </StackPanel>
-                            </Grid>
-
-                            <v:CardDetailPanel x:Name="Detail" Grid.Row="1" Visibility="Collapsed" />
-                            <ScrollViewer x:Name="StatsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                                <StackPanel x:Name="StatsBody" />
-                            </ScrollViewer>
+                            <TextBlock Grid.Row="0" Text="{loc:Loc Deck_TabCard}" Margin="0,0,0,8"
+                                       FontFamily="{StaticResource BrushFont}" FontSize="16"
+                                       Foreground="{StaticResource GoldSoft}" />
+                            <v:CardDetailPanel x:Name="Detail" Grid.Row="1" />
                         </Grid>
                     </Border>
                 </Grid>

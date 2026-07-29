@@ -464,16 +464,34 @@ namespace L5ArgentinaLauncher.Views
             RefreshDeckList(_selectedDeckId);
         }
 
-        /// <summary>Pestañas del panel izquierdo: elegir qué abrir vs. filtrar lo abierto.</summary>
+        /// <summary>
+        /// Pestañas del panel izquierdo: filtrar el mazo abierto o medirlo. Las dos hablan del mismo
+        /// objeto (ADR-051), así que colapsar el panel esconde una sola cosa.
+        /// </summary>
         private void PaneTab_Click(object sender, RoutedEventArgs e)
         {
-            var filters = ReferenceEquals(sender, PaneFiltersBtn);
-            PaneFiltersBtn.IsChecked = filters;
-            PaneOpenBtn.IsChecked = !filters;
-            OpenPane.Visibility = filters ? Visibility.Collapsed : Visibility.Visible;
-            DeckList.Visibility = filters ? Visibility.Collapsed : Visibility.Visible;
-            FiltersPane.Visibility = filters ? Visibility.Visible : Visibility.Collapsed;
+            var stats = ReferenceEquals(sender, PaneStatsBtn);
+            PaneStatsBtn.IsChecked = stats;
+            PaneFiltersBtn.IsChecked = !stats;
+            StatsScroll.Visibility = stats ? Visibility.Visible : Visibility.Collapsed;
+            FiltersPane.Visibility = stats ? Visibility.Collapsed : Visibility.Visible;
         }
+
+        // ------------------------------------------------------------------ selector de mazo
+
+        /// <summary>
+        /// El picker cuelga del título. Sigue al estado del toggle, no al click, por lo mismo que el
+        /// desplegable de zoom: así queda consistente si el IsChecked lo cambia otra cosa.
+        /// </summary>
+        private void DeckPicker_Checked(object sender, RoutedEventArgs e)
+        {
+            DeckPickerPopup.IsOpen = true;
+            Dispatcher.BeginInvoke(new Action(() => DeckSearchBox.Focus()), DispatcherPriority.Input);
+        }
+
+        private void DeckPicker_Unchecked(object sender, RoutedEventArgs e) => DeckPickerPopup.IsOpen = false;
+
+        private void DeckPickerPopup_Closed(object sender, EventArgs e) => DeckPickerBtn.IsChecked = false;
 
         private string DeckSubtitle(Models.Deck deck)
         {
@@ -500,6 +518,8 @@ namespace L5ArgentinaLauncher.Views
             _selectedDeckId = (DeckList.SelectedItem as DeckItemVm)?.Id;
             ActivateSelected();
             RefreshAll();
+            // elegir un mazo es el objetivo del picker: cumplido, se cierra solo
+            DeckPickerBtn.IsChecked = false;
         }
 
         /// <summary>Selecciona un conjunto desde afuera (p. ej. el botón ✎ del Buscador).</summary>
@@ -601,6 +621,9 @@ namespace L5ArgentinaLauncher.Views
             RefreshTrimmedLabel();
 
             DeckTitle.Text = hasDeck ? deck.Name : Strings.Get("Deck_NoDeckSelected");
+            // El contenido del picker es un panel, no texto, así que sin esto el control de
+            // navegación principal no tiene nombre accesible y un lector de pantalla no dice nada.
+            System.Windows.Automation.AutomationProperties.SetName(DeckPickerBtn, DeckTitle.Text);
 
             RefreshCounts(deck);
             RebuildDeckBody(deck);
@@ -1291,21 +1314,10 @@ namespace L5ArgentinaLauncher.Views
 
         // ------------------------------------------------------------------ panel derecho
 
-        private void Tab_Click(object sender, RoutedEventArgs e)
-        {
-            var stats = ReferenceEquals(sender, TabStatsBtn);
-            TabStatsBtn.IsChecked = stats;
-            TabCardBtn.IsChecked = !stats;
-            StatsScroll.Visibility = stats ? Visibility.Visible : Visibility.Collapsed;
-            Detail.Visibility = stats ? Visibility.Collapsed : Visibility.Visible;
-        }
-
         private void SelectCard(Card card)
         {
             _selectedCardId = card.Id;
             Detail.ShowCard(card, _resolver.ResolveCandidates(card, null, fallbackChain: true));
-            TabCardBtn.IsChecked = true;
-            Tab_Click(TabCardBtn, null);
             RebuildDeckBody(_selectedDeckId != null ? Repo.GetDeckById(_selectedDeckId) : null);
         }
 

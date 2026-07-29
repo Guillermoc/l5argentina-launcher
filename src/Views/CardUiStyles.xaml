@@ -517,6 +517,36 @@
         </Setter>
     </Style>
 
+    <!-- ══ Título que además es selector ══
+         El nombre del mazo abierto es el disparador del picker: se lee como título (misma tipografía
+         y tamaño que antes) y solo al pasar el mouse aparece el fondo que delata que es clickeable.
+         Un botón con aspecto de botón al lado del título habría sumado un control más a la barra,
+         que es justo lo que ADR-050 saca. -->
+    <Style x:Key="TitlePicker" TargetType="ToggleButton">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="bd" CornerRadius="8" Background="Transparent"
+                            BorderThickness="1" BorderBrush="Transparent" Padding="8,2">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="#33C9A961" />
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource GoldDim}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="#33C9A961" />
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ══ Divisoria arrastrable del panel lateral ══
          La columna del riel hace DOS cosas: arrastrarla mueve el borde del panel (GridSplitter,
          estilo PaneSplitter) y el nudo del centro lo colapsa de un click. Por eso el chevron dejó
