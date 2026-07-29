@@ -341,6 +341,43 @@
         <Setter Property="Tag" Value="0,12,12,0" />
     </Style>
 
+    <!-- Segmento del medio: sin borde izquierdo y sin redondear ninguna punta. -->
+    <Style x:Key="SegmentMid" TargetType="ToggleButton" BasedOn="{StaticResource SegmentLeft}">
+        <Setter Property="BorderThickness" Value="0,1,1,1" />
+        <Setter Property="Tag" Value="0,0,0,0" />
+    </Style>
+
+    <!-- ══ Último segmento, pero desplegable en vez de opción ══
+         El zoom se agrupó con Lista|Grilla porque es lo que es —una propiedad de la vista, no una
+         acción— pero no es una tercera opción del grupo: abre un popup. Por eso NO se pinta de rojo
+         al estar "checked" (checked acá solo significa "el popup está abierto"); solo marca el
+         borde, como cualquier menú abierto. -->
+    <Style x:Key="SegmentMenu" TargetType="ToggleButton" BasedOn="{StaticResource SegmentRight}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="bd" CornerRadius="0,12,12,0" Background="#452A1710"
+                            BorderThickness="0,1,1,1" BorderBrush="{StaticResource OutlineSoft}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource GoldDim}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ══ Botón de ícono con estado en el glifo, no en el fondo ══
          Para ↑/↓ de orden: "descendente" no es "filtro activo", así que no se pinta de rojo. -->
     <Style x:Key="IconToggle" TargetType="ToggleButton">
@@ -420,9 +457,26 @@
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
+                        <!-- Estado "puesto" (favorita, oculta, en la lista): el texto solo no
+                             alcanzaba — la píldora se veía igual en los dos estados, mientras que
+                             el ★ de la celda sí se pone dorado. Va antes del hover para que el
+                             mouse encima siga ganando. Lo prende el code-behind con Tag="on". -->
+                        <Trigger Property="Tag" Value="on">
+                            <Setter TargetName="bd" Property="Background" Value="#3AC9A961" />
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+                            <Setter Property="Foreground" Value="{StaticResource Gold}" />
+                        </Trigger>
+                        <!-- Ocultar es la única acción "negativa": prendida va en rojo, igual que
+                             el ⊘ de la celda. -->
+                        <Trigger Property="Tag" Value="off-warn">
+                            <Setter TargetName="bd" Property="Background" Value="#3AC1443A" />
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource ErrorText}" />
+                            <Setter Property="Foreground" Value="{StaticResource ErrorText}" />
+                        </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="{StaticResource Red}" />
                             <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+                            <Setter Property="Foreground" Value="{StaticResource Text}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.4" />
@@ -463,10 +517,42 @@
         </Setter>
     </Style>
 
-    <!-- ══ Riel de colapso de panel lateral ══
-         Manija de altura completa entre el panel y el centro. Reemplaza a los chips
-         "Filtros"/"Panel" de la barra superior. Su columna NUNCA colapsa: es la única
-         forma de reabrir el panel.
+    <!-- ══ Divisoria arrastrable del panel lateral ══
+         La columna del riel hace DOS cosas: arrastrarla mueve el borde del panel (GridSplitter,
+         estilo PaneSplitter) y el nudo del centro lo colapsa de un click. Por eso el chevron dejó
+         de ocupar toda la altura: si la píldora tapaba la columna entera, no quedaba dónde
+         agarrar para arrastrar. Su columna NUNCA colapsa: es la única forma de reabrir el panel. -->
+    <Style x:Key="PaneSplitter" TargetType="GridSplitter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="ResizeDirection" Value="Columns" />
+        <Setter Property="ResizeBehavior" Value="PreviousAndNext" />
+        <Setter Property="Cursor" Value="SizeWE" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="GridSplitter">
+                    <Border Background="Transparent">
+                        <!-- Línea fina de 1px: dice "acá hay un borde" sin pesar visualmente. -->
+                        <Rectangle x:Name="line" Width="1" HorizontalAlignment="Center"
+                                   Fill="{StaticResource Outline}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="line" Property="Fill" Value="{StaticResource GoldDim}" />
+                            <Setter TargetName="line" Property="Width" Value="2" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Nudo de colapso, centrado sobre la divisoria.
          Content = glifo con el panel abierto; Tag = glifo con el panel colapsado.
          El chevron apunta adónde se va el borde al hacer click. -->
     <Style x:Key="PaneRail" TargetType="ToggleButton">
@@ -475,6 +561,8 @@
         <Setter Property="FontSize" Value="11" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="IsChecked" Value="True" />
+        <Setter Property="Height" Value="62" />
+        <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">

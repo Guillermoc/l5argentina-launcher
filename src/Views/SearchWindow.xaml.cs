@@ -116,18 +116,24 @@ namespace L5ArgentinaLauncher.Views
                         _honorMin, _honorMax, _pHonorMin, _pHonorMax, _focusMin, _focusMax;
         private CheckBox _forceSpecial, _costSpecial, _honorNeg, _pHonorNeg;
 
+        /// <summary>
+        /// Una opción de orden **incluye su dirección**: antes eran dos controles (el combo y un
+        /// `↑`/`↓` aparte) para un solo concepto, y había que mirar los dos para saber cómo estaba
+        /// ordenado. Cada campo aparece dos veces, ascendente y descendente.
+        /// </summary>
         private class SortOption
         {
             public string Label;
             public SortField Field;
-            public override string ToString() => Label;
+            public bool Ascending;
+            public override string ToString() => Label + (Ascending ? "  ↑" : "  ↓");
         }
 
         /// <summary>
         /// Qué es el conjunto activo del selector de la barra. Las dos últimas no son conjuntos:
         /// son las entradas que cambian de nivel el desplegable (listas ⇄ mazos).
         /// </summary>
-        private enum SetKind { None, List, Deck, Hidden, ShowDecks, BackToLists }
+        private enum SetKind { None, List, Deck, Hidden, ShowDecks, BackToLists, NewList, DeleteList }
 
         /// <summary>Ítem del selector de conjunto activo de la barra.</summary>
         private class SetChoice
@@ -138,8 +144,14 @@ namespace L5ArgentinaLauncher.Views
             public string Label;
             public override string ToString() => Label;
 
-            /// <summary>Las acciones del desplegable no seleccionan nada, navegan.</summary>
-            public bool IsAction => Kind == SetKind.ShowDecks || Kind == SetKind.BackToLists;
+            /// <summary>
+            /// Las acciones del desplegable no seleccionan un conjunto: navegan o abren un diálogo.
+            /// Crear y borrar viven acá y no como botones al lado del combo porque son operaciones
+            /// sobre lo que el combo lista, y se usan una vez cada tanto: dos botones permanentes
+            /// para eso era caro. Es el mismo patrón que ya usaba "Usar mazo…".
+            /// </summary>
+            public bool IsAction => Kind == SetKind.ShowDecks || Kind == SetKind.BackToLists ||
+                                    Kind == SetKind.NewList || Kind == SetKind.DeleteList;
 
             /// <summary>Solo las listas se cargan con el ≡ de las celdas.</summary>
             public bool IsToggleable => Kind == SetKind.List;
@@ -180,22 +192,30 @@ namespace L5ArgentinaLauncher.Views
             KwCombo.AddHandler(TextBoxBase.TextChangedEvent, new TextChangedEventHandler((s, e) => KwComboTextChanged(KwCombo)));
             NegKwCombo.AddHandler(TextBoxBase.TextChangedEvent, new TextChangedEventHandler((s, e) => KwComboTextChanged(NegKwCombo)));
 
-            SortCombo.ItemsSource = new[]
+            // los 6 de la app primero; después los extras del launcher (cabeceras)
+            var sortFields = new[]
             {
-                // los 6 de la app primero; después los extras del launcher (cabeceras)
-                new SortOption { Label = Strings.Get("Search_Sort_Name"), Field = SortField.NAME },
-                new SortOption { Label = Strings.Get("Search_Sort_Cost"), Field = SortField.COST },
-                new SortOption { Label = Strings.Get("Search_Sort_Force"), Field = SortField.FORCE },
-                new SortOption { Label = Strings.Get("Search_Sort_Chi"), Field = SortField.CHI },
-                new SortOption { Label = Strings.Get("Search_Sort_PHonor"), Field = SortField.PERSONAL_HONOR },
-                new SortOption { Label = Strings.Get("Search_Sort_Set"), Field = SortField.SET },
-                new SortOption { Label = Strings.Get("Search_Sort_Type"), Field = SortField.TYPE },
-                new SortOption { Label = Strings.Get("Search_Sort_Clan"), Field = SortField.CLAN },
-                new SortOption { Label = Strings.Get("Search_Sort_Rarity"), Field = SortField.RARITY },
-                new SortOption { Label = Strings.Get("Search_Sort_Honor"), Field = SortField.HONOR_REQ },
-                new SortOption { Label = Strings.Get("Search_Sort_Focus"), Field = SortField.FOCUS },
+                new { Key = "Search_Sort_Name", Field = SortField.NAME },
+                new { Key = "Search_Sort_Cost", Field = SortField.COST },
+                new { Key = "Search_Sort_Force", Field = SortField.FORCE },
+                new { Key = "Search_Sort_Chi", Field = SortField.CHI },
+                new { Key = "Search_Sort_PHonor", Field = SortField.PERSONAL_HONOR },
+                new { Key = "Search_Sort_Set", Field = SortField.SET },
+                new { Key = "Search_Sort_Type", Field = SortField.TYPE },
+                new { Key = "Search_Sort_Clan", Field = SortField.CLAN },
+                new { Key = "Search_Sort_Rarity", Field = SortField.RARITY },
+                new { Key = "Search_Sort_Honor", Field = SortField.HONOR_REQ },
+                new { Key = "Search_Sort_Focus", Field = SortField.FOCUS },
             };
+            SortCombo.ItemsSource = sortFields
+                .SelectMany(f => new[]
+                {
+                    new SortOption { Label = Strings.Get(f.Key), Field = f.Field, Ascending = true },
+                    new SortOption { Label = Strings.Get(f.Key), Field = f.Field, Ascending = false },
+                })
+                .ToList();
             SortCombo.SelectedIndex = 0;
+            UpdateZoomLabel();
 
             // Cabeceras de la tabla → campo de orden (click = ordenar; 2º click = invertir)
             var gv = (GridView)ResultsList.View;
@@ -422,7 +442,6 @@ namespace L5ArgentinaLauncher.Views
             ResultsList.ItemsSource = _results;
             ResultCount.Text = Strings.Format("Fmt_SearchResults", _results.Count);
             RefreshFilterSummary();
-            UpdateSortDirLabel();
 
             _gridDirty = true;
             if (CardGrid.Visibility == Visibility.Visible) BuildGrid(selectedId);
@@ -510,8 +529,8 @@ namespace L5ArgentinaLauncher.Views
                 IncludeNegativePersonalHonor = _pHonorNeg.IsChecked == true,
                 FocusMin = ParseIntBox(_focusMin),
                 FocusMax = ParseIntBox(_focusMax),
-                SortField = (SortCombo.SelectedItem as SortOption)?.Field ?? SortField.NAME,
-                SortAscending = SortDirBtn.IsChecked != true,
+                SortField = SelectedSort?.Field ?? SortField.NAME,
+                SortAscending = SelectedSort?.Ascending ?? true,
             };
         }
 
@@ -541,6 +560,10 @@ namespace L5ArgentinaLauncher.Views
             // en compacto el resumen no entra; el chip de "Solo lista" y los toggles siguen a la vista
             FilterSummary.Visibility = parts.Count == 0 || _compact
                 ? Visibility.Collapsed : Visibility.Visible;
+            // "Limpiar" solo aparece cuando hay algo que limpiar: un botón permanente que la mitad
+            // del tiempo no hace nada ocupa el lugar de arranque de la fila de filtros sin decir
+            // nada. Ahora su presencia ES la señal de que hay filtros puestos.
+            ClearFiltersBtn.Visibility = parts.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         }
 
         /// <summary>Click en el resumen: el texto completo, porque en la barra va recortado.</summary>
@@ -596,10 +619,14 @@ namespace L5ArgentinaLauncher.Views
             return min != null ? $"{label}≥{min}" : $"{label}≤{max}";
         }
 
-        private void UpdateSortDirLabel()
+        private SortOption SelectedSort => SortCombo.SelectedItem as SortOption;
+
+        /// <summary>Selecciona la opción (campo, dirección) sin disparar un recálculo de más.</summary>
+        private void SelectSort(SortField field, bool ascending)
         {
-            var desc = SortDirBtn.IsChecked == true;
-            SortDirBtn.Content = desc ? "↓" : "↑";
+            var match = (SortCombo.ItemsSource as IEnumerable<SortOption>)
+                ?.FirstOrDefault(o => o.Field == field && o.Ascending == ascending);
+            if (match != null) SortCombo.SelectedItem = match;
         }
 
         /// <summary>Click en una cabecera de la tabla: ordena por esa columna; repetir invierte.</summary>
@@ -607,16 +634,10 @@ namespace L5ArgentinaLauncher.Views
         {
             var header = e.OriginalSource as GridViewColumnHeader;
             if (header?.Column == null || !_headerSort.TryGetValue(header.Column, out var field)) return;
-            var current = (SortCombo.SelectedItem as SortOption)?.Field ?? SortField.NAME;
+            var current = SelectedSort;
             _initializing = true;
-            if (current == field)
-                SortDirBtn.IsChecked = SortDirBtn.IsChecked != true;
-            else
-            {
-                SortCombo.SelectedItem = (SortCombo.ItemsSource as IEnumerable<SortOption>)
-                    ?.FirstOrDefault(o => o.Field == field);
-                SortDirBtn.IsChecked = false;
-            }
+            // repetir la misma cabecera invierte; cambiar de columna arranca ascendente
+            SelectSort(field, current != null && current.Field == field ? !current.Ascending : true);
             _initializing = false;
             Recompute();
         }
@@ -638,6 +659,15 @@ namespace L5ArgentinaLauncher.Views
         // Lo que el usuario eligió cuando la ventana era ancha, para restaurarlo al volver.
         private bool _wantFilters = true, _wantDetail = true;
 
+        /// <summary>
+        /// Por debajo de esto un panel deja de ser usable (los chips de filtro se parten, el
+        /// detalle no entra), así que arrastrar más allá lo colapsa en vez de dejarlo inservible.
+        /// </summary>
+        private const double MinPaneWidth = 180;
+
+        // Ancho elegido por el usuario con el mouse; es lo que se restaura al reabrir el panel.
+        private double _filtersWidth = 270, _detailWidth = 405;
+
         private void PaneToggle_Click(object sender, RoutedEventArgs e)
         {
             _wantFilters = FiltersPaneBtn.IsChecked == true;
@@ -649,11 +679,45 @@ namespace L5ArgentinaLauncher.Views
         {
             var filtersOn = FiltersPaneBtn.IsChecked == true;
             FiltersPanel.Visibility = filtersOn ? Visibility.Visible : Visibility.Collapsed;
-            FiltersCol.Width = new GridLength(filtersOn ? 270 : 0);
+            FiltersCol.Width = new GridLength(filtersOn ? _filtersWidth : 0);
+            FiltersSplitter.IsEnabled = filtersOn && !_narrow;
 
             var detailOn = DetailPaneBtn.IsChecked == true;
             DetailPanelBorder.Visibility = detailOn ? Visibility.Visible : Visibility.Collapsed;
-            DetailCol.Width = new GridLength(detailOn ? 405 : 0);
+            DetailCol.Width = new GridLength(detailOn ? _detailWidth : 0);
+            DetailSplitter.IsEnabled = detailOn && !_narrow;
+        }
+
+        /// <summary>
+        /// Arrastre de la divisoria izquierda. El `GridSplitter` ya movió la columna; acá solo se
+        /// decide si el panel sigue teniendo sentido: por debajo del mínimo se colapsa y se corta
+        /// el arrastre, que es lo que el usuario está pidiendo cuando empuja el borde hasta el fondo.
+        /// </summary>
+        private void FiltersSplitter_DragDelta(object sender, DragDeltaEventArgs e) =>
+            ClampPane(FiltersCol, FiltersPaneBtn, ref _filtersWidth);
+
+        private void DetailSplitter_DragDelta(object sender, DragDeltaEventArgs e) =>
+            ClampPane(DetailCol, DetailPaneBtn, ref _detailWidth);
+
+        private void ClampPane(ColumnDefinition column, ToggleButton rail, ref double remembered)
+        {
+            if (column.ActualWidth < MinPaneWidth)
+            {
+                // se recuerda el último ancho *válido*, no el pisado: al reabrir vuelve a algo usable
+                rail.IsChecked = false;
+                PaneToggle_Click(rail, null);
+                return;
+            }
+            remembered = column.ActualWidth;
+        }
+
+        /// <summary>Al soltar, la columna queda fija en píxeles: el centro (`*`) absorbe el resto.</summary>
+        private void Splitter_DragCompleted(object sender, DragCompletedEventArgs e)
+        {
+            // El GridSplitter convierte la columna central de `*` a píxeles al arrastrar, y ahí la
+            // ventana deja de repartir bien el ancho al redimensionar. Se devuelve a estrella.
+            CenterCol.Width = new GridLength(1, GridUnitType.Star);
+            ApplyPanes();
         }
 
         /// <summary>
@@ -698,8 +762,10 @@ namespace L5ArgentinaLauncher.Views
             ActiveDeckBlock.Visibility = hidden;
             FilterSummary.Visibility = compact ? Visibility.Collapsed
                 : (FilterSummary.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed);
-            ZoomOutBtn.Visibility = hidden;
-            ZoomInBtn.Visibility = hidden;
+            // El zoom ya no se esconde: dejó de ser dos botones y ahora es parte del segmentado de
+            // vista, así que sacarlo dejaría el grupo cortado por la mitad. El que sí ocupa (un chip
+            // con etiqueta larga) es "Expandir impresiones", y esa es una sub-opción de la grilla.
+            ExpandPrintsBtn.Visibility = hidden;
         }
 
         /// <summary>
@@ -726,9 +792,8 @@ namespace L5ArgentinaLauncher.Views
             ViewListBtn.IsChecked = !grid;
             ExpandPrintsBtn.IsEnabled = grid;
             // el zoom es de la grilla: en vista Lista no aplica
-            ZoomOutBtn.IsEnabled = grid && _zoom > 0;
-            ZoomInBtn.IsEnabled = grid && _zoom < ZoomWidths.Length - 1;
-            if (!grid) HidePreview(); // la previsualización cuelga de las celdas
+            ZoomBtn.IsEnabled = grid;
+            if (!grid) ZoomPopup.IsOpen = false;
 
             var selectedId = _selectedCell?.Card.Id ?? (ResultsList.SelectedItem as Card)?.Id;
             CardGrid.Visibility = grid ? Visibility.Visible : Visibility.Collapsed;
@@ -854,8 +919,44 @@ namespace L5ArgentinaLauncher.Views
         private void Help_Click(object sender, RoutedEventArgs e) =>
             Dialogs.Info(this, Strings.Get("Help_ShortcutsTitle"), Strings.Get("Help_ShortcutsSearch"));
 
-        private void ZoomOut_Click(object sender, RoutedEventArgs e) => SetZoom(_zoom - 1);
-        private void ZoomIn_Click(object sender, RoutedEventArgs e) => SetZoom(_zoom + 1);
+        /// <summary>
+        /// El zoom dejó de ser dos botones (`－`/`＋`) para ser un desplegable pegado a Lista|Grilla:
+        /// es una propiedad de la vista, igual que ellas, y dos botones permanentes para cuatro
+        /// escalones eran caros para lo que aportaban. Los atajos (Ctrl+rueda) siguen igual.
+        /// </summary>
+        // El popup sigue al ESTADO del toggle, no al click: así queda consistente aunque el
+        // IsChecked lo cambie otra cosa (el propio Closed del popup, un atajo, automatización).
+        private void ZoomBtn_Checked(object sender, RoutedEventArgs e)
+        {
+            BuildZoomOptions();
+            ZoomPopup.IsOpen = true;
+        }
+
+        private void ZoomBtn_Unchecked(object sender, RoutedEventArgs e) => ZoomPopup.IsOpen = false;
+
+        private void ZoomPopup_Closed(object sender, EventArgs e) => ZoomBtn.IsChecked = false;
+
+        private void BuildZoomOptions()
+        {
+            ZoomOptions.Children.Clear();
+            for (var i = 0; i < ZoomWidths.Length; i++)
+            {
+                var level = i;
+                var row = new Button
+                {
+                    Style = (Style)FindResource("MenuRow"),
+                    Content = (level == _zoom ? "• " : "    ") + Strings.Get(ZoomLabelKeys[level]),
+                };
+                row.Click += (s, ev) => { ZoomPopup.IsOpen = false; SetZoom(level); };
+                ZoomOptions.Children.Add(row);
+            }
+        }
+
+        private static readonly string[] ZoomLabelKeys =
+            { "Search_ZoomTiny", "Search_ZoomSmall", "Search_ZoomNormal", "Search_ZoomLarge" };
+
+        /// <summary>El botón muestra el tamaño actual: sin eso el desplegable no dice en qué está.</summary>
+        private void UpdateZoomLabel() => ZoomBtn.Content = Strings.Get(ZoomLabelKeys[_zoom]) + "  ▾";
 
         /// <summary>Ctrl+rueda = zoom, como en cualquier visor. Sin Ctrl, la rueda scrollea.</summary>
         private void CardGrid_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -883,8 +984,7 @@ namespace L5ArgentinaLauncher.Views
             CellWidth = CellWidthFor(zoom);
             CellHeight = Math.Round(CellWidth * CardAspect);
             IsTinyZoom = zoom == 0;
-            ZoomOutBtn.IsEnabled = zoom > 0;
-            ZoomInBtn.IsEnabled = zoom < ZoomWidths.Length - 1;
+            UpdateZoomLabel();
 
             if (CardGrid.Visibility != Visibility.Visible) return;
             ChunkGrid();             // reagrupa las MISMAS VMs con el ancho de fila nuevo
@@ -973,6 +1073,43 @@ namespace L5ArgentinaLauncher.Views
         }
 
         private void GridCell_MouseLeave(object sender, MouseEventArgs e) => HidePreview();
+
+        /// <summary>
+        /// Alt sobre la vista Lista. Va sobre el `ListView` y no sobre cada fila porque las filas
+        /// están virtualizadas (se reciclan): enganchar el evento en el contenedor y buscar la fila
+        /// bajo el cursor es lo que sobrevive al reciclado. Los candidatos se resuelven acá porque
+        /// la tabla bindea `Card` directo, sin `GridCell` que los traiga.
+        /// </summary>
+        private void ResultsList_MouseMove(object sender, MouseEventArgs e)
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Alt) == 0) { HidePreview(); return; }
+            var card = RowCardAt(e.OriginalSource as DependencyObject);
+            if (card == null) { HidePreview(); return; }
+            if (HoverPreview.IsOpen && _previewCardId == card.Id) return;
+
+            var image = CardImageClipboard.LoadFull(
+                _resolver.ResolveCandidates(card, null, fallbackChain: true));
+            if (image == null) { HidePreview(); return; }
+            _previewCardId = card.Id;
+            HoverPreviewImage.Source = image;
+            HoverPreview.IsOpen = false; // reabrir la reposiciona en el cursor actual
+            HoverPreview.IsOpen = true;
+        }
+
+        private void ResultsList_MouseLeave(object sender, MouseEventArgs e) => HidePreview();
+
+        /// <summary>Sube por el árbol visual hasta la fila y devuelve su carta (null fuera de una).</summary>
+        private static Card RowCardAt(DependencyObject source)
+        {
+            while (source != null && !(source is ListViewItem))
+            {
+                if (source is System.Windows.Media.Visual || source is System.Windows.Media.Media3D.Visual3D)
+                    source = VisualTreeHelper.GetParent(source);
+                else
+                    source = LogicalTreeHelper.GetParent(source);
+            }
+            return (source as ListViewItem)?.DataContext as Card;
+        }
 
         private void HidePreview()
         {
@@ -1075,7 +1212,6 @@ namespace L5ArgentinaLauncher.Views
                 check.IsChecked = false;
 
             SortCombo.SelectedIndex = 0;
-            SortDirBtn.IsChecked = false;
 
             _initializing = false;
             Recompute();
@@ -1174,6 +1310,14 @@ namespace L5ArgentinaLauncher.Views
             {
                 // "Tabs" a la desktop: otra ventana del Buscador sobre el mismo catálogo
                 new SearchWindow(_catalogRef, _installPathRef).Show();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.D && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                // El botón "Mazos" salió de la barra (era el gemelo del nombre del mazo, que ya
+                // abre la ventana). Esto cubre el caso en que la barra está achicada y el bloque
+                // del mazo activo no se ve.
+                DecksBtn_Click(sender, e);
                 e.Handled = true;
             }
         }
@@ -1324,8 +1468,8 @@ namespace L5ArgentinaLauncher.Views
             _focusMax.Text = c.FocusMax?.ToString() ?? "";
 
             SortCombo.SelectedItem = (SortCombo.ItemsSource as IEnumerable<SortOption>)?
-                .FirstOrDefault(o => o.Field == c.SortField) ?? SortCombo.Items[0];
-            SortDirBtn.IsChecked = !c.SortAscending;
+                .FirstOrDefault(o => o.Field == c.SortField && o.Ascending == c.SortAscending)
+                ?? SortCombo.Items[0];
 
             var restored = ResolveSetFromCriteria(c);
             if (restored != null)
@@ -1585,6 +1729,9 @@ namespace L5ArgentinaLauncher.Views
                 // por celda, y como conjunto no aportaba nada que no estuviera a un click.
                 items.Add(new SetChoice { Kind = SetKind.Hidden, Name = "hidden", Label = Strings.Get("Search_SetHidden") });
                 items.Add(new SetChoice { Kind = SetKind.ShowDecks, Label = Strings.Get("Search_SetUseDeck") });
+                items.Add(new SetChoice { Kind = SetKind.NewList, Label = Strings.Get("Search_SetNewList") });
+                if (_activeSet?.Kind == SetKind.List)
+                    items.Add(new SetChoice { Kind = SetKind.DeleteList, Label = Strings.Get("Search_SetDeleteList") });
             }
 
             // el conjunto activo se re-referencia contra los ítems nuevos (los objetos cambian
@@ -1595,15 +1742,27 @@ namespace L5ArgentinaLauncher.Views
             SetFilterCombo.SelectedItem = current;
             _listComboSyncing = false;
             _activeSet = current.IsAction ? _activeSet : current;
-            UpdateSetButtons();
+        }
+
+        /// <summary>
+        /// Devuelve la selección del combo al conjunto activo. Hace falta después de elegir una
+        /// acción: el ítem "＋ Lista nueva…" queda seleccionado en el ComboBox aunque no sea un
+        /// conjunto, y sin esto la barra mostraría esa leyenda como si fuera el filtro puesto.
+        /// </summary>
+        private void ReselectSet()
+        {
+            var items = SetFilterCombo.ItemsSource as IEnumerable<SetChoice>;
+            var current = items?.FirstOrDefault(i => SameSet(i, _activeSet)) ?? items?.FirstOrDefault();
+            if (current == null) return;
+            _listComboSyncing = true;
+            SetFilterCombo.SelectedItem = current;
+            _listComboSyncing = false;
         }
 
         private static bool SameSet(SetChoice a, SetChoice b) =>
             a != null && b != null && a.Kind == b.Kind &&
             string.Equals(a.Name, b.Name, StringComparison.Ordinal);
 
-        /// <summary>El 🗑 solo borra listas; el ＋ crea listas siempre.</summary>
-        private void UpdateSetButtons() => ListDeleteBtn.IsEnabled = _activeSet?.Kind == SetKind.List;
 
         private void SetFilterCombo_Changed(object sender, SelectionChangedEventArgs e)
         {
@@ -1613,6 +1772,9 @@ namespace L5ArgentinaLauncher.Views
 
             if (choice.IsAction)
             {
+                if (choice.Kind == SetKind.NewList) { ReselectSet(); ListCreate_Click(sender, e); return; }
+                if (choice.Kind == SetKind.DeleteList) { ReselectSet(); ListDelete_Click(sender, e); return; }
+
                 _showingDecks = choice.Kind == SetKind.ShowDecks;
                 RefreshSetCombo();
                 // el usuario pidió ver la otra lista de opciones: se la abrimos, en vez de
@@ -1626,7 +1788,6 @@ namespace L5ArgentinaLauncher.Views
             // la lista activa es global (la comparten las ventanas del Buscador); un mazo o las
             // favoritas como conjunto de filtro no cambian a dónde escribe el ≡
             if (choice.Kind == SetKind.List) _library.ActiveListId = choice.Id;
-            UpdateSetButtons();
             RefreshCellStates(); // el ≡ de las celdas apunta al conjunto nuevo
             UpdateDetailActions();
             if (QuickListBtn.IsChecked == true) Recompute();
@@ -1766,13 +1927,20 @@ namespace L5ArgentinaLauncher.Views
             // clickear (con un mazo o las favoritas como conjunto, el ≡ no aplica: los mazos
             // tienen sus +/− y las favoritas su ★)
             ListBtn.IsEnabled = hasCard && list != null;
-            FavBtn.Content = hasCard && _store.Data.Favorites.Contains(_detailCard.Id)
-                ? Strings.Get("Search_Fav_Remove") : Strings.Get("Search_Fav_Add");
-            HideBtn.Content = hasCard && _store.Data.Hidden.Contains(_detailCard.Id)
-                ? Strings.Get("Search_Unhide") : Strings.Get("Search_Hide");
-            ListBtn.Content = hasCard && list != null &&
-                list.Cards.Any(en => string.Equals(en.CardId, _detailCard.Id, StringComparison.Ordinal))
-                ? Strings.Get("Search_ListRemove") : Strings.Get("Search_ListAdd");
+            // El texto dice qué hace el click; el Tag dice en qué estado está la carta. Sin lo
+            // segundo la píldora se veía igual puesta que sin poner, y el ★ de la celda sí marca.
+            var isFav = hasCard && _store.Data.Favorites.Contains(_detailCard.Id);
+            FavBtn.Content = isFav ? Strings.Get("Search_Fav_Remove") : Strings.Get("Search_Fav_Add");
+            FavBtn.Tag = isFav ? "on" : null;
+
+            var isHidden = hasCard && _store.Data.Hidden.Contains(_detailCard.Id);
+            HideBtn.Content = isHidden ? Strings.Get("Search_Unhide") : Strings.Get("Search_Hide");
+            HideBtn.Tag = isHidden ? "off-warn" : null;
+
+            var inList = hasCard && list != null &&
+                list.Cards.Any(en => string.Equals(en.CardId, _detailCard.Id, StringComparison.Ordinal));
+            ListBtn.Content = inList ? Strings.Get("Search_ListRemove") : Strings.Get("Search_ListAdd");
+            ListBtn.Tag = inList ? "on" : null;
         }
 
         private void ListBtn_Click(object sender, RoutedEventArgs e)

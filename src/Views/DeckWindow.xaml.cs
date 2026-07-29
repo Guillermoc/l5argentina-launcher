@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -29,11 +30,13 @@ namespace L5ArgentinaLauncher.Views
     {
         private enum DeckCardSort { GOLD_COST, NAME, FORCE }
 
+        /// <summary>La dirección es parte de la opción, no un botón aparte (igual que el Buscador).</summary>
         private class SortOption
         {
             public string Label;
             public DeckCardSort Field;
-            public override string ToString() => Label;
+            public bool Ascending;
+            public override string ToString() => Label + (Ascending ? "  ↑" : "  ↓");
         }
 
         private class DeckItemVm
@@ -135,13 +138,21 @@ namespace L5ArgentinaLauncher.Views
             _catalog = catalog;
             _installPath = installPath;
 
-            SortCombo.ItemsSource = new[]
+            var sortFields = new[]
             {
-                new SortOption { Label = Strings.Get("Search_Sort_Cost"), Field = DeckCardSort.GOLD_COST },
-                new SortOption { Label = Strings.Get("Search_Sort_Name"), Field = DeckCardSort.NAME },
-                new SortOption { Label = Strings.Get("Search_Sort_Force"), Field = DeckCardSort.FORCE },
+                new { Key = "Search_Sort_Cost", Field = DeckCardSort.GOLD_COST },
+                new { Key = "Search_Sort_Name", Field = DeckCardSort.NAME },
+                new { Key = "Search_Sort_Force", Field = DeckCardSort.FORCE },
             };
+            SortCombo.ItemsSource = sortFields
+                .SelectMany(f => new[]
+                {
+                    new SortOption { Label = Strings.Get(f.Key), Field = f.Field, Ascending = true },
+                    new SortOption { Label = Strings.Get(f.Key), Field = f.Field, Ascending = false },
+                })
+                .ToList();
             SortCombo.SelectedIndex = 0; // _syncing sigue en true desde la construcción
+            UpdateZoomLabel();
 
             DeckSortCombo.ItemsSource = new[]
             {
@@ -212,6 +223,12 @@ namespace L5ArgentinaLauncher.Views
         private bool _narrow;
         private bool _wantDecks = true, _wantSide = true;
 
+        /// <summary>Mismo mínimo que el Buscador: más angosto, el panel deja de servir.</summary>
+        private const double MinPaneWidth = 180;
+
+        // Ancho elegido con el mouse; es lo que se restaura al reabrir el panel.
+        private double _decksWidth = 260, _sideWidth = 405;
+
         private void PaneToggle_Click(object sender, RoutedEventArgs e)
         {
             _wantDecks = DecksPaneBtn.IsChecked == true;
@@ -223,11 +240,42 @@ namespace L5ArgentinaLauncher.Views
         {
             var decksOn = DecksPaneBtn.IsChecked == true;
             DecksPanel.Visibility = decksOn ? Visibility.Visible : Visibility.Collapsed;
-            DecksCol.Width = new GridLength(decksOn ? 260 : 0);
+            DecksCol.Width = new GridLength(decksOn ? _decksWidth : 0);
+            DecksSplitter.IsEnabled = decksOn && !_narrow;
 
             var sideOn = SidePaneBtn.IsChecked == true;
             SidePanel.Visibility = sideOn ? Visibility.Visible : Visibility.Collapsed;
-            SideCol.Width = new GridLength(sideOn ? 405 : 0);
+            SideCol.Width = new GridLength(sideOn ? _sideWidth : 0);
+            SideSplitter.IsEnabled = sideOn && !_narrow;
+        }
+
+        /// <summary>
+        /// Arrastre de las divisorias. Por debajo del mínimo el panel se colapsa en vez de quedar
+        /// inservible: empujar el borde hasta el fondo es justo lo que pide un colapso.
+        /// </summary>
+        private void DecksSplitter_DragDelta(object sender, DragDeltaEventArgs e) =>
+            ClampPane(DecksCol, DecksPaneBtn, ref _decksWidth);
+
+        private void SideSplitter_DragDelta(object sender, DragDeltaEventArgs e) =>
+            ClampPane(SideCol, SidePaneBtn, ref _sideWidth);
+
+        private void ClampPane(ColumnDefinition column, ToggleButton rail, ref double remembered)
+        {
+            if (column.ActualWidth < MinPaneWidth)
+            {
+                rail.IsChecked = false;
+                PaneToggle_Click(rail, null);
+                return;
+            }
+            remembered = column.ActualWidth;
+        }
+
+        private void Splitter_DragCompleted(object sender, DragCompletedEventArgs e)
+        {
+            // El GridSplitter convierte la columna central de `*` a píxeles al arrastrar, y ahí la
+            // ventana deja de repartir bien el ancho al redimensionar. Se devuelve a estrella.
+            CenterCol.Width = new GridLength(1, GridUnitType.Star);
+            ApplyPanes();
         }
 
         /// <summary>
@@ -272,10 +320,7 @@ namespace L5ArgentinaLauncher.Views
             // Los conteos y el "Falta: {slot}" son lo primero que se va: no son accionables desde
             // la barra y el cuerpo del mazo los repite (la fila roja bajo Starter).
             DeckCounts.Visibility = hidden;
-            ZoomOutBtn.Visibility = hidden;
-            ZoomInBtn.Visibility = hidden;
             SortCombo.Visibility = hidden;
-            SortDirBtn.Visibility = hidden;
         }
 
         // ------------------------------------------------------------------ lista de mazos
@@ -617,10 +662,9 @@ namespace L5ArgentinaLauncher.Views
         private void ViewToggle_Click(object sender, RoutedEventArgs e)
         {
             HidePreview();
-            var gridView = ReferenceEquals(sender, ViewGridBtn);
-            ZoomOutBtn.IsEnabled = gridView && _zoom > 0;
-            ZoomInBtn.IsEnabled = gridView && _zoom < ZoomWidths.Length - 1;
             var grid = ReferenceEquals(sender, ViewGridBtn);
+            ZoomBtn.IsEnabled = grid;
+            if (!grid) ZoomPopup.IsOpen = false;
             ViewGridBtn.IsChecked = grid;
             ViewListBtn.IsChecked = !grid;
             RebuildIfReady();
@@ -629,7 +673,6 @@ namespace L5ArgentinaLauncher.Views
         private void RebuildIfReady()
         {
             if (_syncing) return;
-            SortDirBtn.Content = SortDirBtn.IsChecked == true ? "↓" : "↑";
             RebuildDeckBody(_selectedDeckId != null ? Repo.GetDeckById(_selectedDeckId) : null);
         }
 
@@ -661,8 +704,9 @@ namespace L5ArgentinaLauncher.Views
             }
 
             var filter = (FilterBox.Text ?? "").Trim();
-            var sort = (SortCombo.SelectedItem as SortOption)?.Field ?? DeckCardSort.GOLD_COST;
-            var asc = SortDirBtn.IsChecked != true;
+            var selected = SortCombo.SelectedItem as SortOption;
+            var sort = selected?.Field ?? DeckCardSort.GOLD_COST;
+            var asc = selected?.Ascending ?? true;
             var gridView = ViewGridBtn.IsChecked == true;
 
             // Recortadas (quantity=0): siguen en el mazo pero no se juegan. Se muestran grisadas
@@ -793,8 +837,19 @@ namespace L5ArgentinaLauncher.Views
             };
             AnimateIfPending(row, card, trimmed);
             row.MouseEnter += (s, e) => { if (card.Id != _selectedCardId) row.Background = new SolidColorBrush(Color.FromArgb(0x22, 0xC9, 0xA9, 0x61)); };
-            row.MouseLeave += (s, e) => { if (card.Id != _selectedCardId) row.Background = Brushes.Transparent; };
+            row.MouseLeave += (s, e) =>
+            {
+                if (card.Id != _selectedCardId) row.Background = Brushes.Transparent;
+                HidePreview();
+            };
             row.MouseLeftButtonUp += (s, e) => SelectCard(card);
+            // Alt también en la vista Lista: los candidatos se resuelven acá porque la fila no
+            // tiene GridCell. Perezoso: solo se paga cuando Alt está apretado.
+            row.MouseMove += (s, e) =>
+            {
+                if ((Keyboard.Modifiers & ModifierKeys.Alt) == 0) { HidePreview(); return; }
+                ShowPreview(_resolver.ResolveCandidates(card, null, fallbackChain: true), card);
+            };
 
             var dock = new DockPanel { LastChildFill = true };
 
@@ -1028,16 +1083,46 @@ namespace L5ArgentinaLauncher.Views
         private void Help_Click(object sender, RoutedEventArgs e) =>
             Dialogs.Info(this, Strings.Get("Help_ShortcutsTitle"), Strings.Get("Help_ShortcutsDeck"));
 
-        private void ZoomOut_Click(object sender, RoutedEventArgs e) => SetZoom(_zoom - 1);
-        private void ZoomIn_Click(object sender, RoutedEventArgs e) => SetZoom(_zoom + 1);
+        /// <summary>El tamaño de celda es un desplegable del segmentado de vista, como en el Buscador.</summary>
+        // El popup sigue al ESTADO del toggle, no al click: así queda consistente aunque el
+        // IsChecked lo cambie otra cosa (el propio Closed del popup, un atajo, automatización).
+        private void ZoomBtn_Checked(object sender, RoutedEventArgs e)
+        {
+            BuildZoomOptions();
+            ZoomPopup.IsOpen = true;
+        }
+
+        private void ZoomBtn_Unchecked(object sender, RoutedEventArgs e) => ZoomPopup.IsOpen = false;
+
+        private void ZoomPopup_Closed(object sender, EventArgs e) => ZoomBtn.IsChecked = false;
+
+        private static readonly string[] ZoomLabelKeys =
+            { "Search_ZoomTiny", "Search_ZoomSmall", "Search_ZoomNormal", "Search_ZoomLarge" };
+
+        private void BuildZoomOptions()
+        {
+            ZoomOptions.Children.Clear();
+            for (var i = 0; i < ZoomWidths.Length; i++)
+            {
+                var level = i;
+                var row = new Button
+                {
+                    Style = (Style)FindResource("MenuRow"),
+                    Content = (level == _zoom ? "• " : "    ") + Strings.Get(ZoomLabelKeys[level]),
+                };
+                row.Click += (s, ev) => { ZoomPopup.IsOpen = false; SetZoom(level); };
+                ZoomOptions.Children.Add(row);
+            }
+        }
+
+        private void UpdateZoomLabel() => ZoomBtn.Content = Strings.Get(ZoomLabelKeys[_zoom]) + "  ▾";
 
         private void SetZoom(int zoom)
         {
             zoom = Math.Max(0, Math.Min(ZoomWidths.Length - 1, zoom));
             if (zoom == _zoom) return;
             _zoom = zoom;
-            ZoomOutBtn.IsEnabled = zoom > 0;
-            ZoomInBtn.IsEnabled = zoom < ZoomWidths.Length - 1;
+            UpdateZoomLabel();
             // las celdas se construyen en código (no hay plantilla que re-medir): se rearma
             RebuildIfReady();
         }
@@ -1049,11 +1134,18 @@ namespace L5ArgentinaLauncher.Views
         /// El modificador se lee en el MouseMove por lo mismo que en el Buscador: Alt llega como
         /// `Key.System` y compite con la activación de menús.
         /// </summary>
-        private void ShowPreview(GridCell vm, Card card)
+        private void ShowPreview(GridCell vm, Card card) => ShowPreview(vm?.CandidatePaths, card);
+
+        /// <summary>
+        /// Variante por rutas: la vista Lista no arma `GridCell`, así que resuelve los candidatos
+        /// en el momento. Es la misma previsualización, no una segunda.
+        /// </summary>
+        private void ShowPreview(List<string> candidates, Card card)
         {
             if ((Keyboard.Modifiers & ModifierKeys.Alt) == 0) { HidePreview(); return; }
+            if (card == null) { HidePreview(); return; }
             if (HoverPreview.IsOpen && _previewCardId == card.Id) return;
-            var image = CardImageClipboard.LoadFull(vm.CandidatePaths);
+            var image = CardImageClipboard.LoadFull(candidates);
             if (image == null) { HidePreview(); return; }
             _previewCardId = card.Id;
             HoverPreviewImage.Source = image;

@@ -45,6 +45,18 @@
                 <Image x:Name="HoverPreviewImage" Stretch="Uniform" MaxWidth="430" MaxHeight="620" />
             </Border>
         </Popup>
+        <!-- Fuera de la botonera: adentro de un StackPanel el Popup se mide como hijo y le come
+             el ancho a los controles que siguen. Como HoverPreview, vive en la raíz. -->
+        <Popup x:Name="ZoomPopup" PlacementTarget="{Binding ElementName=ZoomBtn}"
+               Placement="Bottom" VerticalOffset="4" HorizontalOffset="-34"
+               AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade"
+               Closed="ZoomPopup_Closed">
+            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource GoldDim}"
+                    BorderThickness="1" CornerRadius="8" Width="176" Padding="0,5">
+                <StackPanel x:Name="ZoomOptions" />
+            </Border>
+        </Popup>
+
         <!-- Capas de fondo -->
         <Rectangle Fill="{StaticResource PaperOverlayBrush}" IsHitTestVisible="False" />
         <Rectangle Fill="{StaticResource BackgroundScrim}" IsHitTestVisible="False" />
@@ -105,9 +117,6 @@
                                     Height="32" FontSize="14" Padding="14,0"
                                     Content="{loc:Loc Deck_OpenSearch}"
                                     ToolTip="{loc:Loc Deck_OpenSearchTip}" Click="OpenSearchBtn_Click" />
-                            <Button x:Name="SideBySideBtn" Style="{StaticResource IconButton}"
-                                    Margin="8,0,0,0" Content="⫞" FontSize="16"
-                                    ToolTip="{loc:Loc Deck_SideBySideTip}" Click="SideBySide_Click" />
                             <Button x:Name="DeckMenuBtn" Style="{StaticResource IconButton}"
                                     Margin="8,0,0,0" Content="⋯" FontSize="17"
                                     ToolTip="{loc:Loc Deck_MenuTip}" Click="DeckMenuBtn_Click" />
@@ -139,6 +148,12 @@
                                     <Button x:Name="OpenFolderBtn" Style="{StaticResource MenuRow}"
                                             Content="{loc:Loc Deck_OpenFolderMenu}" ToolTip="{loc:Loc Deck_OpenFolderTip}"
                                             Click="OpenFolderBtn_Click" />
+                                    <Rectangle Height="1" Margin="10,5" Fill="{StaticResource OutlineSoft}" />
+                                    <!-- Acomodar las ventanas es una acción de VENTANA, no de mazo:
+                                         no le corresponde un botón fijo en la barra del editor. -->
+                                    <Button x:Name="SideBySideBtn" Style="{StaticResource MenuRow}"
+                                            Content="{loc:Loc Deck_SideBySideMenu}"
+                                            ToolTip="{loc:Loc Deck_SideBySideTip}" Click="SideBySide_Click" />
                                     <Rectangle Height="1" Margin="10,5" Fill="{StaticResource OutlineSoft}" />
                                     <Button x:Name="ClearTrimmedBtn" Style="{StaticResource MenuRow}"
                                             Content="{loc:Loc Deck_ClearTrimmedMenu}"
@@ -174,21 +189,15 @@
                                  la app muestra imágenes, así que Grilla es el default) -->
                             <ToggleButton x:Name="ViewListBtn" Style="{StaticResource SegmentLeft}"
                                           Content="{loc:Loc Search_ViewList}" Click="ViewToggle_Click" />
-                            <ToggleButton x:Name="ViewGridBtn" Style="{StaticResource SegmentRight}"
+                            <ToggleButton x:Name="ViewGridBtn" Style="{StaticResource SegmentMid}"
                                           IsChecked="True" Content="{loc:Loc Search_ViewGrid}"
                                           Click="ViewToggle_Click" />
-                            <Button x:Name="ZoomOutBtn" Style="{StaticResource IconButton}" Margin="8,0,0,0"
-                                    Content="－" FontSize="13" ToolTip="{loc:Loc Search_ZoomOutTip}"
-                                    Click="ZoomOut_Click" />
-                            <Button x:Name="ZoomInBtn" Style="{StaticResource IconButton}" Margin="3,0,12,0"
-                                    Content="＋" FontSize="13" ToolTip="{loc:Loc Search_ZoomInTip}"
-                                    Click="ZoomIn_Click" />
-                            <ComboBox x:Name="SortCombo" Style="{StaticResource ChipCombo}" Width="120"
+                            <ToggleButton x:Name="ZoomBtn" Style="{StaticResource SegmentMenu}"
+                                          ToolTip="{loc:Loc Search_ZoomTip}"
+                                          Checked="ZoomBtn_Checked" Unchecked="ZoomBtn_Unchecked" />
+                            <ComboBox x:Name="SortCombo" Style="{StaticResource ChipCombo}" Width="172"
+                                      Margin="12,0,0,0" ToolTip="{loc:Loc Search_SortTip}"
                                       SelectionChanged="Sort_Changed" />
-                            <ToggleButton x:Name="SortDirBtn" Style="{StaticResource IconToggle}"
-                                          Margin="8,0,0,0" IsChecked="False"
-                                          Checked="Sort_Changed" Unchecked="Sort_Changed"
-                                          ToolTip="{loc:Loc Search_SortDirTip}" Content="↑" />
                         </StackPanel>
                     </Grid>
                 </Grid>
@@ -201,10 +210,16 @@
                              son la única forma de reabrir el panel. -->
                         <ColumnDefinition x:Name="DecksCol" Width="260" />
                         <ColumnDefinition Width="18" />
-                        <ColumnDefinition Width="*" MinWidth="300" />
+                        <ColumnDefinition x:Name="CenterCol" Width="*" MinWidth="300" />
                         <ColumnDefinition Width="18" />
                         <ColumnDefinition x:Name="SideCol" Width="405" />
                     </Grid.ColumnDefinitions>
+
+                    <!-- Divisorias arrastrables debajo, chevron de colapso encima (ver ui.md). -->
+                    <GridSplitter x:Name="DecksSplitter" Grid.Column="1" Style="{StaticResource PaneSplitter}"
+                                  DragDelta="DecksSplitter_DragDelta" DragCompleted="Splitter_DragCompleted" />
+                    <GridSplitter x:Name="SideSplitter" Grid.Column="3" Style="{StaticResource PaneSplitter}"
+                                  DragDelta="SideSplitter_DragDelta" DragCompleted="Splitter_DragCompleted" />
 
                     <!-- Rieles: el chevron apunta adónde se va el borde al hacer click. -->
                     <ToggleButton x:Name="DecksPaneBtn" Grid.Column="1" Style="{StaticResource PaneRail}"

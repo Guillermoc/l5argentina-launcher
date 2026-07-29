@@ -412,8 +412,12 @@
   <data name="Deck_State_Complete" xml:space="preserve"><value>Terminados</value></data>
   <data name="Deck_State_Pending" xml:space="preserve"><value>Pendientes</value></data>
   <!-- ═══════ Zoom, previsualización con Alt, ventanas lado a lado ═══════ -->
-  <data name="Search_ZoomOutTip" xml:space="preserve"><value>Achicar las cartas de la grilla</value></data>
-  <data name="Search_ZoomInTip" xml:space="preserve"><value>Agrandar las cartas de la grilla</value></data>
+  <data name="Search_ZoomTip" xml:space="preserve"><value>Tamaño de las cartas en la grilla (también con Ctrl + rueda)</value></data>
+  <data name="Search_ZoomTiny" xml:space="preserve"><value>Muy chicas</value></data>
+  <data name="Search_ZoomSmall" xml:space="preserve"><value>Chicas</value></data>
+  <data name="Search_ZoomNormal" xml:space="preserve"><value>Normales</value></data>
+  <data name="Search_ZoomLarge" xml:space="preserve"><value>Grandes</value></data>
+  <data name="Search_SortTip" xml:space="preserve"><value>Orden de los resultados. La flecha es parte de la opción: ↑ ascendente, ↓ descendente.</value></data>
   <data name="Pane_TooNarrow" xml:space="preserve"><value>La ventana es muy angosta para abrir los paneles: agrandala y vuelven a habilitarse</value></data>
   <data name="Deck_SideBySideTip" xml:space="preserve"><value>Acomodar las ventanas para armar: el Buscador a la izquierda (70 %) y este editor a la derecha (30 %), en vista Lista y con los paneles cerrados</value></data>
   <!-- ═══════ Ayuda: atajos de teclado y mouse ═══════ -->
@@ -422,6 +426,7 @@
   <data name="Help_ShortcutsSearch" xml:space="preserve"><value>TECLADO
 Ctrl + F  —  ir a la barra de búsqueda
 Ctrl + N  —  abrir otra ventana del Buscador
+Ctrl + D  —  abrir la ventana de Mazos
 Esc  —  limpiar la barra de búsqueda
 Enter (en la barra)  —  confirmar el modo operador
 Flecha abajo (en la barra)  —  bajar a los resultados
@@ -431,8 +436,9 @@ MOUSE
 Doble click  —  agregar la carta al mazo activo
 Ctrl + click  —  agregar la carta al mazo activo
 Click derecho  —  copiar la imagen al portapapeles
-Alt + pasar por encima  —  ver la carta en grande
+Alt + pasar por encima  —  ver la carta en grande (grilla y lista)
 Ctrl + rueda  —  achicar o agrandar las cartas
+Arrastrar el borde de un panel  —  cambiarle el ancho; hasta el fondo lo colapsa
 
 PREFIJOS DE LA BARRA
 tx.  —  buscar en el texto de la carta
@@ -442,8 +448,9 @@ t.   —  tipo (Enter para confirmar)</value></data>
   <data name="Help_ShortcutsDeck" xml:space="preserve"><value>MOUSE
 Click en una carta  —  verla en el panel de la derecha
 Click derecho  —  copiar la imagen al portapapeles
-Alt + pasar por encima  —  ver la carta en grande
+Alt + pasar por encima  —  ver la carta en grande (grilla y lista)
 Ctrl + rueda  —  achicar o agrandar las cartas (vista Grilla)
+Arrastrar el borde de un panel  —  cambiarle el ancho; hasta el fondo lo colapsa
 
 EN LA LISTA DE CARTAS DEL MAZO
 −  —  quitar una copia; la última deja la carta recortada
@@ -452,13 +459,15 @@ EN LA LISTA DE CARTAS DEL MAZO
 
 BOTONES DE LA BARRA
 Buscador  —  abrir el Buscador para agregar cartas
-⫞  —  acomodar Buscador y editor lado a lado
-⋯  —  renombrar, duplicar, importar, exportar, carpeta, limpiar recortadas, eliminar</value></data>
+⋯  —  renombrar, duplicar, importar, exportar, PDF, carpeta, lado a lado, limpiar recortadas, eliminar</value></data>
   <data name="Cell_PlusTip" xml:space="preserve"><value>Agregar al mazo activo (Ctrl+click sobre la carta hace lo mismo)</value></data>
   <data name="Cell_MinusTip" xml:space="preserve"><value>Quitar del mazo activo</value></data>
   <data name="Cell_FavTip" xml:space="preserve"><value>Favorita</value></data>
   <data name="Cell_HideTip" xml:space="preserve"><value>Ocultar / mostrar</value></data>
   <data name="Cell_CtrlAddOverlay" xml:space="preserve"><value>Agregar al mazo</value></data>
+  <data name="Search_SetNewList" xml:space="preserve"><value>＋  Lista nueva…</value></data>
+  <data name="Search_SetDeleteList" xml:space="preserve"><value>🗑  Borrar esta lista…</value></data>
+  <data name="Deck_SideBySideMenu" xml:space="preserve"><value>Acomodar lado a lado</value></data>
   <data name="Cell_ListTip" xml:space="preserve"><value>Agregar/quitar de la lista activa</value></data>
   <!-- ═══════ Exportar el mazo a PDF para imprimir (proxies) ═══════ -->
   <data name="Deck_PdfMenu" xml:space="preserve"><value>Exportar a PDF…</value></data>

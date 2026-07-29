@@ -311,6 +311,19 @@
             </Border>
         </Popup>
 
+        <!-- Fuera de la botonera a propósito: un Popup adentro de un StackPanel se mide como
+             hijo y le come el ancho deseado a los controles que vienen después (el orden y la
+             ayuda quedaban fuera de la ventana). Como HoverPreview, vive en la raíz. -->
+        <Popup x:Name="ZoomPopup" PlacementTarget="{Binding ElementName=ZoomBtn}"
+               Placement="Bottom" VerticalOffset="4" HorizontalOffset="-34"
+               AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade"
+               Closed="ZoomPopup_Closed">
+            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource GoldDim}"
+                    BorderThickness="1" CornerRadius="8" Width="176" Padding="0,5">
+                <StackPanel x:Name="ZoomOptions" />
+            </Border>
+        </Popup>
+
         <!-- Capas de fondo -->
         <Rectangle Fill="{StaticResource PaperOverlayBrush}" IsHitTestVisible="False" />
         <Rectangle Fill="{StaticResource BackgroundScrim}" IsHitTestVisible="False" />
@@ -350,81 +363,86 @@
 
                     <!-- Sin título acá: ya lo muestra la barra de título propia (Window.Title).
                          La caja crece hasta 480 y el contador queda pegado a su derecha. -->
-                    <Grid Grid.Row="0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" MaxWidth="480" MinWidth="260" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+                    <!-- DockPanel y no Grid: con dos columnas `*` compitiendo, los controles de
+                         vista/orden de la derecha se quedaban sin ancho y se cortaban fuera de la
+                         ventana. Anclado a la derecha, ese grupo cobra primero su tamaño y lo que
+                         cede es la caja de búsqueda, que puede achicarse sin romperse. -->
+                    <DockPanel Grid.Row="0" LastChildFill="True">
 
-                        <Grid Grid.Column="0">
-                            <TextBox x:Name="NameBox" Style="{StaticResource InvertedTextBox}"
-                                     ToolTip="{loc:Loc Search_BarOperatorsTip}"
-                                     TextChanged="FilterText_Changed" KeyDown="NameBox_KeyDown" />
-                            <TextBlock Text="{loc:Loc Search_NameHint}" Foreground="{StaticResource InputPlace}"
-                                       Margin="16,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="14">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Text, ElementName=NameBox}" Value="">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </Grid>
-
-                        <!-- Contador + resumen de lo que está filtrando. El resumen importa más acá
-                             que en la app: el panel de filtros se colapsa (ADR-035) y sin esto se
-                             puede quedar filtrando sin ninguna señal de por qué. -->
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
-                                    Margin="14,0,18,0">
-                            <TextBlock x:Name="ResultCount" Style="{StaticResource Body}"
-                                       Foreground="{StaticResource Gold}" VerticalAlignment="Center" />
-                            <TextBlock x:Name="FilterSummary" Style="{StaticResource BodySmall}"
-                                       FontSize="11" VerticalAlignment="Center" Margin="9,1,0,0"
-                                       MaxWidth="430" TextTrimming="CharacterEllipsis"
-                                       Cursor="Hand" Visibility="Collapsed"
-                                       ToolTip="{loc:Loc Search_FilterSummaryTip}"
-                                       MouseLeftButtonUp="FilterSummary_Click" />
-                        </StackPanel>
-
-                        <!-- Vista + orden (a la derecha de la fila 1 para que la fila 2 no desborde) -->
-                        <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Vista + orden. Va PRIMERO en el XAML porque en un DockPanel el orden es
+                             el de reparto: anclado a la derecha cobra su ancho antes que nada, y lo
+                             que cede es la caja de búsqueda, que se achica sin romperse. -->
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Vista: las dos opciones + el tamaño de celda, que es lo mismo que
+                                 ellas (una propiedad de la vista) y antes eran dos botones sueltos.
+                                 "Expandir impresiones" cierra el grupo por el mismo motivo: es una
+                                 opción de la grilla, no un filtro, aunque parezca un chip. -->
                             <ToggleButton x:Name="ViewListBtn" Style="{StaticResource SegmentLeft}"
                                           Content="{loc:Loc Search_ViewList}" Click="ViewToggle_Click" />
-                            <ToggleButton x:Name="ViewGridBtn" Style="{StaticResource SegmentRight}"
+                            <ToggleButton x:Name="ViewGridBtn" Style="{StaticResource SegmentMid}"
                                           IsChecked="True" Content="{loc:Loc Search_ViewGrid}"
                                           Click="ViewToggle_Click" />
-                            <!-- Zoom de la grilla: tres tamaños de celda (chico / normal / grande) -->
-                            <Button x:Name="ZoomOutBtn" Style="{StaticResource IconButton}" Margin="8,0,0,0"
-                                    Content="－" FontSize="13" ToolTip="{loc:Loc Search_ZoomOutTip}"
-                                    Click="ZoomOut_Click" />
-                            <Button x:Name="ZoomInBtn" Style="{StaticResource IconButton}" Margin="3,0,0,0"
-                                    Content="＋" FontSize="13" ToolTip="{loc:Loc Search_ZoomInTip}"
-                                    Click="ZoomIn_Click" />
-                            <!-- Sub-opción de la grilla (se deshabilita en vista Lista): chip chico
-                                 para que la etiqueta larga no compita con el segmentado. -->
+                            <ToggleButton x:Name="ZoomBtn" Style="{StaticResource SegmentMenu}"
+                                          ToolTip="{loc:Loc Search_ZoomTip}"
+                                          Checked="ZoomBtn_Checked" Unchecked="ZoomBtn_Unchecked" />
                             <ToggleButton x:Name="ExpandPrintsBtn" Style="{StaticResource FilterChipSmall}"
                                           Margin="8,0,0,0" VerticalAlignment="Center"
                                           Content="{loc:Loc Search_ExpandPrints}"
                                           ToolTip="{loc:Loc Search_ExpandPrintsTip}"
                                           Checked="ExpandPrints_Changed" Unchecked="ExpandPrints_Changed" />
-                            <ComboBox x:Name="SortCombo" Style="{StaticResource ChipCombo}" Width="120" Margin="12,0,0,0"
+                            <!-- Orden y dirección eran dos controles para un solo concepto. Ahora es
+                                 un desplegable donde la flecha es parte de la opción. -->
+                            <ComboBox x:Name="SortCombo" Style="{StaticResource ChipCombo}" Width="172" Margin="10,0,0,0"
+                                      ToolTip="{loc:Loc Search_SortTip}"
                                       SelectionChanged="Filter_Changed" />
-                            <ToggleButton x:Name="SortDirBtn" Style="{StaticResource IconToggle}"
-                                          Margin="8,0,0,0" IsChecked="False"
-                                          Checked="Filter_Changed" Unchecked="Filter_Changed"
-                                          ToolTip="{loc:Loc Search_SortDirTip}" Content="↑" />
                             <!-- Ayuda: discreta al final de la fila, no compite con nada -->
                             <Button x:Name="HelpBtn" Style="{StaticResource IconButton}" Margin="10,0,0,0"
                                     Content="?" FontSize="14" ToolTip="{loc:Loc Help_Tip}"
                                     Click="Help_Click" />
                         </StackPanel>
-                    </Grid>
+
+                        <!-- Lo que sobra: la caja (hasta 480) y, pegado a su derecha, el contador
+                             con el resumen de lo que está filtrando. El resumen importa más acá que
+                             en la app: el panel de filtros se colapsa (ADR-035) y sin esto se puede
+                             quedar filtrando sin ninguna señal de por qué. -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" MaxWidth="480" MinWidth="260" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Grid Grid.Column="0">
+                                <TextBox x:Name="NameBox" Style="{StaticResource InvertedTextBox}"
+                                         ToolTip="{loc:Loc Search_BarOperatorsTip}"
+                                         TextChanged="FilterText_Changed" KeyDown="NameBox_KeyDown" />
+                                <TextBlock Text="{loc:Loc Search_NameHint}" Foreground="{StaticResource InputPlace}"
+                                           Margin="16,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="14">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Text, ElementName=NameBox}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                                        Margin="14,0,18,0">
+                                <TextBlock x:Name="ResultCount" Style="{StaticResource Body}"
+                                           Foreground="{StaticResource Gold}" VerticalAlignment="Center" />
+                                <TextBlock x:Name="FilterSummary" Style="{StaticResource BodySmall}"
+                                           FontSize="11" VerticalAlignment="Center" Margin="9,1,0,0"
+                                           MaxWidth="430" TextTrimming="CharacterEllipsis"
+                                           Cursor="Hand" Visibility="Collapsed"
+                                           ToolTip="{loc:Loc Search_FilterSummaryTip}"
+                                           MouseLeftButtonUp="FilterSummary_Click" />
+                            </StackPanel>
+                        </Grid>
+                    </DockPanel>
 
                     <!-- Los filtros van en un WrapPanel y no en columnas fijas: abajo de ~1000 DIP
                          los grupos no entran en una línea y preferimos que bajen a la siguiente
@@ -472,17 +490,12 @@
                                           Margin="0,0,6,0" Content="{loc:Loc Search_OnlyListShort}"
                                           ToolTip="{loc:Loc Search_OnlyListTip}"
                                           Checked="Filter_Changed" Unchecked="Filter_Changed" />
-                            <ComboBox x:Name="SetFilterCombo" Style="{StaticResource ChipCombo}" Width="172"
+                            <!-- Crear y borrar viven DENTRO del desplegable, como "Usar mazo…": son
+                                 operaciones sobre lo que el combo lista y no justificaban dos
+                                 botones permanentes en la barra. -->
+                            <ComboBox x:Name="SetFilterCombo" Style="{StaticResource ChipCombo}" Width="186"
                                       ToolTip="{loc:Loc Search_ListFilterTip}"
                                       SelectionChanged="SetFilterCombo_Changed" />
-                            <!-- Crear/borrar lista: salieron del panel de filtros a íconos discretos
-                                 pegados al combo, que es donde se elige el conjunto. -->
-                            <Button x:Name="ListNewBtn" Style="{StaticResource IconButton}" Margin="6,0,0,0"
-                                    Content="+" ToolTip="{loc:Loc Search_ListCreateTip}"
-                                    Click="ListCreate_Click" />
-                            <Button x:Name="ListDeleteBtn" Style="{StaticResource IconButton}" Margin="3,0,0,0"
-                                    Content="🗑" FontSize="12" ToolTip="{loc:Loc Search_ListDeleteTip}"
-                                    Click="ListDelete_Click" />
                         </StackPanel>
                         </WrapPanel>
 
@@ -502,10 +515,10 @@
                             <TextBlock x:Name="ActiveDeckCounts" Style="{StaticResource BodySmall}" FontSize="11"
                                        VerticalAlignment="Center" Margin="10,0,0,0"
                                        ToolTip="{loc:Loc Search_ActiveDeckCountsTip}" />
-                            <Button x:Name="DecksBtn" Content="{loc:Loc Search_DecksBtn}"
-                                    Style="{StaticResource GhostButton}" Height="32" FontSize="14" Padding="12,0"
-                                    Margin="10,0,0,0"
-                                    ToolTip="{loc:Loc Search_DecksBtnTip}" Click="DecksBtn_Click" />
+                            <!-- Acá había un botón "Mazos" que llamaba al MISMO handler que el
+                                 nombre del mazo, que ya es clickeable: dos controles pegados para
+                                 una sola acción. Queda el nombre (que además dice a dónde vas) y,
+                                 para cuando la barra se achica y el bloque se esconde, Ctrl+D. -->
                         </StackPanel>
                     </Grid>
                 </Grid>
@@ -520,12 +533,20 @@
                              son la única forma de reabrir el panel. -->
                         <ColumnDefinition x:Name="FiltersCol" Width="270" />
                         <ColumnDefinition Width="18" />
-                        <ColumnDefinition Width="*" MinWidth="300" />
+                        <ColumnDefinition x:Name="CenterCol" Width="*" MinWidth="300" />
                         <ColumnDefinition Width="18" />
                         <ColumnDefinition x:Name="DetailCol" Width="405" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Rieles: el chevron apunta adónde se va el borde al hacer click.
+                    <!-- Divisorias arrastrables. Van ANTES que los chevrons para quedar debajo:
+                         el nudo del centro es del ToggleButton y el resto de la altura, del
+                         splitter. Arrastrar por debajo del mínimo colapsa el panel. -->
+                    <GridSplitter x:Name="FiltersSplitter" Grid.Column="1" Style="{StaticResource PaneSplitter}"
+                                  DragDelta="FiltersSplitter_DragDelta" DragCompleted="Splitter_DragCompleted" />
+                    <GridSplitter x:Name="DetailSplitter" Grid.Column="3" Style="{StaticResource PaneSplitter}"
+                                  DragDelta="DetailSplitter_DragDelta" DragCompleted="Splitter_DragCompleted" />
+
+                    <!-- Nudos de colapso: el chevron apunta adónde se va el borde al hacer click.
                          Content = glifo con el panel abierto; Tag = glifo con el panel colapsado. -->
                     <ToggleButton x:Name="FiltersPaneBtn" Grid.Column="1" Style="{StaticResource PaneRail}"
                                   Content="❮" Tag="❯" ToolTip="{loc:Loc Search_PaneFiltersTip}"
@@ -688,6 +709,7 @@
                               ItemContainerStyle="{StaticResource ResultRow}"
                               GridViewColumnHeader.Click="ResultsHeader_Click"
                               MouseDoubleClick="ResultsList_MouseDoubleClick"
+                              MouseMove="ResultsList_MouseMove" MouseLeave="ResultsList_MouseLeave"
                               VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                               ScrollViewer.HorizontalScrollBarVisibility="Auto"
                               SelectionMode="Single" SelectionChanged="ResultsList_SelectionChanged">
