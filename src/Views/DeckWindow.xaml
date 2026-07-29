@@ -133,6 +133,9 @@
                                     <Button x:Name="ExportBtn" Style="{StaticResource MenuRow}"
                                             Content="{loc:Loc Deck_ExportMenu}" ToolTip="{loc:Loc Deck_ExportTip}"
                                             Click="ExportBtn_Click" />
+                                    <Button x:Name="PdfBtn" Style="{StaticResource MenuRow}"
+                                            Content="{loc:Loc Deck_PdfMenu}" ToolTip="{loc:Loc Deck_PdfTip}"
+                                            Click="PdfBtn_Click" />
                                     <Button x:Name="OpenFolderBtn" Style="{StaticResource MenuRow}"
                                             Content="{loc:Loc Deck_OpenFolderMenu}" ToolTip="{loc:Loc Deck_OpenFolderTip}"
                                             Click="OpenFolderBtn_Click" />

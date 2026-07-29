@@ -343,6 +343,9 @@ namespace L5ArgentinaLauncher
             // ---------- Estado de armado: mazo terminado vs pendiente ----------
             RunDeckStateTests(tempRoot);
 
+            // ---------- Exportación a PDF: geometría de la hoja y estructura del archivo ----------
+            RunPdfExportTests(tempRoot);
+
             // ---------- Opcional: e2e con archivos REALES del bucket ----------
             // Se activa pasando L5A_SELFTEST_BUCKET=<carpeta con manifest.json + zips reales>.
             var realBucket = Environment.GetEnvironmentVariable("L5A_SELFTEST_BUCKET");
@@ -1005,6 +1008,177 @@ namespace L5ArgentinaLauncher
             // Una lista nunca está terminada
             var listId = lib.CreateList("Lista estado");
             Assert(!repo.IsDeckComplete(listId), "Estado: una lista nunca cuenta como terminada");
+        }
+
+        /// <summary>
+        /// Exportación a PDF: la geometría de la hoja (que es lo que hace que la carta impresa mida
+        /// 63×88 mm de verdad) y la estructura del archivo emitido. No necesita fixtures: el JPEG de
+        /// prueba se genera acá mismo.
+        /// </summary>
+        private static void RunPdfExportTests(string tempRoot)
+        {
+            Line("");
+            Line("=== Exportación del mazo a PDF ===");
+
+            // ---- geometría ----
+            var a4 = PdfExporter.Layout(PdfPageSize.A4, margin1mm: false);
+            Assert(a4.PageWidth == 595 && a4.PageHeight == 842, "PDF: A4 mide 595×842 pt");
+            Assert(a4.CardWidth == 179 && a4.CardHeight == 249,
+                "PDF: la carta mide 179×249 pt (63×88 mm a tamaño real)");
+            Assert(a4.Gap == 0, "PDF: sin margen las cartas van pegadas");
+            Assert(a4.OriginX == 29 && a4.OriginY == 47, "PDF: la grilla 3×3 queda centrada en A4");
+
+            var letter = PdfExporter.Layout(PdfPageSize.Letter, margin1mm: false);
+            Assert(letter.PageWidth == 612 && letter.PageHeight == 792, "PDF: Carta mide 612×792 pt");
+            Assert(letter.OriginX == 37 && letter.OriginY == 22, "PDF: la grilla queda centrada en Carta");
+            Assert(letter.CardWidth == a4.CardWidth && letter.CardHeight == a4.CardHeight,
+                "PDF: la carta mide lo mismo en las dos hojas (el tamaño real no depende del papel)");
+
+            var spaced = PdfExporter.Layout(PdfPageSize.A4, margin1mm: true);
+            Assert(spaced.Gap == 3, "PDF: el margen de 1 mm son 3 pt");
+            Assert(spaced.OriginX == 26 && spaced.OriginY == 44,
+                "PDF: con margen la grilla crece y el origen se corre para seguir centrada");
+
+            // ---- nombre de archivo (mismo saneado que la app) ----
+            Assert(PdfExporter.SuggestFileName("Mazo de Prueba", new DateTime(2026, 7, 29, 15, 4, 0))
+                       == "L5A-Mazo-de-Prueba-20260729-1504.pdf",
+                "PDF: el nombre sugerido lleva el mazo saneado y la fecha");
+            Assert(PdfExporter.SuggestFileName("Unicornio!!!", DateTime.Now).StartsWith("L5A-Unicornio-2"),
+                "PDF: los símbolos del final no dejan guiones colgando");
+            Assert(!PdfExporter.SuggestFileName("Mazo/con\\barras", DateTime.Now).Contains("/"),
+                "PDF: el nombre sugerido nunca trae separadores de ruta");
+
+            // ---- hojas ----
+            Assert(PdfExporter.PageCount(0) == 0, "PDF: sin cartas no hay hojas");
+            Assert(PdfExporter.PageCount(9) == 1, "PDF: 9 cartas entran en una hoja");
+            Assert(PdfExporter.PageCount(10) == 2, "PDF: la carta 10 abre una hoja nueva");
+            Assert(PdfExporter.PageCount(40) == 5, "PDF: 40 cartas son 5 hojas");
+
+            // ---- secuencia de impresión ----
+            var pdfDir = Path.Combine(tempRoot, "pdf");
+            Directory.CreateDirectory(pdfDir);
+            var jpegPath = Path.Combine(pdfDir, "carta.jpg");
+            File.WriteAllBytes(jpegPath, MakeTestJpeg(210, 300));
+            var missingPath = Path.Combine(pdfDir, "no-existe.jpg");
+
+            var items = new List<PdfExportItem>
+            {
+                new PdfExportItem { CardName = "A", CandidatePaths = new[] { jpegPath }, Copies = 3 },
+                new PdfExportItem { CardName = "B", CandidatePaths = new[] { missingPath }, Copies = 1 },
+                new PdfExportItem { CardName = "C", CandidatePaths = new[] { jpegPath }, Copies = 0 },
+            };
+            var sequence = PdfExporter.BuildPrintSequence(items);
+            Assert(sequence.Count == 4, "PDF: las copias se expanden (3 + 1 + 0 = 4 cartas)");
+            Assert(sequence.Take(3).All(p => p == jpegPath), "PDF: las copias de una carta van seguidas");
+            Assert(sequence[3] == null, "PDF: una carta sin imagen entra en la secuencia como hueco");
+
+            // ---- cabecera JPEG ----
+            int w, h, comps;
+            bool baseline;
+            Assert(PdfImage.TryReadJpegHeader(File.ReadAllBytes(jpegPath), out w, out h, out comps, out baseline)
+                       && w == 210 && h == 300 && comps == 3 && baseline,
+                "PDF: lee el SOF del JPEG (dimensiones, componentes y baseline)");
+            Assert(!PdfImage.TryReadJpegHeader(new byte[] { 1, 2, 3, 4 }, out w, out h, out comps, out baseline),
+                "PDF: un archivo que no es JPEG no pasa por el camino de embeber directo");
+
+            // ---- documento emitido ----
+            var outPath = Path.Combine(pdfDir, "salida.pdf");
+            var pages = PdfExporter.Write(outPath, items, PdfPageSize.A4, margin1mm: false);
+            Assert(pages == 1 && File.Exists(outPath), "PDF: escribe el archivo y devuelve las hojas");
+            Assert(!File.Exists(outPath + ".tmp"), "PDF: no queda el temporal de escritura");
+
+            var raw = File.ReadAllBytes(outPath);
+            var text = Encoding.ASCII.GetString(raw);
+            Assert(text.StartsWith("%PDF-1.4"), "PDF: arranca con la cabecera %PDF");
+            Assert(text.TrimEnd('\n', '\r').EndsWith("%%EOF"), "PDF: cierra con %%EOF");
+            Assert(text.Contains("xref") && text.Contains("startxref") && text.Contains("/Root 1 0 R"),
+                "PDF: trae tabla xref y trailer con el catálogo");
+            // El error clásico de escribir un PDF a mano: los offsets del xref no caen justo en su
+            // objeto. Algunos visores lo perdonan reconstruyendo la tabla y otros no abren nada.
+            Assert(XrefOffsetsResolve(text), "PDF: cada offset del xref cae exacto en su objeto");
+            Assert(text.Contains("/Type /Pages /Count 1"), "PDF: el árbol de páginas declara 1 hoja");
+            Assert(text.Contains("/MediaBox [0 0 595 842]"), "PDF: la hoja sale del tamaño elegido");
+
+            Assert(CountOccurrences(text, "/DCTDecode") == 1,
+                "PDF: una carta repetida embebe su JPEG una sola vez");
+            Assert(CountOccurrences(text, " Do\n") == 3, "PDF: la referencia a la imagen sí se repite por copia");
+
+            // Origen del PDF abajo-izquierda: la primera carta va arriba de todo, o sea con la Y
+            // alta (842 - 47 - 249 = 546). Sin espejar, el mazo se imprimiría al revés.
+            Assert(text.Contains("179 0 0 249 29 546 cm"),
+                "PDF: la primera carta se ubica arriba a la izquierda (Y espejada)");
+            Assert(text.Contains("0.164706 0.062745 0.031373 rg") && text.Contains(" re f"),
+                "PDF: la carta sin imagen sale como rectángulo placeholder");
+
+            // Segunda hoja: 10 cartas tienen que abrirla de verdad, no solo contarla.
+            var many = new List<PdfExportItem>
+            {
+                new PdfExportItem { CardName = "A", CandidatePaths = new[] { jpegPath }, Copies = 10 },
+            };
+            var multiPath = Path.Combine(pdfDir, "dos-hojas.pdf");
+            Assert(PdfExporter.Write(multiPath, many, PdfPageSize.Letter, margin1mm: true) == 2,
+                "PDF: 10 copias se reparten en dos hojas");
+            var multiText = Encoding.ASCII.GetString(File.ReadAllBytes(multiPath));
+            Assert(CountOccurrences(multiText, "/Type /Page ") == 2, "PDF: emite los dos objetos de hoja");
+            Assert(multiText.Contains("/MediaBox [0 0 612 792]"), "PDF: respeta el tamaño Carta");
+        }
+
+        /// <summary>
+        /// Recorre la tabla xref del PDF y comprueba que el offset del objeto N caiga justo sobre
+        /// "N 0 obj". Cada entrada mide exactamente 20 bytes, así que se indexan por posición.
+        /// </summary>
+        private static bool XrefOffsetsResolve(string pdf)
+        {
+            var startxref = pdf.LastIndexOf("startxref", StringComparison.Ordinal);
+            if (startxref < 0) return false;
+            var xrefAt = 0;
+            if (!int.TryParse(pdf.Substring(startxref + 9).Trim().Split('\n')[0].Trim(), out xrefAt)) return false;
+            if (xrefAt <= 0 || xrefAt >= pdf.Length) return false;
+            if (!pdf.Substring(xrefAt).StartsWith("xref\n", StringComparison.Ordinal)) return false;
+
+            var headerEnd = pdf.IndexOf('\n', xrefAt + 5);
+            if (headerEnd < 0) return false;
+            var header = pdf.Substring(xrefAt + 5, headerEnd - (xrefAt + 5)).Trim().Split(' ');
+            int count;
+            if (header.Length != 2 || !int.TryParse(header[1], out count) || count < 2) return false;
+
+            var entries = headerEnd + 1;   // la entrada 0 es la libre "0000000000 65535 f"
+            for (var n = 1; n < count; n++)
+            {
+                var at = entries + n * 20;
+                if (at + 20 > pdf.Length) return false;
+                int offset;
+                if (!int.TryParse(pdf.Substring(at, 10), out offset)) return false;
+                var expected = n + " 0 obj";
+                if (offset + expected.Length > pdf.Length) return false;
+                if (pdf.Substring(offset, expected.Length) != expected) return false;
+            }
+            return true;
+        }
+
+        /// <summary>JPEG baseline RGB sintético, para no depender de imágenes de cartas reales.</summary>
+        private static byte[] MakeTestJpeg(int width, int height)
+        {
+            var stride = width * 3;
+            var pixels = new byte[stride * height];
+            for (var i = 0; i < pixels.Length; i++) pixels[i] = (byte)(i % 251);
+            var source = System.Windows.Media.Imaging.BitmapSource.Create(
+                width, height, 96, 96, System.Windows.Media.PixelFormats.Rgb24, null, pixels, stride);
+            var encoder = new System.Windows.Media.Imaging.JpegBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(source));
+            using (var memory = new MemoryStream())
+            {
+                encoder.Save(memory);
+                return memory.ToArray();
+            }
+        }
+
+        private static int CountOccurrences(string haystack, string needle)
+        {
+            var count = 0;
+            for (var i = haystack.IndexOf(needle, StringComparison.Ordinal); i >= 0;
+                 i = haystack.IndexOf(needle, i + needle.Length, StringComparison.Ordinal)) count++;
+            return count;
         }
 
         /// <summary>Carga cartas del grupo pedido hasta llegar al total (para armar mazos de prueba).</summary>

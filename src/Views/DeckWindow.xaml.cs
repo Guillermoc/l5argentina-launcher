@@ -550,6 +550,9 @@ namespace L5ArgentinaLauncher.Views
                 btn.IsEnabled = hasDeck;
             ClearTrimmedBtn.IsEnabled = hasDeck && deck.Type != DeckLibrary.ListType &&
                                         deck.Cards.Any(c => c.Quantity == 0);
+            // Imprimir una lista no significa nada: es una selección para filtrar, no un mazo.
+            PdfBtn.Visibility = IsListKind ? Visibility.Collapsed : Visibility.Visible;
+            PdfBtn.IsEnabled = hasDeck && deck.Cards.Any(c => c.Quantity > 0);
             RefreshTrimmedLabel();
 
             DeckTitle.Text = hasDeck ? deck.Name : Strings.Get("Deck_NoDeckSelected");
@@ -1449,6 +1452,22 @@ namespace L5ArgentinaLauncher.Views
             {
                 // portapapeles ocupado por otra app → reintento manual del usuario
             }
+        }
+
+        /// <summary>
+        /// PDF de impresión. Solo tiene sentido sobre un mazo: una lista es una selección para
+        /// filtrar, no algo que se imprima (ADR-045).
+        /// </summary>
+        private void PdfBtn_Click(object sender, RoutedEventArgs e)
+        {
+            DeckMenuPopup.IsOpen = false;
+            if (_selectedDeckId == null) return;
+            if (!Repo.GetCardsWithCards(_selectedDeckId).Any(x => x.Entry.Quantity > 0))
+            {
+                ShowStatus(Strings.Get("Deck_PdfNoCards"));
+                return;
+            }
+            new PdfExportWindow(this, Repo, _resolver, _selectedDeckId).ShowDialog();
         }
 
         private void OpenFolderBtn_Click(object sender, RoutedEventArgs e)

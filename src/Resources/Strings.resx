@@ -460,4 +460,26 @@ Buscador  —  abrir el Buscador para agregar cartas
   <data name="Cell_HideTip" xml:space="preserve"><value>Ocultar / mostrar</value></data>
   <data name="Cell_CtrlAddOverlay" xml:space="preserve"><value>Agregar al mazo</value></data>
   <data name="Cell_ListTip" xml:space="preserve"><value>Agregar/quitar de la lista activa</value></data>
+  <!-- ═══════ Exportar el mazo a PDF para imprimir (proxies) ═══════ -->
+  <data name="Deck_PdfMenu" xml:space="preserve"><value>Exportar a PDF…</value></data>
+  <data name="Deck_PdfTip" xml:space="preserve"><value>Armar un PDF con las cartas del mazo a tamaño real, listo para imprimir y recortar</value></data>
+  <data name="Pdf_WindowTitle" xml:space="preserve"><value>Exportar a PDF</value></data>
+  <data name="Fmt_PdfWindowTitle" xml:space="preserve"><value>Exportar a PDF — {0}</value></data>
+  <data name="Pdf_Intro" xml:space="preserve"><value>Nueve cartas por hoja, a tamaño real (63 × 88 mm). Ajustá cuántas copias imprimir de cada una; el número gris es la cantidad que tiene el mazo. Las recortadas no se imprimen.</value></data>
+  <data name="Pdf_PageSize" xml:space="preserve"><value>Hoja</value></data>
+  <data name="Pdf_PageA4" xml:space="preserve"><value>A4</value></data>
+  <data name="Pdf_PageLetter" xml:space="preserve"><value>Carta</value></data>
+  <data name="Pdf_Margin1mm" xml:space="preserve"><value>Separar 1 mm</value></data>
+  <data name="Pdf_Margin1mmTip" xml:space="preserve"><value>Deja 1 mm entre cartas. Sin esto quedan pegadas y se recorta de un solo corte por línea.</value></data>
+  <data name="Pdf_Generate" xml:space="preserve"><value>Generar PDF</value></data>
+  <data name="Pdf_Reset" xml:space="preserve"><value>Volver al mazo</value></data>
+  <data name="Pdf_ResetTip" xml:space="preserve"><value>Devolver todos los contadores a la cantidad que tiene el mazo</value></data>
+  <data name="Pdf_SaveTitle" xml:space="preserve"><value>Guardar el PDF</value></data>
+  <data name="Pdf_SaveFilter" xml:space="preserve"><value>Documento PDF (*.pdf)|*.pdf</value></data>
+  <data name="Pdf_Open" xml:space="preserve"><value>Abrir</value></data>
+  <data name="Fmt_PdfSummary" xml:space="preserve"><value>{0} cartas · {1} hojas</value></data>
+  <data name="Fmt_PdfDone" xml:space="preserve"><value>Listo: {1}, {0} hojas.</value></data>
+  <data name="Fmt_PdfMissingImages" xml:space="preserve"><value>{0} cartas salieron en blanco porque no tenés su imagen descargada.</value></data>
+  <data name="Fmt_PdfError" xml:space="preserve"><value>No se pudo generar el PDF: {0}</value></data>
+  <data name="Deck_PdfNoCards" xml:space="preserve"><value>El mazo no tiene cartas para imprimir</value></data>
 </root>

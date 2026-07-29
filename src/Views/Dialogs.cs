@@ -61,6 +61,26 @@ namespace L5ArgentinaLauncher.Views
             return dialog.ShowDialog() == true;
         }
 
+        /// <summary>
+        /// Pregunta no destructiva de dos botones ("¿lo abro?"). A diferencia de
+        /// <see cref="Confirm"/>, el botón que acepta es el default y no va en rojo: acá aceptar no
+        /// rompe nada.
+        /// </summary>
+        public static bool Ask(Window owner, string title, string message, string confirmText)
+        {
+            var body = new StackPanel();
+            body.Children.Add(Label(owner, message, wrap: true));
+
+            StackPanel buttons;
+            var dialog = Shell(owner, title, body, out buttons);
+            var ok = Action(owner, confirmText, isDefault: true);
+            ok.Click += (s, e) => dialog.DialogResult = true;
+            buttons.Children.Add(ok);
+            buttons.Children.Add(Cancel(owner, Strings.Get("Btn_Close")));
+
+            return dialog.ShowDialog() == true;
+        }
+
         /// <summary>Aviso de un solo botón (resultado de importar, portapapeles vacío…).</summary>
         public static void Info(Window owner, string title, string message)
         {
