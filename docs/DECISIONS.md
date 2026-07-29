@@ -63,6 +63,7 @@ backlog; su fecha es la del momento en que se tomaron.
 | [048](#adr-048) | El pack propio se identifica por hash, no por id | 2026-07-28 | Vigente |
 | [049](#adr-049) | El PDF de impresión se escribe a mano, sin librería | 2026-07-29 | Vigente |
 | [050](#adr-050) | En la barra van las acciones frecuentes; el resto, al componente que le toca | 2026-07-29 | Vigente |
+| [051](#adr-051) | Los paneles se agrupan por objeto, no por lado de la pantalla | 2026-07-29 | Vigente |
 
 ---
 
@@ -1401,3 +1402,54 @@ dimensionaba el bitmap con las coordenadas virtualizadas (1323) en vez de las f�
 a 125 %). La UI siempre había entrado. Para verificar layout a futuro: `SetProcessDPIAware()` antes
 de capturar, o mejor, medir con **UI Automation** (`BoundingRectangle`), que da números y no píxeles
 para interpretar.
+
+---
+
+<a id="adr-051"></a>
+## ADR-051 — Los paneles se agrupan por objeto, no por lado de la pantalla
+
+**Fecha:** 2026-07-29 · **Estado:** vigente.
+
+**El problema.** El editor tenía cuatro pestañas repartidas en dos paneles colapsables: izquierda
+**Abrir | Filtros**, derecha **Carta | Stats**. El agrupamiento era por *lado de la pantalla* —
+izquierda "controles", derecha "lecturas" — y esa lectura se cae cuando se mira **sobre qué objeto
+opera cada una**:
+
+| Pestaña | Su objeto |
+|---|---|
+| Abrir | la **biblioteca** de mazos (otro mazo) |
+| Filtros | las cartas del **mazo abierto** |
+| Stats | el **mazo abierto**, como un todo |
+| Carta | **una carta** |
+
+"Filtros" y "Stats" hablan del mismo objeto y estaban en paneles opuestos; "Abrir" es de otro alcance
+entero y competía por un slot con "Filtros", que sí se usa mientras se trabaja. El costo concreto:
+**colapsar un panel para ver más cartas apagaba dos cosas sin relación entre sí**. Cerrar la izquierda
+para ganar ancho se llevaba el selector de mazo *y* los filtros.
+
+**Decisión.** Agrupar por objeto:
+
+- **Panel izquierdo → el mazo abierto**: pestañas **Filtros | Stats**. Filtrarlo y medirlo son dos
+  lecturas de lo mismo; colapsar el panel esconde una sola cosa.
+- **Panel derecho → la carta seleccionada**, y nada más. **Sin pestañas**: una sola cosa no necesita
+  elegirse.
+- **Elegir qué mazo abrir deja de ser un panel** y pasa a colgar del **título del mazo**, que ya
+  estaba arriba a la izquierda y es el lugar natural — el mismo patrón que el Buscador, donde el
+  nombre del mazo activo ya es clickeable.
+
+**Por qué un popover y no un `ComboBox`.** "Abrir" no era una lista: tenía segmentado Mazos\|Listas,
+buscador por nombre **o por carta contenida**, y selectores de orden, clan y estado de armado. Un
+combo habría perdido todo eso. El `DeckPickerPopup` se lleva el bloque **entero**, sin recortarle
+nada, y se cierra solo al elegir — que es cuando cumplió su objetivo.
+
+**Por qué el título y no un botón al lado.** Un botón "Abrir mazo…" habría sumado un control más a la
+barra, que es justo lo que [ADR-050](#adr-050) acaba de sacar. El título se lee como título (misma
+tipografía y tamaño) y solo el `▾` y el fondo en hover delatan que es un disparador.
+
+**Consecuencias.**
+
+- El picker necesita `AutomationProperties.Name` puesto a mano: su contenido es un panel y no un
+  texto, así que sin eso el control de navegación principal **no tiene nombre accesible**.
+- El texto de "no hay mazo abierto" decía "elegí un mazo **a la izquierda**": se corrigió, y es el
+  tipo de mentira que un cambio de layout deja sin que el compilador se entere.
+- El panel derecho quedó con un encabezado fijo "Carta" en vez de pestañas.

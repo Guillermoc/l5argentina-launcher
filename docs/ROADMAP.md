@@ -121,9 +121,13 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
   ([ADR-045](DECISIONS.md#adr-045)).
 - ✅ Recorte: bajar una carta a 0 la conserva en el mazo, grisada, en vez de borrarla
   ([ADR-046](DECISIONS.md#adr-046)).
-- ✅ Panel izquierdo con pestañas **Abrir** / **Filtros**: buscar conjuntos por nombre o por carta,
-  ordenar por recientes o alfabético, filtrar por clan y por estado de armado
-  ([ADR-047](DECISIONS.md#adr-047)).
+- ✅ Selector de mazo colgado del **título**: buscar conjuntos por nombre o por carta, ordenar por
+  recientes o alfabético, filtrar por clan y por estado de armado
+  ([ADR-047](DECISIONS.md#adr-047), [ADR-051](DECISIONS.md#adr-051)).
+- ✅ Paneles agrupados **por objeto**: izquierda el mazo abierto (**Filtros | Stats**), derecha la
+  carta ([ADR-051](DECISIONS.md#adr-051)).
+- ✅ Pasada sobre las botoneras de las dos ventanas ([ADR-050](DECISIONS.md#adr-050)) y paneles
+  ajustables con el mouse.
 - ✅ Botón **lado a lado** (`⫞`): Buscador 70 % / editor 30 %, en vista Lista y todo colapsado.
 - ⏸️ Goldfish (sandbox de testeo) — fuera de alcance; la spec del handoff lo cubre si se quiere.
 - ⏸️ Grupos de usuario (carpetas de mazos) y subgrupos dentro del mazo — no portados.

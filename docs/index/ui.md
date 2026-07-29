@@ -15,7 +15,7 @@ Handoff original del rediseño: [../design/visual/](../design/visual/).
 | `MainWindow` | **810×540 fija** (3:2), `ResizeMode=NoResize`, `WindowStyle=None` + `WindowChrome` propio | El diseño se **compone a 1080×720** y se escala con un `Viewbox Stretch=Uniform` (810×540 = 75 %). Todo lo que se agregue va en el lienzo de 1080×720. |
 | `FirstRunWindow` | diálogo modal | Detección de instalación + captura de la base Original. Devuelve `true`/`false` a `App`. |
 | `SearchWindow` | 1323×798, `Min` **460×460**, redimensionable/maximizable | Chrome propio (`CaptionHeight=35`). `Ctrl+N` abre otra instancia sobre el mismo catálogo. |
-| `DeckWindow` | 1323×798, `Min` **460×460** | Mismo chrome. `DeckWindow.Open(...)` reusa la ventana si ya está abierta. El panel izquierdo tiene **dos pestañas** (`PanelTab`, el mismo idioma que Carta \| Stats): **Abrir** —segmentado Mazos \| Listas, buscador y selectores de orden/clan/estado— y **Filtros** sobre las cartas del mazo abierto. Elegir qué abrir y filtrar lo abierto son tareas distintas y competían por el mismo espacio. En modo lista desaparecen `−`/qty/`+`, los conteos Dynasty/Fate, el estado de armado y el toggle de recortadas. |
+| `DeckWindow` | 1323×798, `Min` **460×460** | Mismo chrome. `DeckWindow.Open(...)` reusa la ventana si ya está abierta. Los paneles se agrupan **por objeto** ([ADR-051](../DECISIONS.md#adr-051)): el izquierdo es el **mazo abierto** (pestañas `PanelTab` **Filtros \| Stats**) y el derecho es la **carta seleccionada**, sin pestañas. Elegir qué mazo abrir **no es un panel**: cuelga del título (ver abajo). En modo lista desaparecen `−`/qty/`+`, los conteos Dynasty/Fate, el estado de armado y el toggle de recortadas. |
 | `PdfExportWindow` | 620×720, `Min` **480×420**, modal | Pantalla previa del PDF de impresión, abierta desde el menú `⋯` del editor. Mismo chrome, sin maximizar. Una fila por carta con su contador de copias (el número gris al lado es lo que tiene el mazo); las filas en 0 se apagan al 42 %, el mismo gesto visual que una carta recortada. Al pie: hoja A4 \| Carta (segmentado) y el check de margen. |
 
 **Ayuda de atajos** — un `?` discreto al final de la barra de cada ventana abre un `Dialogs.Info`
@@ -49,6 +49,16 @@ celda no entra** (mide ~160 contra 124 de celda) y se esconde: en el Buscador po
 sobre `IsTinyZoom` puesto **último** en los triggers, para que gane sobre hover y selección; en el
 editor queda solo la cantidad. Es el mismo criterio que la barra de ventana en modo compacto: a
 menos espacio, se va lo que tiene otro camino.
+
+**El título del mazo es el selector** (`TitlePicker` + `DeckPickerPopup`). Antes era la pestaña
+"Abrir" del panel izquierdo, y ahí competía con los filtros del mazo ya abierto —otra tarea sobre
+otro objeto— y colapsar el panel apagaba las dos de una. El popover se lleva el bloque **entero** (
+segmentado Mazos \| Listas, buscador por nombre o por carta contenida, orden, clan, estado, `＋` y la
+lista) porque un `ComboBox` habría perdido todo eso, y se cierra solo al elegir. Se lee como título:
+misma tipografía y tamaño, y solo el `▾` con el fondo en hover delatan que es un disparador — un botón
+"Abrir mazo…" al lado habría sumado el control que [ADR-050](../DECISIONS.md#adr-050) acaba de sacar.
+Necesita `AutomationProperties.Name` a mano: su contenido es un panel, no un texto, así que sin eso el
+control de navegación principal no tiene nombre accesible.
 
 **Paneles ajustables con el mouse.** La columna del riel hace dos cosas: un `GridSplitter`
 (`PaneSplitter`) ocupa la altura completa y arrastrarlo mueve el borde del panel; el chevron

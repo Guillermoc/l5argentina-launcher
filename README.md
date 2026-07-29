@@ -251,7 +251,7 @@ src/
 ├─ Views/
 │  ├─ FirstRunWindow          primer arranque (detección + captura de la Original)
 │  ├─ SearchWindow            Buscador de cartas (filtros vivos, tabla/grilla, detalle, mazo activo)
-│  ├─ DeckWindow              editor de Mazos y listas (solapas Abrir/Filtros, Starter/Dynasty/Fate, recorte)
+│  ├─ DeckWindow              editor de Mazos y listas (selector en el título, Filtros/Stats, recorte)
 │  ├─ PdfExportWindow        pantalla previa del PDF de impresión (copias, hoja, margen)
 │  ├─ CardDetailPanel         detalle de carta compartido entre Buscador y editor de Mazos
 │  ├─ CardUiStyles            estilos XAML compartidos (chips, checkboxes, celdas) entre ambas ventanas

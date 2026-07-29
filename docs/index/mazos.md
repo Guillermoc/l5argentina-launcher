@@ -21,7 +21,7 @@ fuentes Kotlin), que además sigue siendo la referencia viva de paridad vía sus
 | Biblioteca | `Services/Deck/DeckLibrary.cs` | Un `.txt` por conjunto: mazos en `<SunAndMoon>\Decks\`, listas en `<SunAndMoon>\Lists\`, + sidecar `decksmeta.json`. Un solo `DeckRepository` para los dos (`Decks`/`Lists` son vistas filtradas por `Type`). Instancia compartida por proceso (`GetOrLoad`): Buscador y editor operan sobre los mismos archivos, el mismo mazo activo y la misma lista activa. |
 | Slots | `CatalogImporter` → `CardCatalog.InitialHoldingSlots` | `filters.json → formats[].initialHoldingSlots` (id/label/required) — alimenta el aviso "Falta: {slot}". |
 | UI Buscador | `Views/SearchWindow.xaml(.cs)` | Label del mazo activo + conteos en la barra; `+`/`−` por celda con feedback del `AddCardResult`. Doble click o **Ctrl+click** = agregar. No elige mazo ni muestra su contenido. El selector de **conjunto activo** (listas/mazos/favoritas) vive acá — ver [buscador.md](buscador.md). |
-| UI editor | `Views/DeckWindow.xaml(.cs)` | Ventana única. Panel izquierdo con pestañas **Abrir** (segmentado Mazos \| Listas, buscador, orden/clan/estado) y **Filtros** (sobre las cartas del mazo abierto), cartas agrupadas Starter/Dynasty/Fate → tipo (centro, vistas Lista/Grilla), detalle/stats (der., colapsable). Barra: nombre + **Buscador** + menú `⋯` ([ADR-043](../DECISIONS.md#adr-043)); vista/zoom/orden en la segunda fila ([ADR-050](../DECISIONS.md#adr-050)). Notas con debounce de 1 s. Confirmaciones y avisos por `Dialogs`, no por `MessageBox`. |
+| UI editor | `Views/DeckWindow.xaml(.cs)` | Ventana única. Paneles agrupados **por objeto** ([ADR-051](../DECISIONS.md#adr-051)): izquierda el **mazo abierto** (pestañas **Filtros \| Stats**), centro sus cartas agrupadas Starter/Dynasty/Fate → tipo (vistas Lista/Grilla), derecha la **carta seleccionada** (sin pestañas). El selector de mazo (segmentado Mazos \| Listas, buscador, orden/clan/estado) cuelga del **título**, no de un panel. Barra: nombre + **Buscador** + menú `⋯` ([ADR-043](../DECISIONS.md#adr-043)); vista/zoom/orden en la segunda fila ([ADR-050](../DECISIONS.md#adr-050)). Notas con debounce de 1 s. Confirmaciones y avisos por `Dialogs`, no por `MessageBox`. |
 | Export PDF | `Services/Deck/PdfExporter.cs` + `Views/PdfExportWindow.xaml(.cs)` | Arma un PDF para imprimir proxies: grilla 3×3 a tamaño real (63×88 mm), A4 o Carta, margen opcional de 1 mm. La ventana previa lista las cartas del mazo con un contador de copias **independiente** del mazo. El PDF se escribe a mano y embebe los JPEG sin recomprimir ([ADR-049](../DECISIONS.md#adr-049)). Solo mazos: una lista no se imprime. |
 | Paridad | `SelfTest.RunGoldenDeckTests` + `RunDeckStoreTests` + `RunCardSetTests` + `RunTrimTests` + `RunDeckStateTests` + `RunPdfExportTests` | **25 golden tests** replicando la secuencia exacta del harness (mismos mazos "Golden N", string exacto del export) + checks propios de persistencia txt, listas, identidad por nombre, recorte, estado de armado y la geometría/estructura del PDF. |
 
@@ -127,15 +127,16 @@ el filtro y el `✓` del subtítulo. Una carta recortada no cubre slot ni suma a
   rieles verticales ([ADR-035](../DECISIONS.md#adr-035)). El mazo activo y la lista activa se eligen
   en la barra superior (el selector de mazo salió del panel derecho para no perderse al colapsarlo). Los `+`/`−` van
   siempre contra el mazo activo.
-- **Editor, panel izquierdo**: dos pestañas, porque *elegir qué abrir* y *filtrar lo que ya está
-  abierto* son tareas distintas que competían por el mismo espacio.
-  - **Abrir**: segmentado Mazos \| Listas, buscador (por nombre del conjunto **o** por una carta que
-    contenga), y tres selectores — **orden** (Recientes, default / Alfabético), **clan** (solo los
-    que existen entre los conjuntos visibles) y **estado** (Todos / Terminados / Pendientes, oculto
-    en Listas). "Recientes" ordena por la última escritura del `.txt`, que `DeckLibrary` captura al
-    cargar y al guardar: es "lo último que tocaste", no la fecha de creación.
-  - **Filtros**: el filtro de texto sobre las cartas del mazo abierto, los chips
-    Starter/Dynasty/Fate y el toggle **Recortadas (N)**.
+- **Editor, selector de mazo**: cuelga del **título** ([ADR-051](../DECISIONS.md#adr-051)), no de un
+  panel. Trae segmentado Mazos \| Listas, `＋`, buscador (por nombre del conjunto **o** por una carta
+  que contenga), y tres selectores — **orden** (Recientes, default / Alfabético), **clan** (solo los
+  que existen entre los conjuntos visibles) y **estado** (Todos / Terminados / Pendientes, oculto en
+  Listas). "Recientes" ordena por la última escritura del `.txt`, que `DeckLibrary` captura al cargar
+  y al guardar: es "lo último que tocaste", no la fecha de creación. Se cierra al elegir.
+- **Editor, panel izquierdo**: dos pestañas sobre **el mismo objeto**, el mazo abierto —
+  **Filtros** (texto sobre sus cartas, chips Starter/Dynasty/Fate, toggle **Recortadas (N)**) y
+  **Stats**. Colapsarlo esconde una sola cosa; antes se llevaba el selector de mazo también.
+- **Editor, panel derecho**: la **carta seleccionada**, sin pestañas.
 - **Lado a lado** (fila **Acomodar lado a lado** del menú `⋯`; era un `⫞` en la barra hasta
   [ADR-050](../DECISIONS.md#adr-050)): acomoda Buscador y editor sobre el área de trabajo, 70 % / 30 %,
   con el editor en vista Lista y todo colapsado. Es el layout de armar — ver

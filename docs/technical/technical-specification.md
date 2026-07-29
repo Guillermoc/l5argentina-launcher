@@ -305,15 +305,20 @@ Son cinco ventanas con dos criterios distintos. `MainWindow` es la pantalla de m
 se escala con un `Viewbox`, así que todo lo que se agregue se dibuja en esas coordenadas.
 `FirstRunWindow` y `PdfExportWindow` son diálogos modales. `SearchWindow` y `DeckWindow`, en cambio, son ventanas de
 trabajo: 1323×798 por defecto, redimensionables y maximizables, con paneles laterales colapsables
-calibrados para que en 1080p a 125 % entren la mayor cantidad de cartas posible. Ambas se acotan al
+calibrados para que en 1080p a 125 % entren la mayor cantidad de cartas posible. Esos paneles se
+**arrastran** desde su borde y colapsan al pasarse del mínimo, y se agrupan **por objeto**: en el
+editor, la izquierda es el mazo abierto (filtros y stats) y la derecha es la carta seleccionada;
+elegir qué mazo abrir cuelga del título, no de un panel (ADR-051). Ambas se acotan al
 **área de trabajo** del monitor al abrir y al maximizar (`WindowSizingFix`): con chrome propio,
 Windows maximiza contra el monitor completo y la barra de tareas tapa el borde inferior.
 
 Las dos ventanas de trabajo **se adaptan al ancho en dos escalones**: bajo 1000 DIP cierran sus
 paneles laterales y apagan los rieles, y bajo 900 esconden lo accesorio de la barra —el mazo activo,
-los conteos con el "Falta: {slot}", el zoom— porque con los paneles ya cerrados el piso lo pone la
+los conteos con el "Falta: {slot}"— porque con los paneles ya cerrados el piso lo pone la
 barra de botones. Eso permite un mínimo de 460 y habilita el botón de **lado a lado**, que acomoda el
-Buscador al 70 % y el editor al 30 % para armar mirando las dos cosas a la vez. La grilla de cartas
+Buscador al 70 % y el editor al 30 % para armar mirando las dos cosas a la vez. En la barra queda solo
+lo que se usa seguido: el tamaño de celda, el orden y el CRUD de listas viven en el componente que les
+corresponde (ADR-050). La grilla de cartas
 tiene cuatro tamaños de celda (con `Ctrl + rueda`), y con **Alt** apretado pasar el mouse sobre una
 carta la abre grande al lado del cursor.
 
