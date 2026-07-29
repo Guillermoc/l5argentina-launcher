@@ -90,6 +90,9 @@ mazo inexistente" ([ADR-027](../DECISIONS.md#adr-027)).
 | **Sin sugerencias de nombre en la barra** | Buscador | La app las necesita porque el resultado vive detrás de un modal de filtros; acá la búsqueda **filtra en vivo** y la grilla ya *es* la lista de sugerencias, con la ventaja de respetar los filtros activos (las de la app los ignoran y por eso tienen que marcar "Bloqueado por filtros") |
 | **Click derecho = copiar la imagen** | Grillas del Buscador y del editor | Extra del launcher: en la app el copiar vive en la barra del visor. Con mouse, el click derecho sobre la carta es el gesto esperado y evita abrir el detalle para una acción de un paso |
 | **Estado de armado del mazo (terminado / pendiente)** | Editor | Extra del launcher; la app no tiene la noción ([ADR-047](../DECISIONS.md#adr-047)) |
+| **El PDF se guarda con un diálogo de archivo; la app lo comparte por `Intent`** | Export PDF | Android no tiene "guardar en tal carpeta": la pantalla genera el PDF en `filesDir` y abre el share sheet. En escritorio el gesto equivalente es elegir dónde va el archivo, y después se ofrece abrirlo ([ADR-049](../DECISIONS.md#adr-049)) |
+| **Botón "Volver al mazo" en el export PDF** | Export PDF | Devuelve todos los contadores de copias a la cantidad del mazo. La app no lo tiene: allá los contadores se pierden al salir de la pantalla, así que no hay nada que revertir |
+| **El export PDF no se ofrece sobre una lista** | Export PDF | En la app toda entidad de mazo tiene el menú; acá una lista es una selección para filtrar, no algo que se imprima ([ADR-045](../DECISIONS.md#adr-045)) |
 
 **Al agregar una divergencia nueva:** anotarla acá y en el índice del dominio, y verificar que no
 toque ninguna semántica cubierta por goldens.

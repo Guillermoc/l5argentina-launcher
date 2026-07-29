@@ -127,7 +127,8 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 - ✅ Botón **lado a lado** (`⫞`): Buscador 70 % / editor 30 %, en vista Lista y todo colapsado.
 - ⏸️ Goldfish (sandbox de testeo) — fuera de alcance; la spec del handoff lo cubre si se quiere.
 - ⏸️ Grupos de usuario (carpetas de mazos) y subgrupos dentro del mazo — no portados.
-- ⏸️ Export PDF — no portado.
+- ✅ Export PDF: grilla 3×3 a tamaño real para imprimir proxies, con copias ajustables por carta
+  ([ADR-049](DECISIONS.md#adr-049)).
 - ⬜ Buscador embebido en el editor (hoy el flujo es "Buscador `+`/`−` sobre el mazo activo").
 - ⬜ Favoritas y ocultas **dentro** del editor. Hoy se filtran desde el Buscador y se copian a una
   lista con `⎘`; editarlas ahí adentro pediría una capa de indirección sobre todo `DeckWindow` para

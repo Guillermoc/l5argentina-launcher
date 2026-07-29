@@ -42,6 +42,7 @@ Versión actual: **0.6.0**.
 | Resumen de filtros activos y copiar imagen con click derecho | ✅ | v0.6.0 | [index/buscador.md](docs/index/buscador.md) |
 | Zoom de grilla en 4 tamaños, previsualización con Alt y atajos (`?`) | ✅ | v0.6.0 | [index/ui.md](docs/index/ui.md) |
 | Ventanas lado a lado y adaptación a ventanas angostas | ✅ | v0.6.0 | [index/ui.md](docs/index/ui.md) |
+| Exportar el mazo a PDF para imprimir proxies (3×3, tamaño real) | ✅ | sin publicar | [DECISIONS ADR-049](docs/DECISIONS.md#adr-049) |
 | Firma del ejecutable (SignPath) | ⏳ esperando aprobación OSS | — | [ROADMAP §1](docs/ROADMAP.md) |
 | Noticias y torneos | ⬜ placeholder en UI, sin implementar | — | [functional/noticias-v2-borrador.md](docs/functional/noticias-v2-borrador.md) |
 | Firma del `manifest.json` | ⏸️ diferido con criterio | — | [DECISIONS ADR-015](docs/DECISIONS.md#adr-015) |
@@ -175,7 +176,7 @@ quedan al lado).
 
 Un harness de verificación monta un bucket+instalación falsos en `%TEMP%` y ejercita el pipeline real
 (hash, confinamiento de origen, zip-slip, backups, base zippeada, catálogo y packs del pool) sin tocar
-tu instalación — **219 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
+tu instalación — **255 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
 los **25 golden tests** del deckbuilder, ambos contra la lógica real de la app Android:
 
 ```sh
@@ -251,6 +252,7 @@ src/
 │  ├─ FirstRunWindow          primer arranque (detección + captura de la Original)
 │  ├─ SearchWindow            Buscador de cartas (filtros vivos, tabla/grilla, detalle, mazo activo)
 │  ├─ DeckWindow              editor de Mazos y listas (solapas Abrir/Filtros, Starter/Dynasty/Fate, recorte)
+│  ├─ PdfExportWindow        pantalla previa del PDF de impresión (copias, hoja, margen)
 │  ├─ CardDetailPanel         detalle de carta compartido entre Buscador y editor de Mazos
 │  ├─ CardUiStyles            estilos XAML compartidos (chips, checkboxes, celdas) entre ambas ventanas
 │  ├─ CardImageClipboard      arte a tamaño completo al portapapeles y a la previsualización con Alt
@@ -275,7 +277,8 @@ src/
    └─ Deck/
       ├─ DeckRepository       port 1:1 de DeckRepository.kt (AddCard, import/export, CRUD, conteos)
       ├─ SunAndMoonDeckFile   lee/escribe el formato .txt de la carpeta Decks del juego
-      └─ DeckLibrary          un .txt por mazo en Decks y por lista en Lists + sidecar decksmeta.json
+      ├─ DeckLibrary          un .txt por mazo en Decks y por lista en Lists + sidecar decksmeta.json
+      └─ PdfExporter          PDF de impresión escrito a mano (grilla 3×3, JPEG sin recomprimir)
 ```
 
 Stack: **WPF sobre .NET Framework 4.8**, csproj SDK-style compilado con el **.NET SDK 8**, empaquetado en

@@ -22,7 +22,8 @@ fuentes Kotlin), que además sigue siendo la referencia viva de paridad vía sus
 | Slots | `CatalogImporter` → `CardCatalog.InitialHoldingSlots` | `filters.json → formats[].initialHoldingSlots` (id/label/required) — alimenta el aviso "Falta: {slot}". |
 | UI Buscador | `Views/SearchWindow.xaml(.cs)` | Label del mazo activo + conteos en la barra; `+`/`−` por celda con feedback del `AddCardResult`. Doble click o **Ctrl+click** = agregar. No elige mazo ni muestra su contenido. El selector de **conjunto activo** (listas/mazos/favoritas) vive acá — ver [buscador.md](buscador.md). |
 | UI editor | `Views/DeckWindow.xaml(.cs)` | Ventana única. Panel izquierdo con pestañas **Abrir** (segmentado Mazos \| Listas, buscador, orden/clan/estado) y **Filtros** (sobre las cartas del mazo abierto), cartas agrupadas Starter/Dynasty/Fate → tipo (centro, vistas Lista/Grilla), detalle/stats (der., colapsable). Barra: nombre + **Buscador** + menú `⋯` ([ADR-043](../DECISIONS.md#adr-043)). Notas con debounce de 1 s. Confirmaciones y avisos por `Dialogs`, no por `MessageBox`. |
-| Paridad | `SelfTest.RunGoldenDeckTests` + `RunDeckStoreTests` + `RunCardSetTests` + `RunTrimTests` + `RunDeckStateTests` | **25 golden tests** replicando la secuencia exacta del harness (mismos mazos "Golden N", string exacto del export) + checks propios de persistencia txt, listas, identidad por nombre, recorte y estado de armado. |
+| Export PDF | `Services/Deck/PdfExporter.cs` + `Views/PdfExportWindow.xaml(.cs)` | Arma un PDF para imprimir proxies: grilla 3×3 a tamaño real (63×88 mm), A4 o Carta, margen opcional de 1 mm. La ventana previa lista las cartas del mazo con un contador de copias **independiente** del mazo. El PDF se escribe a mano y embebe los JPEG sin recomprimir ([ADR-049](../DECISIONS.md#adr-049)). Solo mazos: una lista no se imprime. |
+| Paridad | `SelfTest.RunGoldenDeckTests` + `RunDeckStoreTests` + `RunCardSetTests` + `RunTrimTests` + `RunDeckStateTests` + `RunPdfExportTests` | **25 golden tests** replicando la secuencia exacta del harness (mismos mazos "Golden N", string exacto del export) + checks propios de persistencia txt, listas, identidad por nombre, recorte, estado de armado y la geometría/estructura del PDF. |
 
 ---
 
@@ -183,5 +184,5 @@ los expected con el harness del handoff (`../../tests/fixtures/deckbuilder/gener
 
 - Goldfish (sandbox de testeo) — fuera de alcance; la spec del handoff lo cubre si algún día se quiere.
 - Grupos de usuario (carpetas de mazos) y subgrupos dentro del mazo (`deck_card_groups`, en desuso en
-  la app) — no portados. Export PDF — no portado.
+  la app) — no portados.
 - Buscador embebido en el editor: hoy el flujo es "Buscador `+`/`−` sobre el mazo activo" (como la app).

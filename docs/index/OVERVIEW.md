@@ -14,7 +14,7 @@
 | **Qué es** | Launcher de escritorio (Windows) que sincroniza la base de cartas curada de L5Argentina y lanza la app **Sun and Moon**. Incluye Buscador de cartas y editor de Mazos. |
 | **Stack** | WPF sobre **.NET Framework 4.8** (`net48`), csproj SDK-style, compilado con la CLI `dotnet`. JSON con `System.Text.Json`. |
 | **Empaquetado** | **Costura.Fody** embebe los DLLs → un único `.exe` (~7 MB). Se distribuye solo el exe. |
-| **Arquitectura en una línea** | UI (WPF, 4 ventanas) → `LauncherEngine` coordina → `Services/` (red, hash, archivos) + motores portados 1:1 de la app Android (`Services/Search`, `Services/Deck`). |
+| **Arquitectura en una línea** | UI (WPF, 5 ventanas) → `LauncherEngine` coordina → `Services/` (red, hash, archivos) + motores portados 1:1 de la app Android (`Services/Search`, `Services/Deck`). |
 | **Datos** | Bucket Cloudflare R2 (dos manifests: el del launcher y el del pool/CDN de la app). El launcher **solo descarga datos, nunca código**. |
 | **Versión** | `AppConstants.LauncherVersion` = `0.6.0` (y `<Version>` del csproj — se bumpean juntos). |
 | **Verificación** | `--selftest`: la batería completa en verde (pipeline + 53 golden del Buscador + 25 del deckbuilder). Conteo al día en [build-verificacion.md](build-verificacion.md). |
@@ -72,11 +72,12 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 | `Views/FirstRunWindow.xaml(.cs)` | Primer arranque: elegir `Sun and Moon.exe`, validar la instalación, capturar la base **Original**. |
 | `Views/SearchWindow.xaml(.cs)` | Buscador: filtros en vivo, tabla/grilla virtualizada, panel derecho Carta \| Mazo, selector de conjunto activo y presets. |
 | `Views/DeckWindow.xaml(.cs)` | Editor de Mazos **y listas** (solapa Mazos \| Listas): grupos Starter/Dynasty/Fate, cartas recortadas, importar/exportar, notas. |
+| `Views/PdfExportWindow.xaml(.cs)` | Pantalla previa del PDF de impresión: copias por carta, A4/Carta, margen de 1 mm. |
 | `Views/CardDetailPanel.xaml(.cs)` | Detalle de carta compartido entre Buscador y editor (+ `CardImageResolver`). |
 | `Views/CardUiStyles.xaml` | Estilos XAML compartidos entre ambas ventanas (chips, checkboxes, celdas). |
 | `Views/CardTextRenderer.cs` | HTML acotado del texto de carta → `Inline`s de WPF. **Nunca** WebView. |
 | `Views/CardImageClipboard.cs` | Arte a tamaño completo al portapapeles (click derecho) y para la previsualización con Alt: re-decodifica el archivo, no copia la miniatura de la grilla. |
-| `Views/Dialogs.cs` | `Prompt` / `Confirm` / `Info` con la estética de la app, para Buscador y Mazos (que no tienen overlay propio). Nada de `MessageBox`. |
+| `Views/Dialogs.cs` | `Prompt` / `Confirm` / `Ask` / `Info` con la estética de la app, para Buscador y Mazos (que no tienen overlay propio). Nada de `MessageBox`. |
 | `Views/WindowSizingFix.cs` | Acota Buscador y Mazos al **área de trabajo** del monitor al abrir y al maximizar (`WM_GETMINMAXINFO`): sin esto quedaban debajo de la barra de tareas. |
 | `Themes/Theme.xaml` | Paleta, fuentes, fondo, scrollbar temática — estilos de toda la app. |
 
@@ -114,6 +115,7 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 | `DeckRepository.cs` | Port 1:1 de `DeckRepository.kt`: `AddCard`, quantities, import/export, CRUD, espejos de UI. |
 | `SunAndMoonDeckFile.cs` | Parse/write del formato `.txt` de la carpeta `Decks` del juego (tolerante a nombres). |
 | `DeckLibrary.cs` | Un `.txt` por conjunto: mazos en `Decks`, listas en `Lists` + sidecar `decksmeta.json`; mazo y lista activos compartidos por proceso. |
+| `PdfExporter.cs` | Emite el PDF de impresión a mano (sin librería): grilla 3×3 a tamaño real, JPEG embebidos sin recomprimir ([ADR-049](../DECISIONS.md#adr-049)). |
 
 ### Modelos y recursos
 

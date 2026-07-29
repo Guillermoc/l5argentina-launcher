@@ -16,6 +16,7 @@ Handoff original del rediseño: [../design/visual/](../design/visual/).
 | `FirstRunWindow` | diálogo modal | Detección de instalación + captura de la base Original. Devuelve `true`/`false` a `App`. |
 | `SearchWindow` | 1323×798, `Min` **460×460**, redimensionable/maximizable | Chrome propio (`CaptionHeight=35`). `Ctrl+N` abre otra instancia sobre el mismo catálogo. |
 | `DeckWindow` | 1323×798, `Min` **460×460** | Mismo chrome. `DeckWindow.Open(...)` reusa la ventana si ya está abierta. El panel izquierdo tiene **dos pestañas** (`PanelTab`, el mismo idioma que Carta \| Stats): **Abrir** —segmentado Mazos \| Listas, buscador y selectores de orden/clan/estado— y **Filtros** sobre las cartas del mazo abierto. Elegir qué abrir y filtrar lo abierto son tareas distintas y competían por el mismo espacio. En modo lista desaparecen `−`/qty/`+`, los conteos Dynasty/Fate, el estado de armado y el toggle de recortadas. |
+| `PdfExportWindow` | 620×720, `Min` **480×420**, modal | Pantalla previa del PDF de impresión, abierta desde el menú `⋯` del editor. Mismo chrome, sin maximizar. Una fila por carta con su contador de copias (el número gris al lado es lo que tiene el mazo); las filas en 0 se apagan al 42 %, el mismo gesto visual que una carta recortada. Al pie: hoja A4 \| Carta (segmentado) y el check de margen. |
 
 **Ayuda de atajos** — un `?` discreto al final de la barra de cada ventana abre un `Dialogs.Info`
 con el listado completo de atajos de teclado y mouse. El texto vive entero en `Strings.resx`
@@ -65,9 +66,10 @@ al margen de 7 DIP que antes compensaba el desborde a mano.
 **No se usan `MessageBox` del sistema** ([ADR-013](../DECISIONS.md#adr-013)). En `MainWindow` los
 errores, confirmaciones, Configuración y Packs de imágenes son *overlays* dentro del lienzo escalado;
 en Buscador y Mazos, que no tienen overlay propio, van por `Views/Dialogs.cs`
-(`Prompt` / `Confirm` / `Info`), ventanas modales sin chrome con el borde y el fondo del tema.
+(`Prompt` / `Confirm` / `Ask` / `Info`), ventanas modales sin chrome con el borde y el fondo del tema.
 `Confirm` pone el botón destructivo **fuera** del default: para borrar hay que elegirlo y un Enter de
-reflejo cancela.
+reflejo cancela. `Ask` es su gemelo no destructivo ("¿abro el PDF?"): mismo diálogo de dos botones,
+pero el que acepta es el default y no va en rojo.
 
 **Cerrar `MainWindow` cierra la aplicación entera** y por eso confirma primero
 ([ADR-039](../DECISIONS.md#adr-039)); el mensaje cambia si hay una descarga en curso. Buscador y

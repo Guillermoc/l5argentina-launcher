@@ -38,6 +38,7 @@ Este documento está organizado por **capa**, no por feature. Si venís a entend
 | Buscador de cartas | [7](#7-el-catálogo-de-cartas), [8](#8-el-motor-de-búsqueda), [10](#10-presentación-ventanas-tema-e-idioma) |
 | Favoritas, ocultas, listas y presets | [6](#6-configuración-y-estado-local), [8](#8-el-motor-de-búsqueda) |
 | Editor de Mazos | [9](#9-mazos-repositorio-y-persistencia), [10](#10-presentación-ventanas-tema-e-idioma) |
+| Exportar el mazo a PDF para imprimir | [9](#9-mazos-repositorio-y-persistencia) |
 | Que el mazo armado se juegue directo | [9](#9-mazos-repositorio-y-persistencia), [6](#6-configuración-y-estado-local) |
 | Noticias (sin implementar) | [13](#13-límites-conocidos) |
 | Seguridad del launcher | [11](#11-seguridad-como-propiedad-transversal), [4](#4-descarga-y-verificación) |
@@ -287,12 +288,22 @@ mismo modelo con otro tipo: se editan con el mismo editor, tienen tope de una co
 mutaciones no pasan por `AddCard` —una lista es material de armado, no un mazo legal, y no le aplican
 ni la banlist ni la regla de slot inicial—.
 
+Del mazo sale además un **PDF para imprimir proxies**: nueve cartas por hoja en una grilla 3×3
+centrada, cada una a su tamaño físico real de 63×88 mm, en A4 o Carta y con un margen opcional de
+1 mm entre cartas. Una pantalla previa deja elegir cuántas copias imprimir de cada carta, arrancando
+en la cantidad que tiene el mazo; las recortadas no participan. `PdfExporter` **emite el archivo a
+mano**, sin librería de PDF: el documento no tiene una sola letra, y como las imágenes del juego ya
+son JPEG, sus bytes pasan al PDF sin decodificar ni recomprimir vía el filtro `/DCTDecode`, así que
+la impresión conserva la calidad exacta del original. Lo que ese filtro no acepta —JPEG progresivo o
+CMYK— se recodifica antes; de las 8856 imágenes de una instalación completa, 8 caen en ese caso. El
+JPEG de una carta repetida se embebe una sola vez y se referencia N veces.
+
 ## 10. Presentación: ventanas, tema e idioma
 
-Son cuatro ventanas con dos criterios distintos. `MainWindow` es la pantalla de marca: fija en
+Son cinco ventanas con dos criterios distintos. `MainWindow` es la pantalla de marca: fija en
 810×540 (3:2), no redimensionable, con chrome propio; el diseño se compone en un lienzo de 1080×720 y
 se escala con un `Viewbox`, así que todo lo que se agregue se dibuja en esas coordenadas.
-`FirstRunWindow` es un diálogo modal. `SearchWindow` y `DeckWindow`, en cambio, son ventanas de
+`FirstRunWindow` y `PdfExportWindow` son diálogos modales. `SearchWindow` y `DeckWindow`, en cambio, son ventanas de
 trabajo: 1323×798 por defecto, redimensionables y maximizables, con paneles laterales colapsables
 calibrados para que en 1080p a 125 % entren la mayor cantidad de cartas posible. Ambas se acotan al
 **área de trabajo** del monitor al abrir y al maximizar (`WindowSizingFix`): con chrome propio,
@@ -362,7 +373,8 @@ scope mínimo, secret scanning y branch protection.
 
 La verificación es un harness embebido, no un proyecto de tests: `--selftest`, compilado solo en
 DEBUG, setea `L5A_DATA_ROOT` a una carpeta temporal, monta un bucket y una instalación falsos en
-`%TEMP%`, corre el pipeline **real** y reporta PASS/FAIL con exit code. Son casi dos centenares de checks: el
+`%TEMP%`, corre el pipeline **real** y reporta PASS/FAIL con exit code. Son un par de centenares de
+checks —el número al día vive en [build-verificacion.md](../index/build-verificacion.md)—: el
 pipeline de descarga y aplicación (hash correcto, hash inválido que aborta sin dejar archivo, rechazo
 de origen ajeno y de `../`, zip-slip, base con un solo `.xml`, backups), los 53 golden del Buscador,
 los 25 del deckbuilder y la persistencia de mazos en `.txt`. Corre en CI en cada push y PR a `main`.
@@ -383,8 +395,8 @@ Las **noticias y torneos** existen como sección placeholder en la UI y como mod
 `NewsService`, pero no están implementadas: falta definir el formato de los `.md` y la sección `news`
 del manifest. Cuando se hagan, se renderizan con Markdig a `FlowDocument`; nunca en un WebView.
 
-El **Goldfish** (sandbox de testeo de mazos), los grupos de usuario, los subgrupos dentro del mazo y
-el export a PDF están en el handoff del deckbuilder pero no se portaron. En el Buscador falta el
+El **Goldfish** (sandbox de testeo de mazos), los grupos de usuario y los subgrupos dentro del mazo
+están en el handoff del deckbuilder pero no se portaron. En el Buscador falta el
 contador de cartas en el selector de conjunto y poder renombrar una lista sin ir a la ventana de
 Mazos; favoritas y ocultas se filtran y se copian a una lista, pero no se editan dentro del editor.
 

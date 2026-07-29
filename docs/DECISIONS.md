@@ -61,6 +61,7 @@ backlog; su fecha es la del momento en que se tomaron.
 | [046](#adr-046) | El recorte se implementa, y vive en el sidecar y no en el `.txt` | 2026-07-28 | Vigente |
 | [047](#adr-047) | "Mazo terminado": un criterio propio del launcher, y blando | 2026-07-28 | Vigente |
 | [048](#adr-048) | El pack propio se identifica por hash, no por id | 2026-07-28 | Vigente |
+| [049](#adr-049) | El PDF de impresión se escribe a mano, sin librería | 2026-07-29 | Vigente |
 
 ---
 
@@ -1307,3 +1308,49 @@ nadie toque código.
 - Los `appliedImagePacks["samuraiEx"]` que ya estén en un `config.json` quedan ahí. Son inertes —un
   registro de algo que ya no se lista— y no hace falta migrarlos.
 - Cubierto en el selftest con un pool que publica el mismo zip que el manifest del launcher.
+
+---
+
+<a id="adr-049"></a>
+## ADR-049 — El PDF de impresión se escribe a mano, sin librería
+
+**Fecha:** 2026-07-29 · **Estado:** vigente.
+
+**Decisión.** `Services/Deck/PdfExporter.cs` emite el PDF byte a byte. No se agregó ninguna
+dependencia de PDF al proyecto.
+
+**El problema.** La app Android usa `android.graphics.pdf.PdfDocument`, que es parte de la
+plataforma. En .NET Framework 4.8 no hay equivalente: o entra una librería, o se escribe el archivo.
+
+**Por qué a mano.** El PDF que necesitamos es el caso más simple que existe: **imágenes en una
+grilla, sin una sola letra**. Lo que hace difícil escribir un PDF —fuentes, encoding de texto,
+tipografía embebida— acá no aparece. Y hay un motivo mejor: **las imágenes de las cartas ya son
+JPEG**, y un PDF sabe llevar JPEG crudo adentro con el filtro `/DCTDecode`. Los bytes del `.jpg`
+pasan al archivo **sin decodificar ni recomprimir**, así que la impresión sale con exactamente la
+calidad del original. Una librería genérica decodifica a bitmap y vuelve a comprimir: se pierde
+calidad, o pesa más, o las dos cosas.
+
+Se descartó **PdfSharp** (la única opción madura para net48): su versión para Framework está
+congelada, suma ~1 MB al exe vía Costura y su `XImage` recomprime. Se descartó **imprimir con XPS**
+y dejar que el usuario elija "Microsoft Print to PDF": depende de que esa impresora exista y no
+permite fijar el tamaño físico de la carta, que es el único requisito que de verdad importa acá.
+
+**Lo que sí necesita cuidado.** Dos cosas, y las dos tienen check:
+
+- **La tabla `xref`.** Es el error clásico del PDF escrito a mano: si el offset del objeto N no cae
+  justo sobre `N 0 obj`, algunos visores reconstruyen la tabla y otros directamente no abren el
+  archivo. `XrefOffsetsResolve` en el selftest recorre la tabla y verifica cada offset.
+- **Solo baseline.** `/DCTDecode` garantiza JPEG baseline; un progresivo (SOF2) o un CMYK lo abren
+  algunos visores y otros no. `PdfImage.TryLoad` lee el SOF y, si no es baseline gris o YCbCr,
+  recodifica con `JpegBitmapEncoder`. **No es código muerto**: de las 8856 imágenes de la
+  instalación real, 8 son progresivas (los promos de Samurai Extended y `GGG001`) y pasan por ahí.
+
+**Consecuencias.**
+
+- Una carta repetida embebe su JPEG **una sola vez** y lo referencia N veces; sin eso un mazo con
+  3 copias de todo pesaría el triple.
+- El origen de coordenadas del PDF es abajo-izquierda y el de la app es arriba-izquierda: la fila se
+  espeja en Y. Sin eso el mazo se imprime al revés, y es el tipo de bug que no se nota leyendo el
+  código. Tiene check propio.
+- Si algún día hiciera falta **texto** en el PDF (nombre del mazo, marcas de corte), esta decisión se
+  revisa: ahí sí la balanza se corre hacia una librería.
