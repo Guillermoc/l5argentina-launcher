@@ -62,6 +62,7 @@ backlog; su fecha es la del momento en que se tomaron.
 | [047](#adr-047) | "Mazo terminado": un criterio propio del launcher, y blando | 2026-07-28 | Vigente |
 | [048](#adr-048) | El pack propio se identifica por hash, no por id | 2026-07-28 | Vigente |
 | [049](#adr-049) | El PDF de impresión se escribe a mano, sin librería | 2026-07-29 | Vigente |
+| [050](#adr-050) | En la barra van las acciones frecuentes; el resto, al componente que le toca | 2026-07-29 | Vigente |
 
 ---
 
@@ -1354,3 +1355,49 @@ permite fijar el tamaño físico de la carta, que es el único requisito que de 
   código. Tiene check propio.
 - Si algún día hiciera falta **texto** en el PDF (nombre del mazo, marcas de corte), esta decisión se
   revisa: ahí sí la balanza se corre hacia una librería.
+
+---
+
+<a id="adr-050"></a>
+## ADR-050 — En la barra van las acciones frecuentes; el resto, al componente que le toca
+
+**Fecha:** 2026-07-29 · **Estado:** vigente.
+
+**El problema.** Las barras habían crecido por acumulación: **22 controles permanentes** en el
+Buscador (11 arriba, 11 abajo) y 12 en el editor. Muchos eran botones para cosas que no son acciones
+—el tamaño de celda, la dirección del orden— y varios estaban duplicados o mezclados con los
+filtros. Es el mismo problema que [ADR-043](#adr-043) resolvió para las seis acciones de mazo y que
+[ADR-035](#adr-035) resolvió para el colapso de paneles, pero en la barra del Buscador nunca se había
+hecho la pasada.
+
+**La regla.** En la barra queda lo que se **usa seguido**. Cada otra cosa va al componente que le
+corresponde según **qué tipo de cosa es**:
+
+| Era | Es | Por qué |
+|---|---|---|
+| `－`/`＋` de zoom (2 botones × 2 ventanas) | desplegable pegado al segmentado Lista\|Grilla | El tamaño de celda es una **propiedad de la vista**, igual que Lista o Grilla. Cuatro botones para cuatro escalones era caro; el desplegable además **dice en qué tamaño está**, que los `－`/`＋` no decían |
+| combo de orden + `↑`/`↓` aparte | un solo desplegable, con la flecha en cada opción | Orden y dirección son **un concepto**: había que mirar dos controles para saber cómo estaba ordenado |
+| `＋` y `🗑` pegados al selector de conjunto | filas **adentro** del desplegable | Son operaciones **sobre lo que ese desplegable lista**, y se usan una vez cada tanto. Es el patrón que ese mismo combo ya usaba con "Usar mazo…" |
+| botón "Mazos" | nada (queda el nombre del mazo, ya clickeable) + `Ctrl+D` | Llamaba **al mismo handler**: dos controles pegados para una acción |
+| chip "Limpiar filtros" siempre visible | visible solo si hay filtros | Un botón que la mitad del tiempo no hace nada. Ahora su presencia **es** la señal de que hay filtros |
+| `⫞` lado a lado en la barra del editor | fila del menú `⋯` | Es una acción de **ventana**, no de mazo |
+
+**Consecuencias.** El Buscador queda en ~14 controles y el editor en ~8. La regla es la que hay que
+aplicar la próxima vez que aparezca la tentación de "le agrego un botoncito a la barra": si no es una
+acción frecuente, la pregunta es *de qué componente es*.
+
+**Dos trampas de layout que aparecieron y conviene no repetir.**
+
+- **Un `Popup` adentro de un `StackPanel` de barra se mide como hijo** y le come el ancho deseado a
+  los controles que vienen después (el orden y la ayuda se iban de la ventana). Los popups van en la
+  raíz, como `HoverPreview`.
+- **Dos columnas `*` compitiendo dejan sin ancho al grupo de la derecha.** La fila 1 del Buscador
+  pasó a `DockPanel` con ese grupo anclado a la derecha y primero en el XAML: cobra su tamaño antes
+  que nada y lo que cede es la caja de búsqueda.
+
+**Nota de método, porque costó.** El diagnóstico inicial fue **un artefacto de medición, no un bug**:
+las capturas con `PrintWindow` salían cortadas porque el proceso que capturaba no era *DPI-aware* y
+dimensionaba el bitmap con las coordenadas virtualizadas (1323) en vez de las físicas (1654, monitor
+a 125 %). La UI siempre había entrado. Para verificar layout a futuro: `SetProcessDPIAware()` antes
+de capturar, o mejor, medir con **UI Automation** (`BoundingRectangle`), que da números y no píxeles
+para interpretar.

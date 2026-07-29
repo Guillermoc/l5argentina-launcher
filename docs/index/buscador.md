@@ -72,11 +72,13 @@ restaura lo que el usuario tenía. Detalle en [ui.md](ui.md).
 
 La barra superior va en dos filas: **caja de búsqueda + contador de resultados** pegados a la
 izquierda y vista/orden a la derecha arriba (sin título: ya lo muestra la barra de título propia);
-Limpiar filtros, toggles rápidos, **Solo lista + selector de conjunto + `＋`/`🗑`** y **mazo
-activo + Mazos…** abajo. Crear y borrar listas salió del panel de filtros a esos íconos
-pegados al combo (el nombre se pide con `Dialogs.Prompt`, y borrar confirma): elegir conjunto es
-navegación, no un filtro más. El selector de mazo
-activo vive acá y no en el panel derecho: colapsar el panel no debe esconder el destino de los `+`/`−`.
+Limpiar filtros (**solo si hay filtros puestos**), toggles rápidos, **Solo lista + selector de
+conjunto** y el **mazo activo** abajo. Crear y borrar listas viven **adentro** del desplegable de
+conjunto, como "Usar mazo…" (el nombre se pide con `Dialogs.Prompt`, y borrar confirma): son
+operaciones sobre lo que ese desplegable lista, y elegir conjunto es navegación, no un filtro más
+([ADR-050](../DECISIONS.md#adr-050)). El nombre del mazo activo es clickeable y abre la ventana de
+Mazos (`Ctrl+D` hace lo mismo); vive acá y no en el panel derecho porque colapsar el panel no debe
+esconder el destino de los `+`/`−`. La fila 1 es un `DockPanel`: ver [ui.md](ui.md).
 
 **Contador + resumen de filtros activos** — al lado de "N resultados" va un compacto de lo que está
 filtrando (`"hida" · personality/holding · Cangrejo · F≥5 · incl. baneadas`), y el click lo abre
@@ -92,7 +94,8 @@ re-decodifica el archivo a tamaño completo (`CardImageClipboard`), no se copia 
 de la grilla.
 
 **Zoom de la grilla** — cuatro tamaños de celda (124 / 168 / 226 / 302 de ancho, proporción de carta
-escaneada), con `－`/`＋` al lado del segmentado Lista \| Grilla o con **Ctrl + rueda**. En el más
+escaneada), con el desplegable de tamaño que cierra el segmentado Lista \| Grilla o con
+**Ctrl + rueda** ([ADR-050](../DECISIONS.md#adr-050)). En el más
 chico **la barra de acciones de la celda no se dibuja**: mide ~160 con sus cinco botones y no entra
 en 124. No se pierde nada — Ctrl+click agrega, click derecho copia, Alt previsualiza y el panel de
 detalle tiene las mismas acciones.
@@ -148,7 +151,7 @@ Cómo llega al motor: la UI **materializa** las cartas del conjunto en `UserCard
 de buscar (`UserCardData.WithList`), así que para `CardSearchEngine` sigue siendo el `listId` de
 siempre — el que verifican los golden. Sumar un tipo de conjunto nuevo no toca el motor.
 
-- **Listas**: crear con `＋` y borrar con `🗑` desde la barra. Cargarlas es el `≡` de la celda o
+- **Listas**: crear y borrar desde el propio desplegable de conjunto. Cargarlas es el `≡` de la celda o
   `≡ A la lista` del detalle. Son `.txt` de `<juego>\Lists\`, 1 copia por carta, y se editan en la
   ventana de Mazos (solapa **Listas**).
 - **Ocultas**: se togglean con el `⊘` de siempre; como conjunto solo se filtran. **Favoritas no está

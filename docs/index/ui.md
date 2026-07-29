@@ -23,7 +23,25 @@ con el listado completo de atajos de teclado y mouse. El texto vive entero en `S
 (`Help_ShortcutsSearch` / `Help_ShortcutsDeck`), así que agregar un atajo es editar el `.resx` y no
 tocar código — y si se olvida, se nota al leerlo.
 
-**Zoom de grilla** — cuatro tamaños de celda en las dos ventanas, con `－`/`＋` o **Ctrl + rueda**
+**Qué NO es un botón de la barra** ([ADR-050](../DECISIONS.md#adr-050)). La pasada de racionalización
+dejó una regla: en la barra van las **acciones frecuentes**; lo demás va al componente que le
+corresponde. En concreto: el **zoom** es una propiedad de la vista, así que es un desplegable pegado
+al segmentado Lista\|Grilla (antes eran dos botones `－`/`＋` por ventana); **orden y dirección** son
+un solo concepto y ahora son un solo desplegable donde la flecha es parte de la opción (antes un
+combo más un `↑`/`↓`); **crear y borrar lista** son operaciones sobre lo que el selector de conjunto
+lista, así que viven **adentro** de ese desplegable, como "Usar mazo…"; **lado a lado** es una acción
+de ventana y bajó al menú `⋯`; **Limpiar filtros** aparece solo cuando hay filtros puestos, así su
+presencia *es* la señal; y el botón "Mazos" del Buscador se fue porque llamaba al mismo handler que
+el nombre del mazo, que ya es clickeable (queda `Ctrl+D` para cuando la barra está achicada).
+
+**La fila 1 del Buscador es un `DockPanel`, no un `Grid`.** El grupo de vista/orden va anclado a la
+derecha y **primero en el XAML**, que en un `DockPanel` es el orden de reparto: cobra su ancho antes
+que nada y lo que cede es la caja de búsqueda, que se achica sin romperse. Con dos columnas `*`
+compitiendo, ese grupo se quedaba sin ancho. **Los `Popup` no van adentro de un `StackPanel` de
+barra**: se miden como hijo y le comen el ancho deseado a los controles que vienen después; viven en
+la raíz de la ventana, como `HoverPreview`.
+
+**Zoom de grilla** — cuatro tamaños de celda en las dos ventanas, con el desplegable del segmentado o **Ctrl + rueda**
 (`PreviewMouseWheel`, que marca `Handled` solo con Ctrl para no robarle el scroll a la rueda pelada).
 En el Buscador el tamaño viaja por `DependencyProperty` a la plantilla; en el editor las celdas se
 construyen en código, así que se rearma el cuerpo. **En el nivel mínimo la barra de acciones de la
@@ -31,6 +49,15 @@ celda no entra** (mide ~160 contra 124 de celda) y se esconde: en el Buscador po
 sobre `IsTinyZoom` puesto **último** en los triggers, para que gane sobre hover y selección; en el
 editor queda solo la cantidad. Es el mismo criterio que la barra de ventana en modo compacto: a
 menos espacio, se va lo que tiene otro camino.
+
+**Paneles ajustables con el mouse.** La columna del riel hace dos cosas: un `GridSplitter`
+(`PaneSplitter`) ocupa la altura completa y arrastrarlo mueve el borde del panel; el chevron
+(`PaneRail`) quedó como un **nudo de 62 px centrado** encima, y sigue colapsando de un click. Antes la
+píldora ocupaba toda la columna y no dejaba dónde agarrar. Arrastrar por debajo de **180 DIP**
+colapsa el panel en vez de dejarlo inservible —empujar el borde hasta el fondo es justo lo que pide
+un colapso— y el ancho elegido se recuerda para cuando se lo reabra. Al soltar, la columna central se
+devuelve a `*`: el `GridSplitter` la convierte a píxeles fijos y con eso la ventana dejaba de
+repartir bien el ancho al redimensionarse.
 
 **Dos escalones de angostura.** Bajo **1000 DIP** las dos ventanas cierran sus paneles laterales y
 **apagan los rieles** (con un tooltip que lo explica): a ese ancho los paneles —270/260 y 405— no
@@ -40,15 +67,16 @@ ventana recuerda lo que el usuario tenía abierto (`_wantFilters`/`_wantDetail`,
 
 Bajo **900 DIP** entra el segundo escalón (`ApplyCompactMode`), porque con los paneles ya cerrados
 **el piso lo pone la barra de botones**. Se esconde lo accesorio: en el Buscador el bloque del mazo
-activo, el resumen de filtros y el zoom; en el editor los conteos con el "Falta: {slot}", el zoom y
-el orden. Nada de eso es accionable desde la barra y el cuerpo del mazo repite los conteos. Con eso
+activo, el resumen de filtros y el chip de impresiones (el zoom ya no: es parte del segmentado de
+vista, y sacarlo dejaría el grupo cortado por la mitad); en el editor los conteos con el
+"Falta: {slot}" y el orden. Nada de eso es accionable desde la barra y el cuerpo del mazo repite los conteos. Con eso
 los mínimos pudieron bajar a **460×460**, que es lo que necesita el 30 % del layout lado a lado.
 
 La segunda fila de la barra del Buscador es un **`WrapPanel`, no un `Grid`**: por debajo de ~1000 DIP
 sus grupos no entran en una línea, y bajar a la siguiente se lee mejor que recortarse. Cada grupo es
 un `StackPanel`, así que la envoltura corta entre grupos y nunca separa un control de su etiqueta.
 
-**Lado a lado** — el `⫞` de la barra del editor acomoda las dos ventanas sobre el área de trabajo:
+**Lado a lado** — la fila **Acomodar lado a lado** del menú `⋯` del editor acomoda las dos ventanas sobre el área de trabajo:
 Buscador al 70 % izquierdo con su panel de detalle cerrado, editor al 30 % derecho en vista Lista y
 con los dos paneles cerrados. Si no hay Buscador abierto, lo abre. Es el layout de armar: se busca
 en una ventana y se ve el mazo crecer en la otra. El reparto **no es un 70/30 ciego**: se calcula el
