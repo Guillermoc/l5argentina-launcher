@@ -38,7 +38,7 @@
 
     <Grid x:Name="RootLayout">
         <!-- Previsualización con Alt (ver ui.md): corrida del cursor para no taparse a sí misma -->
-        <Popup x:Name="HoverPreview" Placement="Mouse" HorizontalOffset="26" VerticalOffset="26"
+        <Popup x:Name="HoverPreview" Placement="Absolute"
                AllowsTransparency="True" StaysOpen="True" IsHitTestVisible="False" Focusable="False">
             <Border Background="#F2140A05" BorderBrush="{StaticResource Gold}" BorderThickness="2"
                     CornerRadius="12" Padding="5">
@@ -233,9 +233,9 @@
                                     <TextBlock x:Name="DeckTitle" Style="{StaticResource CardTitle}" FontSize="24"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                MaxWidth="520" />
-                                    <TextBlock Text="▾" FontSize="15" Margin="10,4,0,0"
+                                    <TextBlock Text="▾" FontSize="19" Margin="12,3,2,0"
                                                VerticalAlignment="Center"
-                                               Foreground="{StaticResource GoldDim}" />
+                                               Foreground="{StaticResource Gold}" />
                                 </StackPanel>
                             </ToggleButton>
                         </StackPanel>
@@ -249,6 +249,23 @@
                                     Height="32" FontSize="14" Padding="14,0"
                                     Content="{loc:Loc Deck_OpenSearch}"
                                     ToolTip="{loc:Loc Deck_OpenSearchTip}" Click="OpenSearchBtn_Click" />
+                            <!-- El ícono se DIBUJA en vez de ser un glifo: ⫞ (U+2ADE) no está en
+                                 Segoe UI y caía a un fallback ilegible, y los bloques ▊▎ se fusionan
+                                 en una mancha. Dos rectángulos de anchos desiguales dibujan el 70/30
+                                 del reparto y no dependen de la cobertura de ninguna fuente. -->
+                            <Button x:Name="SideBySideBtn" Style="{StaticResource IconButton}"
+                                    Margin="8,0,0,0" ToolTip="{loc:Loc Deck_SideBySideTip}"
+                                    Click="SideBySide_Click">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="10" Height="13" BorderThickness="1.4" CornerRadius="1.5"
+                                            BorderBrush="{Binding Foreground,
+                                                RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    <Border Width="5" Height="13" Margin="2,0,0,0" BorderThickness="1.4"
+                                            CornerRadius="1.5"
+                                            BorderBrush="{Binding Foreground,
+                                                RelativeSource={RelativeSource AncestorType=Button}}" />
+                                </StackPanel>
+                            </Button>
                             <Button x:Name="DeckMenuBtn" Style="{StaticResource IconButton}"
                                     Margin="8,0,0,0" Content="⋯" FontSize="17"
                                     ToolTip="{loc:Loc Deck_MenuTip}" Click="DeckMenuBtn_Click" />
@@ -280,12 +297,6 @@
                                     <Button x:Name="OpenFolderBtn" Style="{StaticResource MenuRow}"
                                             Content="{loc:Loc Deck_OpenFolderMenu}" ToolTip="{loc:Loc Deck_OpenFolderTip}"
                                             Click="OpenFolderBtn_Click" />
-                                    <Rectangle Height="1" Margin="10,5" Fill="{StaticResource OutlineSoft}" />
-                                    <!-- Acomodar las ventanas es una acción de VENTANA, no de mazo:
-                                         no le corresponde un botón fijo en la barra del editor. -->
-                                    <Button x:Name="SideBySideBtn" Style="{StaticResource MenuRow}"
-                                            Content="{loc:Loc Deck_SideBySideMenu}"
-                                            ToolTip="{loc:Loc Deck_SideBySideTip}" Click="SideBySide_Click" />
                                     <Rectangle Height="1" Margin="10,5" Fill="{StaticResource OutlineSoft}" />
                                     <Button x:Name="ClearTrimmedBtn" Style="{StaticResource MenuRow}"
                                             Content="{loc:Loc Deck_ClearTrimmedMenu}"
@@ -431,6 +442,13 @@
                                 <TextBlock Text="{loc:Loc Deck_AddFromSearchHint}" Style="{StaticResource BodySmall}"
                                            FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
                             </StackPanel>
+
+                            <!-- Sin mazo abierto: el panel dice por dónde empezar en vez de mostrar
+                                 filtros y stats de nada. -->
+                            <TextBlock x:Name="EmptyPaneHint" Grid.Row="1" Visibility="Collapsed"
+                                       Text="{loc:Loc Deck_EmptyPaneHint}" TextWrapping="Wrap"
+                                       VerticalAlignment="Top" Style="{StaticResource BodySmall}"
+                                       FontSize="12" />
 
                             <!-- Stats del mazo: mismo objeto que los filtros, así que mismo panel -->
                             <ScrollViewer x:Name="StatsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto"

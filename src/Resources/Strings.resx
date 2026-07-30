@@ -350,7 +350,7 @@
   <data name="Deck_Stats_AvgFocus" xml:space="preserve"><value>Foco promedio (Fate)</value></data>
 
   <!-- ═══════ Buscador v4.1: lista activa como filtro, tabs Carta/Mazo, acciones en celda ═══════ -->
-  <data name="Search_ActiveDeckTip" xml:space="preserve"><value>Es el mazo seleccionado en la ventana de Mazos. Click para abrirla y cambiarlo.</value></data>
+  <data name="Search_ActiveDeckTip" xml:space="preserve"><value>Es el mazo abierto en la ventana de Mazos, donde se cambia (Ctrl+D la trae al frente).</value></data>
   <data name="Search_ActiveDeckCountsTip" xml:space="preserve"><value>Total de cartas · Dynasty · Fate (en rojo si no llegan a 40)</value></data>
   <data name="Search_ActiveDeckLabel" xml:space="preserve"><value>Mazo activo:</value></data>
   <data name="Search_ListFilterAll" xml:space="preserve"><value>Conjunto: (ninguno)</value></data>
@@ -398,6 +398,7 @@
   <data name="Fmt_Sum_Set" xml:space="preserve"><value>solo {0}</value></data>
   <data name="Fmt_CopiedImage" xml:space="preserve"><value>Imagen de {0} copiada</value></data>
   <!-- ═══════ Panel del editor: pestañas Abrir | Filtros ═══════ -->
+  <data name="Deck_EmptyPaneHint" xml:space="preserve"><value>Todavía no hay ningún mazo abierto. Abrí el desplegable del título para elegir uno o crear uno nuevo con ＋.</value></data>
   <data name="Deck_PickerTip" xml:space="preserve"><value>Elegir qué mazo o lista abrir (y crear, buscar, ordenar o filtrar por clan y estado)</value></data>
   <data name="Deck_PaneFilters" xml:space="preserve"><value>Filtros</value></data>
   <data name="Deck_SearchHint" xml:space="preserve"><value>Buscar por nombre o carta…</value></data>
@@ -425,7 +426,7 @@
   <data name="Help_ShortcutsSearch" xml:space="preserve"><value>TECLADO
 Ctrl + F  —  ir a la barra de búsqueda
 Ctrl + N  —  abrir otra ventana del Buscador
-Ctrl + D  —  abrir la ventana de Mazos
+Ctrl + D  —  traer la ventana de Mazos al frente
 Esc  —  limpiar la barra de búsqueda
 Enter (en la barra)  —  confirmar el modo operador
 Flecha abajo (en la barra)  —  bajar a los resultados
@@ -457,9 +458,10 @@ EN LA LISTA DE CARTAS DEL MAZO
 ✕  —  sacar la carta del mazo del todo
 
 BOTONES DE LA BARRA
-Click en el nombre del mazo  —  elegir qué mazo o lista abrir
-Buscador  —  abrir el Buscador para agregar cartas
-⋯  —  renombrar, duplicar, importar, exportar, PDF, carpeta, lado a lado, limpiar recortadas, eliminar</value></data>
+Nombre del mazo ▾  —  elegir qué mazo o lista abrir, o crear uno
+Buscador  —  abrir otra ventana del Buscador
+Los dos paneles  —  acomodar Buscador y editor lado a lado
+⋯  —  renombrar, duplicar, importar, exportar, PDF, carpeta, limpiar recortadas, eliminar</value></data>
   <data name="Cell_PlusTip" xml:space="preserve"><value>Agregar al mazo activo (Ctrl+click sobre la carta hace lo mismo)</value></data>
   <data name="Cell_MinusTip" xml:space="preserve"><value>Quitar del mazo activo</value></data>
   <data name="Cell_FavTip" xml:space="preserve"><value>Favorita</value></data>
@@ -467,7 +469,6 @@ Buscador  —  abrir el Buscador para agregar cartas
   <data name="Cell_CtrlAddOverlay" xml:space="preserve"><value>Agregar al mazo</value></data>
   <data name="Search_SetNewList" xml:space="preserve"><value>＋  Lista nueva…</value></data>
   <data name="Search_SetDeleteList" xml:space="preserve"><value>🗑  Borrar esta lista…</value></data>
-  <data name="Deck_SideBySideMenu" xml:space="preserve"><value>Acomodar lado a lado</value></data>
   <data name="Cell_ListTip" xml:space="preserve"><value>Agregar/quitar de la lista activa</value></data>
   <!-- ═══════ Exportar el mazo a PDF para imprimir (proxies) ═══════ -->
   <data name="Deck_PdfMenu" xml:space="preserve"><value>Exportar a PDF…</value></data>

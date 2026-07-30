@@ -1068,7 +1068,7 @@ namespace L5ArgentinaLauncher.Views
             if (image == null) { HidePreview(); return; }
             _previewCardId = cell.Card.Id;
             HoverPreviewImage.Source = image;
-            HoverPreview.IsOpen = false; // reabrir la reposiciona en el cursor actual
+            HoverPreviewPlacer.Place(HoverPreview, this);
             HoverPreview.IsOpen = true;
         }
 
@@ -1092,7 +1092,7 @@ namespace L5ArgentinaLauncher.Views
             if (image == null) { HidePreview(); return; }
             _previewCardId = card.Id;
             HoverPreviewImage.Source = image;
-            HoverPreview.IsOpen = false; // reabrir la reposiciona en el cursor actual
+            HoverPreviewPlacer.Place(HoverPreview, this);
             HoverPreview.IsOpen = true;
         }
 

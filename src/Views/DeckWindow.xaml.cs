@@ -129,6 +129,25 @@ namespace L5ArgentinaLauncher.Views
             if (selectDeckId != null) _instance.SelectDeck(selectDeckId);
         }
 
+        /// <summary>
+        /// Abre el **espacio de trabajo**: el editor y un Buscador, en ese orden para que el Buscador
+        /// quede al frente. Los dos **se abren** juntos (ADR-052): el Buscador sin editor deja los
+        /// `+`/`−` sin destino visible, y tener que abrirlo a mano era un paso de más en el único
+        /// flujo real. Devuelve el Buscador nuevo.
+        ///
+        /// Abrirlos juntos no los ata: cerrar el editor cierra solo el editor. El único dueño de la
+        /// aplicación es <see cref="MainWindow"/> (ADR-052 revisado); volver con `Ctrl+D` desde el
+        /// Buscador lo reabre en el mismo mazo.
+        /// </summary>
+        public static SearchWindow OpenWorkspace(CardCatalog catalog, string installPath)
+        {
+            Open(catalog, installPath);
+            var search = new SearchWindow(catalog, installPath);
+            search.Show();
+            search.Activate();
+            return search;
+        }
+
         public DeckWindow(CardCatalog catalog, string installPath)
         {
             InitializeComponent();
@@ -194,6 +213,12 @@ namespace L5ArgentinaLauncher.Views
             };
 
             RefreshDeckList(_library.ActiveDeckId ?? Repo.Decks.FirstOrDefault()?.Id);
+
+            // Sin ningún mazo (instalación nueva, o se borraron todos) la única acción posible es
+            // crear uno, y el ＋ vive dentro del picker: se abre solo en vez de dejar la ventana
+            // vacía sin decir por dónde empezar. Con al menos un mazo, RefreshDeckList ya abrió uno.
+            if (Repo.Decks.Count == 0)
+                Loaded += (s2, e2) => DeckPickerBtn.IsChecked = true;
         }
 
         // ------------------------------------------------------------------ title bar custom
@@ -618,6 +643,16 @@ namespace L5ArgentinaLauncher.Views
             // Imprimir una lista no significa nada: es una selección para filtrar, no un mazo.
             PdfBtn.Visibility = IsListKind ? Visibility.Collapsed : Visibility.Visible;
             PdfBtn.IsEnabled = hasDeck && deck.Cards.Any(c => c.Quantity > 0);
+
+            // Sin mazo abierto no hay nada que filtrar ni que medir: las pestañas se apagan en vez
+            // de mostrar dos paneles vacíos que parecen roto. El cuerpo del centro explica qué hacer.
+            PaneFiltersBtn.IsEnabled = hasDeck;
+            PaneStatsBtn.IsEnabled = hasDeck;
+            EmptyPaneHint.Visibility = hasDeck ? Visibility.Collapsed : Visibility.Visible;
+            FiltersPane.Visibility = hasDeck && PaneStatsBtn.IsChecked != true
+                ? Visibility.Visible : Visibility.Collapsed;
+            StatsScroll.Visibility = hasDeck && PaneStatsBtn.IsChecked == true
+                ? Visibility.Visible : Visibility.Collapsed;
             RefreshTrimmedLabel();
 
             DeckTitle.Text = hasDeck ? deck.Name : Strings.Get("Deck_NoDeckSelected");
@@ -1172,7 +1207,7 @@ namespace L5ArgentinaLauncher.Views
             if (image == null) { HidePreview(); return; }
             _previewCardId = card.Id;
             HoverPreviewImage.Source = image;
-            HoverPreview.IsOpen = false; // reabrir la reposiciona en el cursor actual
+            HoverPreviewPlacer.Place(HoverPreview, this);
             HoverPreview.IsOpen = true;
         }
 

@@ -327,9 +327,9 @@ namespace L5ArgentinaLauncher
                 if (_catalog == null)
                     _catalog = await Task.Run(() => Services.Search.CatalogStore.Load());
 
-                _searchWindow = new Views.SearchWindow(_catalog, _config.SunAndMoonPath) { Owner = null };
+                // Buscador y Mazos van juntos (ADR-052): el editor es el destino de los +/-.
+                _searchWindow = Views.DeckWindow.OpenWorkspace(_catalog, _config.SunAndMoonPath);
                 _searchWindow.Closed += (s2, e2) => _searchWindow = null;
-                _searchWindow.Show();
                 SetStatus(Strings.Get("Status_Ready"));
             }
             catch (Exception ex)

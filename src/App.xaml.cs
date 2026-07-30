@@ -34,7 +34,7 @@ namespace L5ArgentinaLauncher
             {
                 var cat = Services.Search.CatalogStore.Load();
                 var cfg = new ConfigService().Load();
-                new SearchWindow(cat, cfg.SunAndMoonPath).Show();
+                DeckWindow.OpenWorkspace(cat, cfg.SunAndMoonPath);
                 return;
             }
 

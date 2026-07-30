@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
 
 namespace L5ArgentinaLauncher.Views
 {
@@ -79,6 +80,30 @@ namespace L5ArgentinaLauncher.Views
             if (window.Left + window.Width > bottomRight.X) window.Left = bottomRight.X - window.Width;
             if (window.Top + window.Height > bottomRight.Y) window.Top = bottomRight.Y - window.Height;
         }
+
+        /// <summary>
+        /// Área de trabajo **en DIP** del monitor donde cae un punto de pantalla (en píxeles de
+        /// dispositivo). La usa la previsualización con Alt para no dibujarse fuera de pantalla:
+        /// <see cref="SystemParameters.WorkArea"/> no sirve porque solo conoce el monitor primario.
+        /// Si Win32 falla, cae al monitor primario, que es mejor que no acotar nada.
+        /// </summary>
+        public static Rect WorkAreaAtDevicePoint(Visual reference, Point devicePoint)
+        {
+            var source = PresentationSource.FromVisual(reference) as HwndSource;
+            var handle = MonitorFromPoint(new POINT { X = (int)devicePoint.X, Y = (int)devicePoint.Y },
+                                          MONITOR_DEFAULTTONEAREST);
+            var info = new MONITORINFO { cbSize = Marshal.SizeOf(typeof(MONITORINFO)) };
+            if (handle == IntPtr.Zero || source == null || !GetMonitorInfo(handle, ref info))
+                return SystemParameters.WorkArea;
+
+            var toDip = source.CompositionTarget.TransformFromDevice;
+            var topLeft = toDip.Transform(new Point(info.rcWork.Left, info.rcWork.Top));
+            var bottomRight = toDip.Transform(new Point(info.rcWork.Right, info.rcWork.Bottom));
+            return new Rect(topLeft, bottomRight);
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromPoint(POINT point, int flags);
 
         private static bool TryGetMonitorRects(IntPtr hwnd, out RECT work, out RECT monitor)
         {

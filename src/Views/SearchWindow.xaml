@@ -303,7 +303,7 @@
         <!-- Previsualización con Alt: se abre donde está el cursor, corrida abajo-derecha para no
              quedar debajo del mouse (si tapara la celda, el MouseLeave la cerraría en loop).
              IsHitTestVisible=False: es para mirar, no se puede clickear. -->
-        <Popup x:Name="HoverPreview" Placement="Mouse" HorizontalOffset="26" VerticalOffset="26"
+        <Popup x:Name="HoverPreview" Placement="Absolute"
                AllowsTransparency="True" StaysOpen="True" IsHitTestVisible="False" Focusable="False">
             <Border Background="#F2140A05" BorderBrush="{StaticResource Gold}" BorderThickness="2"
                     CornerRadius="12" Padding="5">
@@ -507,11 +507,14 @@
                                     VerticalAlignment="Center">
                             <TextBlock Text="{loc:Loc Search_ActiveDeckLabel}" Style="{StaticResource BodySmall}"
                                        FontSize="11" VerticalAlignment="Center" Margin="0,0,7,0" />
+                            <!-- Es una ETIQUETA, no un control: que el nombre abriera la ventana de
+                                 Mazos era confuso (nada lo delataba salvo el cursor). Mazos ahora se
+                                 abre siempre junto al Buscador, así que no hay nada que abrir desde
+                                 acá; para traerla al frente está Ctrl+D (ADR-052). -->
                             <TextBlock x:Name="ActiveDeckName" Style="{StaticResource Body}" FontSize="13"
                                        Foreground="{StaticResource Gold}" VerticalAlignment="Center"
-                                       Cursor="Hand" TextTrimming="CharacterEllipsis" MaxWidth="220"
-                                       ToolTip="{loc:Loc Search_ActiveDeckTip}"
-                                       MouseLeftButtonUp="DecksBtn_Click" />
+                                       TextTrimming="CharacterEllipsis" MaxWidth="220"
+                                       ToolTip="{loc:Loc Search_ActiveDeckTip}" />
                             <TextBlock x:Name="ActiveDeckCounts" Style="{StaticResource BodySmall}" FontSize="11"
                                        VerticalAlignment="Center" Margin="10,0,0,0"
                                        ToolTip="{loc:Loc Search_ActiveDeckCountsTip}" />

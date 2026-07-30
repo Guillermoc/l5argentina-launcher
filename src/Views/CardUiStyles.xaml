@@ -528,8 +528,10 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
-                    <Border x:Name="bd" CornerRadius="8" Background="Transparent"
-                            BorderThickness="1" BorderBrush="Transparent" Padding="8,2">
+                    <!-- El borde va SIEMPRE visible: con el fondo solo en hover, el título no se
+                         leía como control y había que descubrirlo pasando el mouse. -->
+                    <Border x:Name="bd" CornerRadius="8" Background="#22C9A961"
+                            BorderThickness="1" BorderBrush="{StaticResource GoldDim}" Padding="10,2">
                         <ContentPresenter VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>

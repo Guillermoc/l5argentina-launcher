@@ -346,6 +346,9 @@ namespace L5ArgentinaLauncher
             // ---------- Exportación a PDF: geometría de la hoja y estructura del archivo ----------
             RunPdfExportTests(tempRoot);
 
+            // ---------- Ubicación de la previsualización con Alt (el cursor nunca queda adentro) ----------
+            RunHoverPreviewTests();
+
             // ---------- Opcional: e2e con archivos REALES del bucket ----------
             // Se activa pasando L5A_SELFTEST_BUCKET=<carpeta con manifest.json + zips reales>.
             var realBucket = Environment.GetEnvironmentVariable("L5A_SELFTEST_BUCKET");
@@ -1154,6 +1157,72 @@ namespace L5ArgentinaLauncher
                 if (pdf.Substring(offset, expected.Length) != expected) return false;
             }
             return true;
+        }
+
+        /// <summary>
+        /// Ubicación de la previsualización con Alt. El invariante es uno y es el que causaba el bug:
+        /// **el cursor nunca puede quedar adentro del popup**. Si queda, el popup tapa la celda, salta
+        /// su MouseLeave, se cierra, el mouse vuelve a estar sobre la celda y se reabre — parpadeo
+        /// infinito. Contra el borde derecho, `PlacementMode.Mouse` de WPF hacía exactamente eso.
+        /// </summary>
+        private static void RunHoverPreviewTests()
+        {
+            Line("");
+            Line("=== Previsualización con Alt: no puede quedar debajo del cursor ===");
+
+            var content = new System.Windows.Size(444, 634);
+            var work = new System.Windows.Rect(0, 0, 1536, 824);
+
+            System.Windows.Point At(double x, double y) =>
+                Views.HoverPreviewPlacer.ComputePosition(new System.Windows.Point(x, y), work, content);
+            System.Windows.Rect RectAt(double x, double y)
+            {
+                var p = At(x, y);
+                return new System.Windows.Rect(p.X, p.Y, content.Width, content.Height);
+            }
+
+            // Caso cómodo: abajo a la derecha del cursor
+            var easy = At(200, 100);
+            Assert(easy.X > 200 && easy.Y > 100, "Alt: con lugar, la previsualización va abajo-derecha del cursor");
+
+            // Borde derecho: se va al otro lado, y NO espejando el offset (eso lo metía bajo el mouse)
+            var right = At(1500, 100);
+            Assert(right.X < 1500 - content.Width,
+                "Alt: contra el borde derecho salta a la izquierda del cursor, corrida su ancho entero");
+            Assert(!RectAt(1500, 100).Contains(new System.Windows.Point(1500, 100)),
+                "Alt: contra el borde derecho el cursor queda FUERA (era el bucle de parpadeo)");
+
+            // Borde inferior y esquina
+            Assert(!RectAt(200, 800).Contains(new System.Windows.Point(200, 800)),
+                "Alt: contra el borde inferior el cursor queda fuera");
+            Assert(!RectAt(1520, 810).Contains(new System.Windows.Point(1520, 810)),
+                "Alt: en la esquina inferior derecha el cursor queda fuera");
+
+            // Nunca se sale del área de trabajo
+            var corner = RectAt(1530, 820);
+            Assert(corner.Left >= work.Left && corner.Top >= work.Top && corner.Right <= work.Right + 0.01,
+                "Alt: la previsualización no se dibuja fuera del área de trabajo");
+
+            // El barrido es el check que de verdad cierra el caso: toda la pantalla, paso de 8 px.
+            var inside = 0;
+            var outside = 0;
+            for (var x = work.Left; x <= work.Right; x += 8)
+                for (var y = work.Top; y <= work.Bottom; y += 8)
+                {
+                    var cursor = new System.Windows.Point(x, y);
+                    var p = Views.HoverPreviewPlacer.ComputePosition(cursor, work, content);
+                    if (new System.Windows.Rect(p.X, p.Y, content.Width, content.Height).Contains(cursor)) inside++;
+                    if (p.X < work.Left - 0.01 || p.Y < work.Top - 0.01) outside++;
+                }
+            Assert(inside == 0, "Alt: barriendo la pantalla entera, el cursor no cae adentro en ninguna posición");
+            Assert(outside == 0, "Alt: barriendo la pantalla entera, nunca se posiciona fuera del área");
+
+            // Una pantalla más chica que el popup es el peor caso: la red de seguridad tiene que actuar
+            var tiny = new System.Windows.Rect(0, 0, 700, 500);
+            var tinyCursor = new System.Windows.Point(350, 250);
+            var tinyAt = Views.HoverPreviewPlacer.ComputePosition(tinyCursor, tiny, content);
+            Assert(!new System.Windows.Rect(tinyAt.X, tinyAt.Y, content.Width, content.Height).Contains(tinyCursor),
+                "Alt: incluso en un área más chica que la previsualización, el cursor queda fuera");
         }
 
         /// <summary>JPEG baseline RGB sintético, para no depender de imágenes de cartas reales.</summary>
