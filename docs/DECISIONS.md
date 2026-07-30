@@ -64,6 +64,7 @@ backlog; su fecha es la del momento en que se tomaron.
 | [049](#adr-049) | El PDF de impresión se escribe a mano, sin librería | 2026-07-29 | Vigente |
 | [050](#adr-050) | En la barra van las acciones frecuentes; el resto, al componente que le toca | 2026-07-29 | Vigente |
 | [051](#adr-051) | Los paneles se agrupan por objeto, no por lado de la pantalla | 2026-07-29 | Vigente |
+| [052](#adr-052) | Buscador y Mazos son un solo espacio de trabajo; correcciones de la pasada de UI | 2026-07-30 | Vigente |
 
 ---
 
@@ -1381,7 +1382,7 @@ corresponde según **qué tipo de cosa es**:
 | `＋` y `🗑` pegados al selector de conjunto | filas **adentro** del desplegable | Son operaciones **sobre lo que ese desplegable lista**, y se usan una vez cada tanto. Es el patrón que ese mismo combo ya usaba con "Usar mazo…" |
 | botón "Mazos" | nada (queda el nombre del mazo, ya clickeable) + `Ctrl+D` | Llamaba **al mismo handler**: dos controles pegados para una acción |
 | chip "Limpiar filtros" siempre visible | visible solo si hay filtros | Un botón que la mitad del tiempo no hace nada. Ahora su presencia **es** la señal de que hay filtros |
-| `⫞` lado a lado en la barra del editor | fila del menú `⋯` | Es una acción de **ventana**, no de mazo |
+| `⫞` lado a lado en la barra del editor | fila del menú `⋯` — **revertido por [ADR-052](#adr-052)**: vuelve a la barra | Es una acción de **ventana**, no de mazo. El criterio era correcto pero la frecuencia de uso pesa más: se usa en cada sesión de armado |
 
 **Consecuencias.** El Buscador queda en ~14 controles y el editor en ~8. La regla es la que hay que
 aplicar la próxima vez que aparezca la tentación de "le agrego un botoncito a la barra": si no es una
@@ -1453,3 +1454,77 @@ tipografía y tamaño) y solo el `▾` y el fondo en hover delatan que es un dis
 - El texto de "no hay mazo abierto" decía "elegí un mazo **a la izquierda**": se corrigió, y es el
   tipo de mentira que un cambio de layout deja sin que el compilador se entere.
 - El panel derecho quedó con un encabezado fijo "Carta" en vez de pestañas.
+
+---
+
+<a id="adr-052"></a>
+## ADR-052 — Buscador y Mazos son un solo espacio de trabajo
+
+**Fecha:** 2026-07-30 · **Estado:** vigente.
+
+**Decisión.** Abrir el Buscador abre **también** el editor de Mazos (`DeckWindow.OpenWorkspace`). El
+editor sigue siendo **único por proceso**; de Buscadores se pueden tener varios (`Ctrl+N`). Cerrar el
+editor cierra **solo el editor**: el único dueño de la aplicación sigue siendo `MainWindow`
+([ADR-039](#adr-039)).
+
+**Por qué.** Los `+`/`−` del Buscador escriben siempre contra el mazo activo, y el único lugar donde
+se ve ese mazo es el editor. Tenerlo cerrado es un estado en el que la mitad de la interfaz opera
+sobre algo invisible, y abrirlo era un paso manual en el **único flujo real** de la app.
+
+**Descartado: acoplar también el cierre.** La primera versión hacía que cerrar Mazos cerrara la
+aplicación entera, con aviso, razonando que si van siempre juntos "cerrar solo Mazos" reconstruye el
+estado que queremos evitar. Está mal: **abrir juntos no es vivir atados**. Un botón de cerrar que se
+lleva la aplicación entera traiciona lo que el usuario pidió —cerrar una ventana—, y el estado que
+buscábamos evitar es recuperable con `Ctrl+D`, que reabre el editor en el mismo mazo. Un segundo dueño
+de la aplicación tampoco era gratis: dejaba sin salida al "volver al Launcher sin perder el trabajo".
+
+**Consecuencia buscada.** No hace falta **ningún control** en la barra del Buscador para llegar a
+Mazos: ya está abierta. Queda `Ctrl+D` para traerla al frente, y el nombre del mazo activo vuelve a
+ser una **etiqueta** — que fuera clickeable era confuso, porque nada lo delataba salvo el cursor.
+
+### Correcciones a la pasada de UI anterior
+
+Lo que no sobrevivió al uso de [ADR-050](#adr-050)/[ADR-051](#adr-051), más un bug que salió con ellas:
+
+- **El lado a lado vuelve a ser un botón de la barra.** El criterio de ADR-050 —es una acción de
+  ventana, no de mazo— sigue siendo cierto, pero la **frecuencia manda**: se usa en cada sesión de
+  armado, y enterrarlo en el `⋯` le agregaba dos clicks a lo que más se hace.
+- **El selector del título necesita borde permanente.** Se había dejado el fondo solo en hover para
+  que se leyera como título; el resultado fue que **no se leía como control** y había que descubrirlo
+  pasando el mouse. Ahora el borde y el `▾` están siempre.
+- **El ícono del lado a lado se dibuja, no es un glifo.** `⫞` (U+2ADE) **no está en Segoe UI** y caía
+  a un fallback ilegible; los bloques `▊▎` se fusionan en una mancha. Dos `Border` de anchos
+  desiguales dibujan el 70/30 y no dependen de la cobertura de ninguna fuente. Regla general: para un
+  ícono que no sea de los básicos, **dibujarlo**.
+
+- **El combo de keywords se comía la primera letra.** Al abrir el desplegable por código, el
+  `ComboBox` editable re-emite su texto sobre el editor y lo deja **entero seleccionado**; la tecla
+  siguiente lo reemplazaba (se tipeaba `bushi` y quedaba `ushi`). El autocomplete abre el desplegable
+  en el primer carácter, así que pasaba en cada palabra nueva. Ahora el caret se colapsa **después** de
+  tocar `IsDropDownOpen`, no antes. Gotcha general: en un `ComboBox` editable, todo lo que reemita el
+  texto —abrir el popup, mover `SelectedItem`— vuelve con el texto seleccionado.
+
+### Sin ningún mazo abierto
+
+Estado real solo en una instalación nueva o si se borraron todos (con al menos uno, se abre solo el
+activo o el primero). Antes quedaba la ventana entera vacía sin decir por dónde empezar, y el `＋` para
+crear vive **dentro** del picker. Ahora: las pestañas Filtros/Stats se **apagan** —no hay nada que
+filtrar ni medir—, el panel explica qué hacer, y **el picker se abre solo**, porque crear un mazo es
+literalmente la única acción disponible.
+
+### El parpadeo de la previsualización con Alt
+
+Con `PlacementMode.Mouse`, WPF resuelve el desborde **volteando** el popup al otro lado del cursor.
+Contra el borde derecho eso lo deja justo **debajo del mouse**, y ahí arranca un ciclo: el popup tapa
+la celda → salta su `MouseLeave` → se cierra → el mouse vuelve a estar sobre la celda → `MouseMove` la
+reabre. Parpadeo infinito.
+
+Lo que hay que garantizar no es "que entre" sino que **el cursor nunca quede adentro del popup**. Por
+eso la posición se calcula a mano (`HoverPreviewPlacer`, `PlacementMode.Absolute`) y el volteo corre el
+popup **su ancho completo más el espacio**, en vez de espejar el offset. El área de trabajo se pide al
+monitor donde está el cursor (`SystemParameters.WorkArea` solo conoce el primario, y esta máquina tiene
+dos pantallas).
+
+La geometría quedó como **función pura** (`ComputePosition`) y el selftest la barre en toda la pantalla
+con paso de 8 px verificando el invariante, más el caso patológico de un área más chica que el propio
+popup. Era verificable sin UI y no había motivo para dejarlo sin cubrir.

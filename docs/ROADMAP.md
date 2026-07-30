@@ -128,6 +128,8 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
   carta ([ADR-051](DECISIONS.md#adr-051)).
 - ✅ Pasada sobre las botoneras de las dos ventanas ([ADR-050](DECISIONS.md#adr-050)) y paneles
   ajustables con el mouse.
+- ✅ Buscador y Mazos **abren** juntos como un solo espacio de trabajo (cerrar el editor cierra solo el
+  editor; `Ctrl+D` lo reabre) ([ADR-052](DECISIONS.md#adr-052)).
 - ✅ Botón **lado a lado** (`⫞`): Buscador 70 % / editor 30 %, en vista Lista y todo colapsado.
 - ⏸️ Goldfish (sandbox de testeo) — fuera de alcance; la spec del handoff lo cubre si se quiere.
 - ⏸️ Grupos de usuario (carpetas de mazos) y subgrupos dentro del mazo — no portados.

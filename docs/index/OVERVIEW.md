@@ -78,6 +78,7 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 | `Views/CardTextRenderer.cs` | HTML acotado del texto de carta → `Inline`s de WPF. **Nunca** WebView. |
 | `Views/CardImageClipboard.cs` | Arte a tamaño completo al portapapeles (click derecho) y para la previsualización con Alt: re-decodifica el archivo, no copia la miniatura de la grilla. |
 | `Views/Dialogs.cs` | `Prompt` / `Confirm` / `Ask` / `Info` con la estética de la app, para Buscador y Mazos (que no tienen overlay propio). Nada de `MessageBox`. |
+| `Views/HoverPreviewPlacer.cs` | Ubica la previsualización con Alt garantizando que **el cursor nunca quede adentro** del popup (el volteo de `Placement=Mouse` lo metía debajo del mouse contra el borde derecho y arrancaba un parpadeo infinito) — [ADR-052](../DECISIONS.md#adr-052). |
 | `Views/WindowSizingFix.cs` | Acota Buscador y Mazos al **área de trabajo** del monitor al abrir y al maximizar (`WM_GETMINMAXINFO`): sin esto quedaban debajo de la barra de tareas. |
 | `Themes/Theme.xaml` | Paleta, fuentes, fondo, scrollbar temática — estilos de toda la app. |
 

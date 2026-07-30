@@ -50,13 +50,28 @@ sobre `IsTinyZoom` puesto **último** en los triggers, para que gane sobre hover
 editor queda solo la cantidad. Es el mismo criterio que la barra de ventana en modo compacto: a
 menos espacio, se va lo que tiene otro camino.
 
+**Buscador y Mazos abren juntos** ([ADR-052](../DECISIONS.md#adr-052)): `DeckWindow.OpenWorkspace`
+abre el editor y después un Buscador, en ese orden para que el Buscador quede al frente. El editor es
+**único**; de Buscadores puede haber varios (`Ctrl+N`). Los `+`/`−` escriben contra el mazo activo y
+el editor es el único lugar donde se lo ve, así que "Buscador sin editor" es un estado que preferimos
+que no exista — pero **abrir juntos no es cerrar juntos**: cerrar el editor cierra solo el editor, y el
+único dueño de la aplicación sigue siendo `MainWindow`. Por eso en la barra del Buscador **no hay
+ningún control** para llegar a Mazos —ya está abierta— y el nombre del mazo activo es una **etiqueta**,
+no un botón: que fuera clickeable era confuso porque nada lo delataba salvo el cursor. Queda `Ctrl+D`,
+que además la **reabre** en el mismo mazo si se la cerró.
+
+**Sin ningún mazo abierto** (instalación nueva, o se borraron todos): las pestañas Filtros/Stats se
+apagan —no hay nada que filtrar ni medir—, el panel explica qué hacer y **el picker se abre solo**,
+porque el `＋` vive adentro y crear es la única acción disponible.
+
 **El título del mazo es el selector** (`TitlePicker` + `DeckPickerPopup`). Antes era la pestaña
 "Abrir" del panel izquierdo, y ahí competía con los filtros del mazo ya abierto —otra tarea sobre
 otro objeto— y colapsar el panel apagaba las dos de una. El popover se lleva el bloque **entero** (
 segmentado Mazos \| Listas, buscador por nombre o por carta contenida, orden, clan, estado, `＋` y la
-lista) porque un `ComboBox` habría perdido todo eso, y se cierra solo al elegir. Se lee como título:
-misma tipografía y tamaño, y solo el `▾` con el fondo en hover delatan que es un disparador — un botón
-"Abrir mazo…" al lado habría sumado el control que [ADR-050](../DECISIONS.md#adr-050) acaba de sacar.
+lista) porque un `ComboBox` habría perdido todo eso, y se cierra solo al elegir. Se lee como título —misma
+tipografía y tamaño— pero con **borde y `▾` permanentes**: dejarlos solo en hover fue un error, porque
+no se leía como control y había que descubrirlo pasando el mouse ([ADR-052](../DECISIONS.md#adr-052)).
+Un botón "Abrir mazo…" al lado habría sumado el control que [ADR-050](../DECISIONS.md#adr-050) saca.
 Necesita `AutomationProperties.Name` a mano: su contenido es un panel, no un texto, así que sin eso el
 control de navegación principal no tiene nombre accesible.
 
@@ -86,7 +101,13 @@ La segunda fila de la barra del Buscador es un **`WrapPanel`, no un `Grid`**: po
 sus grupos no entran en una línea, y bajar a la siguiente se lee mejor que recortarse. Cada grupo es
 un `StackPanel`, así que la envoltura corta entre grupos y nunca separa un control de su etiqueta.
 
-**Lado a lado** — la fila **Acomodar lado a lado** del menú `⋯` del editor acomoda las dos ventanas sobre el área de trabajo:
+**Íconos que no son glifos.** El botón de lado a lado dibuja su ícono con dos `Border` de anchos
+desiguales (el 70/30) en vez de usar un carácter: `⫞` (U+2ADE) **no está en Segoe UI** y caía a un
+fallback ilegible, y los bloques `▊▎` se fusionan en una mancha. Para cualquier ícono que no sea de los
+básicos, dibujarlo ([ADR-052](../DECISIONS.md#adr-052)).
+
+**Lado a lado** — el botón de los dos paneles en la barra del editor (estuvo brevemente en el menú `⋯`,
+ver [ADR-052](../DECISIONS.md#adr-052)) acomoda las dos ventanas sobre el área de trabajo:
 Buscador al 70 % izquierdo con su panel de detalle cerrado, editor al 30 % derecho en vista Lista y
 con los dos paneles cerrados. Si no hay Buscador abierto, lo abre. Es el layout de armar: se busca
 en una ventana y se ve el mazo crecer en la otra. El reparto **no es un 70/30 ciego**: se calcula el
@@ -167,7 +188,14 @@ píldora quedó reservada al único rol que le corresponde. Todos viven en `Card
 decodifica a ~340 px para no reventar la memoria, y pegar eso en el Discord daría una imagen borrosa.
 Lo mismo usa la previsualización con Alt.
 
-**Previsualización con Alt** (`HoverPreview`, en **ambas** ventanas) — `Popup` con `Placement=Mouse` y offset
+**Previsualización con Alt** (`HoverPreview`, en **ambas** ventanas) — `Popup` posicionado a mano por
+`HoverPreviewPlacer` en `Placement=Absolute`. **No** se usa `Placement=Mouse`: WPF resuelve el desborde
+*volteando* el popup al otro lado del cursor, y contra el borde derecho eso lo deja justo debajo del
+mouse → tapa la celda → `MouseLeave` → cierra → reabre → parpadeo infinito. El invariante que hay que
+sostener no es "que entre" sino que **el cursor nunca quede adentro**, y el volteo corre el popup su
+ancho completo más el espacio en vez de espejar el offset. El área de trabajo se pide al monitor donde
+está el cursor (`SystemParameters.WorkArea` solo conoce el primario). La geometría es una función pura
+y el selftest la barre en toda la pantalla ([ADR-052](../DECISIONS.md#adr-052)). Antes: offset
 26,26: si quedara bajo el cursor taparía la celda, el `MouseLeave` lo cerraría y se abriría en loop.
 `IsHitTestVisible=False` — es para mirar, no se clickea. El modificador se lee en el `MouseMove` y no
 por `KeyDown`: en WPF Alt llega como `Key.System` y compite con la activación de menús.

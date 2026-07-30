@@ -132,13 +132,14 @@ el filtro y el `✓` del subtítulo. Una carta recortada no cubre slot ni suma a
   que contenga), y tres selectores — **orden** (Recientes, default / Alfabético), **clan** (solo los
   que existen entre los conjuntos visibles) y **estado** (Todos / Terminados / Pendientes, oculto en
   Listas). "Recientes" ordena por la última escritura del `.txt`, que `DeckLibrary` captura al cargar
-  y al guardar: es "lo último que tocaste", no la fecha de creación. Se cierra al elegir.
+  y al guardar: es "lo último que tocaste", no la fecha de creación. Se cierra al elegir. Sin ningún mazo se abre solo, porque el `＋` vive adentro y crear es lo único
+  que se puede hacer ([ADR-052](../DECISIONS.md#adr-052)).
 - **Editor, panel izquierdo**: dos pestañas sobre **el mismo objeto**, el mazo abierto —
   **Filtros** (texto sobre sus cartas, chips Starter/Dynasty/Fate, toggle **Recortadas (N)**) y
   **Stats**. Colapsarlo esconde una sola cosa; antes se llevaba el selector de mazo también.
 - **Editor, panel derecho**: la **carta seleccionada**, sin pestañas.
-- **Lado a lado** (fila **Acomodar lado a lado** del menú `⋯`; era un `⫞` en la barra hasta
-  [ADR-050](../DECISIONS.md#adr-050)): acomoda Buscador y editor sobre el área de trabajo, 70 % / 30 %,
+- **Lado a lado** (botón de los dos paneles en la barra; estuvo brevemente en el menú `⋯`, ver
+  [ADR-052](../DECISIONS.md#adr-052)): acomoda Buscador y editor sobre el área de trabajo, 70 % / 30 %,
   con el editor en vista Lista y todo colapsado. Es el layout de armar — ver
   [ui.md](ui.md).
 - **Vista Grilla**: mismos cuatro tamaños de celda que el Buscador (`－`/`＋` o **Ctrl + rueda**) y la

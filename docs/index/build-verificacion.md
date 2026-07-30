@@ -49,7 +49,7 @@ src/bin/Debug/net48/L5ArgentinaLauncher.exe --selftest C:\ruta\reporte.txt
 `SelfTest.Run` setea `L5A_DATA_ROOT` a una carpeta temporal y monta un **bucket falso + instalación
 falsa** en `%TEMP%`: ejercita el pipeline real sin tocar nada del usuario, y limpia al terminar.
 
-**255 checks** ([ADR-011](../DECISIONS.md#adr-011)):
+**264 checks** ([ADR-011](../DECISIONS.md#adr-011)):
 
 | Bloque | Cubre |
 |---|---|
@@ -61,11 +61,12 @@ falsa** en `%TEMP%`: ejercita el pipeline real sin tocar nada del usuario, y lim
 | Recorte (`RunTrimTests`, **14**) | `quantity=0` conserva la entrada; no cuenta en total ni export; **no** se escribe en el `.txt` del juego pero sobrevive al reinicio vía `decksmeta.json`; el `+` rescata conservando `sortOrder`; "limpiar recortadas"; el `.txt` manda sobre la marca del sidecar; una lista nunca guarda recortadas ([ADR-046](../DECISIONS.md#adr-046)). |
 | Estado de armado (`RunDeckStateTests`, **10**) | `IsDeckComplete`: vacío → pendiente; slots + stronghold sin cartas → pendiente; un solo lado en rango → pendiente; 40/40 → terminado; sacar el stronghold o pasarse de 50 lo devuelve a pendiente; un slot cubierto por una **recortada** no cuenta; una lista nunca está terminada ([ADR-047](../DECISIONS.md#adr-047)). |
 | Exportación a PDF (`RunPdfExportTests`, **36**) | Geometría de la hoja (A4/Carta, carta de 179×249 pt = 63×88 mm reales, grilla 3×3 centrada, margen de 1 mm); nombre de archivo saneado; reparto en hojas; expansión de copias; lectura del SOF del JPEG (dimensiones, componentes, baseline). Del archivo emitido: cabecera y `%%EOF`, `/MediaBox`, **cada offset del `xref` cae exacto en su objeto**, el JPEG de una carta repetida se embebe una sola vez, la Y espejada ubica la primera carta arriba, y la carta sin imagen sale como placeholder ([ADR-049](../DECISIONS.md#adr-049)). No necesita fixtures: genera su propio JPEG. |
+| Previsualización con Alt (`RunHoverPreviewTests`, **9**) | La geometría de `HoverPreviewPlacer.ComputePosition`, con un solo invariante: **el cursor nunca cae adentro del popup** (si cae, el popup tapa la celda, salta su `MouseLeave` y arranca un parpadeo infinito — el bug que tenía contra el borde derecho). Casos de borde derecho, borde inferior y esquina, más un **barrido de la pantalla entera con paso de 8 px** y el caso patológico de un área de trabajo más chica que el propio popup ([ADR-052](../DECISIONS.md#adr-052)). Geometría pura: no necesita UI ni fixtures. |
 
 Los golden leen sus fixtures de `tests/fixtures/` resolviendo la ruta hacia
 arriba desde el exe (`FindRepoRelative`). Si el exe corre fuera del repo, esos bloques se **omiten**
 sin fallar (aparece `SKIP` en el reporte) — al validar un cambio, verificar que el reporte diga
-**0 FAIL y ningún SKIP**. El total (255 hoy) sube o baja con la batería: no es una constante.
+**0 FAIL y ningún SKIP**. El total (264 hoy) sube o baja con la batería: no es una constante.
 
 ### Costo y cadencia
 
