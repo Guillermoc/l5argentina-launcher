@@ -1254,10 +1254,15 @@ namespace L5ArgentinaLauncher.Views
                 combo.SelectedItem = null;
                 combo.ItemsSource = matches;
                 combo.Text = text;
-                if (editBox != null) editBox.CaretIndex = Math.Min(caret, text.Length);
 
                 var exact = matches.Any(m => string.Equals(m, text, StringComparison.OrdinalIgnoreCase));
                 combo.IsDropDownOpen = text.Length > 0 && matches.Count > 0 && !exact;
+
+                // El caret se restaura DESPUÉS de tocar el desplegable, no antes: al abrirlo, el
+                // ComboBox re-emite su texto sobre el editor y lo deja **entero seleccionado**, así
+                // que la tecla siguiente lo reemplazaba en vez de agregarse (se tipeaba "bushi" y
+                // quedaba "ushi"). Colapsar el caret acá deshace esa selección.
+                if (editBox != null) editBox.Select(Math.Min(caret, text.Length), 0);
             }
             finally
             {
