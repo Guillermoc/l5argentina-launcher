@@ -102,6 +102,35 @@ namespace L5ArgentinaLauncher.Views
             return new Rect(topLeft, bottomRight);
         }
 
+        /// <summary>
+        /// Corre <paramref name="window"/> en diagonal respecto de <paramref name="reference"/> para
+        /// que no se abran una **exactamente encima** de la otra y no se vea que son dos: tienen el
+        /// mismo tamaño de diseño y las dos se abren centradas, así que sin esto coinciden al píxel.
+        ///
+        /// Se llama antes de <c>Show</c> y hay que poner <see cref="WindowStartupLocation.Manual"/>
+        /// primero: con <c>CenterScreen</c>, WPF recalcula la posición al mostrar y pisa lo que se le
+        /// haya puesto.
+        ///
+        /// **No se valida acá que entre en la pantalla**, a propósito: <c>Window.Left</c> vive en las
+        /// unidades del escritorio virtual y el rectángulo del monitor viene en píxeles de
+        /// dispositivo, así que compararlos con dos pantallas a distinta escala da cualquier cosa —de
+        /// hecho, la primera versión de esto no corría nada porque el desplazamiento "no entraba".
+        /// De que entre ya se encarga <see cref="ClampToWorkArea"/> en <c>SourceInitialized</c>, que
+        /// hace la cuenta en el espacio correcto. En el peor caso vuelve a quedar donde estaba.
+        /// </summary>
+        public static void CascadeFrom(Window reference, Window window, double offset = 34)
+        {
+            if (reference == null || window == null) return;
+            // Maximizada, Left/Top son la posición *restaurada*: correrse respecto de eso da un
+            // resultado arbitrario, y además contra una maximizada la nueva ya se distingue sola.
+            if (reference.WindowState != WindowState.Normal) return;
+            if (double.IsNaN(reference.Left) || double.IsNaN(reference.Top)) return;
+
+            window.WindowStartupLocation = WindowStartupLocation.Manual;
+            window.Left = reference.Left + offset;
+            window.Top = reference.Top + offset;
+        }
+
         [DllImport("user32.dll")]
         private static extern IntPtr MonitorFromPoint(POINT point, int flags);
 

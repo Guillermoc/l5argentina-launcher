@@ -1314,7 +1314,9 @@ namespace L5ArgentinaLauncher.Views
             else if (e.Key == Key.N && Keyboard.Modifiers == ModifierKeys.Control)
             {
                 // "Tabs" a la desktop: otra ventana del Buscador sobre el mismo catálogo
-                new SearchWindow(_catalogRef, _installPathRef).Show();
+                var other = new SearchWindow(_catalogRef, _installPathRef);
+                WindowSizingFix.CascadeFrom(this, other); // si no, tapa exacta de esta
+                other.Show();
                 e.Handled = true;
             }
             else if (e.Key == Key.D && Keyboard.Modifiers == ModifierKeys.Control)

@@ -143,6 +143,9 @@ namespace L5ArgentinaLauncher.Views
         {
             Open(catalog, installPath);
             var search = new SearchWindow(catalog, installPath);
+            // Mismo tamaño de diseño y las dos centradas: sin correr una, coinciden al píxel y
+            // parecen una sola ventana.
+            WindowSizingFix.CascadeFrom(_instance, search);
             search.Show();
             search.Activate();
             return search;
@@ -574,8 +577,12 @@ namespace L5ArgentinaLauncher.Views
         /// Abre otra ventana del Buscador sobre el mismo catálogo, como el Ctrl+N del Buscador.
         /// Es el camino de ida del editor: las cartas nuevas se agregan desde ahí.
         /// </summary>
-        private void OpenSearchBtn_Click(object sender, RoutedEventArgs e) =>
-            new SearchWindow(_catalog, _installPath).Show();
+        private void OpenSearchBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var search = new SearchWindow(_catalog, _installPath);
+            WindowSizingFix.CascadeFrom(this, search);
+            search.Show();
+        }
 
         /// <summary>
         /// Acomoda las dos ventanas para armar: el Buscador ocupando el 70 % izquierdo con su
