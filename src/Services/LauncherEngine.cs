@@ -170,6 +170,11 @@ namespace L5ArgentinaLauncher.Services
 
             Config.AppliedImagePackVersion = img.Version;
             Config.AppliedImagePackSha256 = img.Sha256;
+            // El mismo archivo está en el pool: se anota ahí también para que el listado no lo
+            // muestre como pendiente después de que JUGAR ya lo aplicó.
+            var bundled = ImagePacks.FirstOrDefault(IsBundledPack);
+            if (bundled != null)
+                Config.AppliedImagePacks[bundled.Id] = new CachedFile { Version = img.Version, Sha256 = img.Sha256 };
             _configService.Save(Config);
         }
 
@@ -237,40 +242,108 @@ namespace L5ArgentinaLauncher.Services
         {
             _poolManifestUrl = url ?? AppConstants.PoolManifestUrl;
             _poolManifest = await _manifestService.FetchPoolAsync(_poolManifestUrl, ct).ConfigureAwait(false);
+            SeedKnownImagePacks();
         }
 
         /// <summary>
-        /// Packs de imágenes del pool, en el orden del manifest. Vacío si no se cargó.
-        /// **Se excluye el pack propio de la comunidad** (ver <see cref="IsOwnImagePack"/>).
+        /// La primera vez que se ve el pool, se anota **todo** lo que hay como ya conocido. Sin esta
+        /// siembra, estrenar la versión que trajo <see cref="PackIsNew"/> marcaría los ~20 arcos que
+        /// existen desde siempre como novedades, que es justo el ruido que
+        /// [ADR-054](../../docs/DECISIONS.md) quiere evitar. Después de la siembra, lo que aparezca
+        /// es genuinamente nuevo ([ADR-056](../../docs/DECISIONS.md)).
+        /// </summary>
+        private void SeedKnownImagePacks()
+        {
+            if (Config.KnownImagePacks != null) return; // ya sembrado: null ≠ lista vacía
+            Config.KnownImagePacks = ImagePacks.Select(p => p.Id).ToList();
+            try { _configService.Save(Config); } catch { /* se resiembra en el próximo arranque */ }
+        }
+
+        /// <summary>
+        /// **Todos** los packs de imágenes del pool, en el orden del manifest. Vacío si no se cargó.
+        ///
+        /// El pool es la fuente de verdad de qué packs existen: cualquier pack nuevo —de un arco o de
+        /// la comunidad— aparece acá solo, por su `type: "images"`, sin tocar nada del launcher. La
+        /// lista **incluye** el pack que el manifest del bucket marca como incluido
+        /// (<see cref="IsBundledPack"/>): es un pack más, no una categoría aparte
+        /// ([ADR-055](../../docs/DECISIONS.md)).
         /// </summary>
         public IReadOnlyList<PoolPackage> ImagePacks =>
             _poolManifest?.Packages?
                 .Where(p => string.Equals(p.Type, "images", StringComparison.OrdinalIgnoreCase))
-                .Where(p => !IsOwnImagePack(p))
                 .ToList() ?? (IReadOnlyList<PoolPackage>)new List<PoolPackage>();
 
         /// <summary>
-        /// El pack de imágenes propio (sección `images` del manifest del launcher, el que muestra
-        /// la barra "Imágenes Samurai Extended") **también está publicado en el pool**. Ofrecerlo
-        /// en las dos partes hacía que el usuario lo descargara dos veces y que cada mitad llevara
-        /// su propio registro de "aplicado" —`appliedImagePackSha256` por un lado y
-        /// `appliedImagePacks[id]` por el otro—, así que una decía "al día" y la otra
-        /// "actualización disponible" sobre el mismo archivo.
+        /// El pack que la sección `images` del manifest del bucket señala: el único que se aplica
+        /// solo al apretar JUGAR. **También está publicado en el pool**, así que se lo reconoce por
+        /// **hash** y no por id: si algún día los contenidos se separan, los hashes dejan de coincidir
+        /// y pasa a ser un pack común.
         ///
-        /// Se identifica **por hash** y no por id: si algún día los contenidos se separan de
-        /// verdad, los hashes dejan de coincidir y el pack del pool vuelve a aparecer solo.
+        /// "Incluido" es una **propiedad de un pack**, no una familia: los packs de la comunidad que
+        /// vengan después son packs del pool como cualquier otro ([ADR-055](../../docs/DECISIONS.md)).
         /// </summary>
-        private bool IsOwnImagePack(PoolPackage pack) =>
+        public bool IsBundledPack(PoolPackage pack) =>
             Manifest?.Images?.Sha256 != null && pack?.Sha256 != null &&
             HashUtil.HashesEqual(Manifest.Images.Sha256, pack.Sha256);
 
-        /// <summary>True si el pack ya está aplicado en esta versión exacta (por hash).</summary>
-        public bool PackIsCurrent(PoolPackage pack) =>
-            Config.AppliedImagePacks.TryGetValue(pack.Id, out var cached)
-            && HashUtil.HashesEqual(cached.Sha256, pack.Sha256);
+        /// <summary>
+        /// Un pack en su **versión inicial** (1.0) no cuenta como pendiente. Los packs por arco son
+        /// contenido de catálogo, no novedades: quien quiera las imágenes de un arco las baja cuando
+        /// se le da la gana, y marcar los ~20 arcos como "te falta esto" al arrancar convierte el
+        /// aviso en ruido permanente que se aprende a ignorar. Que un pack pase de 1.0 **sí** es una
+        /// novedad: significa que se republicó con imágenes nuevas o corregidas.
+        ///
+        /// Se compara numéricamente ("1", "1.0" y "1.0.0" son lo mismo) para no atarse a cómo lo
+        /// escriba quien publica el pool.
+        ///
+        /// Límite conocido: si un pack se republica **sin** subir la versión, sigue sin contarse. Es
+        /// deliberado — la versión es lo único que el pool promete como "esto cambió"— y el pack
+        /// igual aparece con "Actualización disponible" al abrir el listado.
+        /// </summary>
+        public static bool IsInitialPackVersion(string version) =>
+            VersionUtil.Compare(version, "1.0") == 0;
+
+        /// <summary>
+        /// True si el pack **apareció después** de que este launcher viera el pool por primera vez.
+        /// Con la sola regla de la versión inicial, una expa nueva de la comunidad —que sale en 1.0—
+        /// no se avisaba nunca: "pack que nunca vimos" y "pack viejo que nunca bajaste" son cosas
+        /// distintas y esto las separa ([ADR-056](../../docs/DECISIONS.md)).
+        /// </summary>
+        public bool PackIsNew(PoolPackage pack) =>
+            pack != null && Config.KnownImagePacks != null &&
+            !Config.KnownImagePacks.Contains(pack.Id, StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// True si el pack merece aparecer como pendiente en la pantalla del launcher: no lo tenemos
+        /// aplicado en la versión publicada **y** además es algo que vale la pena avisar — o sea, o
+        /// se republicó (versión distinta de la inicial) o es un pack nuevo que antes no estaba.
+        /// </summary>
+        public bool PackIsPending(PoolPackage pack) =>
+            pack != null && !PackIsCurrent(pack) &&
+            (!IsInitialPackVersion(pack.Version) || PackIsNew(pack));
+
+        /// <summary>
+        /// True si el pack ya está aplicado en esta versión exacta (por hash).
+        ///
+        /// El pack incluido se aplica por **dos** caminos —JUGAR y el listado— y cada uno dejaba su
+        /// registro: `appliedImagePackSha256` uno, `appliedImagePacks[id]` el otro. Se consultan los
+        /// dos (y al aplicar se escriben los dos, ver <see cref="ApplyPoolImagePackAsync"/> y
+        /// <see cref="SyncImagesAsync"/>): así el mismo archivo no queda "al día" por un lado y
+        /// "actualización disponible" por el otro, que era el problema de fondo de
+        /// [ADR-048](../../docs/DECISIONS.md).
+        /// </summary>
+        public bool PackIsCurrent(PoolPackage pack)
+        {
+            if (pack == null) return false;
+            if (Config.AppliedImagePacks.TryGetValue(pack.Id, out var cached)
+                && HashUtil.HashesEqual(cached.Sha256, pack.Sha256)) return true;
+            return IsBundledPack(pack) && HashUtil.HashesEqual(Config.AppliedImagePackSha256, pack.Sha256);
+        }
 
         public bool PackWasApplied(PoolPackage pack) =>
-            Config.AppliedImagePacks.ContainsKey(pack.Id);
+            pack != null &&
+            (Config.AppliedImagePacks.ContainsKey(pack.Id) ||
+             (IsBundledPack(pack) && !string.IsNullOrEmpty(Config.AppliedImagePackSha256)));
 
         /// <summary>
         /// Descarga un pack del pool (URL validada contra el origen del manifest, SHA-256
@@ -299,8 +372,65 @@ namespace L5ArgentinaLauncher.Services
             }
 
             Config.AppliedImagePacks[pack.Id] = new CachedFile { Version = pack.Version, Sha256 = pack.Sha256 };
+            // Bajado deja de ser novedad aunque después cambie de versión: ahí manda la regla de la
+            // versión, como cualquier otro pack.
+            if (Config.KnownImagePacks != null && !Config.KnownImagePacks.Contains(pack.Id, StringComparer.OrdinalIgnoreCase))
+                Config.KnownImagePacks.Add(pack.Id);
+            if (IsBundledPack(pack))
+            {
+                // Mismo archivo que aplica JUGAR: se anota también en su registro, o el próximo
+                // arranque lo volvería a bajar por el otro camino.
+                Config.AppliedImagePackVersion = pack.Version;
+                Config.AppliedImagePackSha256 = pack.Sha256;
+            }
             _configService.Save(Config);
         }
+
+        // ---------------- Resumen de pendientes ----------------
+
+        /// <summary>
+        /// Lo que el usuario tiene por hacer, en una sola pasada. Existe para que la pantalla del
+        /// launcher pueda decir **"todo al día"** con fundamento: antes cada cosa informaba su propio
+        /// estado por separado —y los packs, solo adentro del modal—, así que "no veo nada rojo" no
+        /// significaba que no hubiera nada pendiente.
+        ///
+        /// No entra el catálogo del Buscador: se sincroniza solo al refrescar y no hay ninguna acción
+        /// que el usuario pueda tomar al respecto.
+        /// </summary>
+        public sealed class PendingSummary
+        {
+            /// <summary>Hay una versión más nueva del launcher (tiene su propio banner).</summary>
+            public bool LauncherUpdate { get; set; }
+            /// <summary>La base Comunidad publicada no es la que está descargada.</summary>
+            public bool CommunityBase { get; set; }
+            /// <summary>
+            /// Packs de imágenes pendientes, sin contar los que están en su versión inicial. Es un
+            /// solo número para **todos**: no hay una categoría "packs de la comunidad" aparte
+            /// ([ADR-055](../../docs/DECISIONS.md)).
+            /// </summary>
+            public int ImagePacks { get; set; }
+
+            /// <summary>Sin contar el update del launcher, que se avisa aparte y en grande.</summary>
+            public bool AnyData => CommunityBase || ImagePacks > 0;
+            public bool Any => AnyData || LauncherUpdate;
+        }
+
+        /// <summary>
+        /// True si el manifest del pool se pudo cargar. Sin él no hay lista de packs, y "0 packs
+        /// pendientes" y "no sé si hay packs pendientes" no son lo mismo para el usuario.
+        /// </summary>
+        public bool PoolManifestLoaded => _poolManifest != null;
+
+        public PendingSummary GetPendingSummary() => new PendingSummary
+        {
+            LauncherUpdate = LauncherUpdateAvailable(),
+            CommunityBase = CommunityNeedsDownload(),
+            // Con el pool cargado la lista ya incluye el pack incluido, y se cuenta como cualquier
+            // otro. Sin pool no hay lista, pero el manifest del bucket alcanza para saber de ese uno.
+            ImagePacks = PoolManifestLoaded
+                ? ImagePacks.Count(PackIsPending)
+                : (ImagesNeedSync() ? 1 : 0),
+        };
 
         // ---------------- Catálogo del Buscador desde el pool ----------------
 

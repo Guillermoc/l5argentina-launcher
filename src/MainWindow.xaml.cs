@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Security;
 using System.Threading.Tasks;
 using System.Windows;
@@ -96,6 +98,9 @@ namespace L5ArgentinaLauncher
                 await _engine.LoadManifestAsync();
                 PopulateFromManifest();
                 await SyncCatalogQuietAsync();
+                // Recién ahora se sabe de los packs: el pool lo carga el sync del catálogo.
+                UpdatePendingStrip();
+                UpdatePacksSummary();
                 SetStatus(Strings.Get("Status_Ready"));
             }
             catch (Exception ex)
@@ -176,15 +181,75 @@ namespace L5ArgentinaLauncher
                 UpdateBanner.Visibility = Visibility.Collapsed;
             }
 
-            var img = _engine.Manifest?.Images;
-            if (img != null && !string.IsNullOrWhiteSpace(img.File))
-                ImagesStatusText.Text = _engine.ImagesNeedSync()
-                    ? Strings.Format("Fmt_ImagesUpdateAvailable", img.Version)
-                    : Strings.Format("Fmt_ImagesUpToDate", img.Version);
-            else
-                ImagesStatusText.Text = Strings.Get("Images_NoPack");
-
             UpdateOriginalAvailability();
+            UpdatePendingStrip();
+            UpdatePacksSummary();
+        }
+
+        /// <summary>
+        /// Aviso de novedades del header: **siempre** dice algo, incluso cuando no hay nada. Antes
+        /// cada cosa informaba su propio estado por separado y los packs solo adentro del modal, así
+        /// que "no veo nada raro" no distinguía entre estar al día y no haber mirado.
+        /// </summary>
+        private void UpdatePendingStrip()
+        {
+            var pending = _engine.GetPendingSummary();
+            // Sin el manifest del pool no hay lista de packs, y "ningún pack pendiente" no es lo
+            // mismo que "no sé": el aviso sirve justamente para poder confiar en el "todo al día".
+            var packsKnown = _engine.PoolManifestLoaded;
+
+            if (!pending.AnyData)
+            {
+                PendingText.Text = packsKnown
+                    ? Strings.Get("Pending_AllUpToDate")
+                    : Strings.Get("Pending_UpToDateNoPacks");
+                PendingText.Foreground = (Brush)FindResource("TextDim");
+                PendingDot.Fill = (Brush)FindResource("GoldDim");
+                return;
+            }
+
+            var parts = new List<string>();
+            if (pending.CommunityBase) parts.Add(Strings.Get("Pending_CommunityBase"));
+            if (pending.ImagePacks == 1) parts.Add(Strings.Get("Pending_PacksOne"));
+            else if (pending.ImagePacks > 1) parts.Add(Strings.Format("Fmt_PendingPacksMany", pending.ImagePacks));
+            if (!packsKnown) parts.Add(Strings.Get("Pending_PacksUnknown"));
+
+            PendingText.Text = Strings.Format("Fmt_Pending", string.Join(", ", parts));
+            PendingText.Foreground = (Brush)FindResource("Text");
+            PendingDot.Fill = (Brush)FindResource("Gold");
+        }
+
+        /// <summary>
+        /// Resumen de **todos** los packs de imágenes. Antes esta fila mostraba un solo pack —el de
+        /// la comunidad, con el nombre fijo en el resx— al lado del botón que abre el listado de los
+        /// otros: se leía como si hablara de todos, y con un segundo pack de la comunidad habría
+        /// seguido nombrando al primero (ADR-055).
+        /// </summary>
+        private void UpdatePacksSummary(bool offline = false)
+        {
+            if (!_engine.PoolManifestLoaded)
+            {
+                PacksSummaryText.Text = Strings.Get(offline ? "Packs_SummaryOffline" : "Packs_SummaryUnknown");
+                PacksSummaryText.Foreground = (Brush)FindResource("TextFaint");
+                return;
+            }
+
+            var packs = _engine.ImagePacks;
+            var downloaded = packs.Count(_engine.PackWasApplied);
+            var pending = packs.Count(_engine.PackIsPending);
+
+            if (pending == 0)
+            {
+                PacksSummaryText.Text = Strings.Format("Fmt_PacksSummary", downloaded, packs.Count);
+                PacksSummaryText.Foreground = (Brush)FindResource("TextFaint");
+            }
+            else
+            {
+                PacksSummaryText.Text = pending == 1
+                    ? Strings.Format("Fmt_PacksSummaryPendingOne", downloaded, packs.Count)
+                    : Strings.Format("Fmt_PacksSummaryPendingMany", downloaded, packs.Count, pending);
+                PacksSummaryText.Foreground = (Brush)FindResource("Gold");
+            }
         }
 
         private void PopulateOffline()
@@ -200,11 +265,12 @@ namespace L5ArgentinaLauncher
                 CommunityStatusText.Text = Strings.Get("Status_NoConnection");
             }
 
-            ImagesStatusText.Text = string.IsNullOrWhiteSpace(_config.AppliedImagePackVersion)
-                ? Strings.Get("Status_NoConnection")
-                : Strings.Format("Fmt_ImagesOffline", _config.AppliedImagePackVersion);
-
             UpdateBanner.Visibility = Visibility.Collapsed;
+            // Sin manifest no se puede afirmar ni que hay novedades ni que no las hay: decirlo.
+            PendingText.Text = Strings.Get("Pending_Unknown");
+            PendingText.Foreground = (Brush)FindResource("TextDim");
+            PendingDot.Fill = (Brush)FindResource("GoldDim");
+            UpdatePacksSummary(offline: true);
             UpdateOriginalAvailability();
         }
 
@@ -425,6 +491,15 @@ namespace L5ArgentinaLauncher
                 Text = Strings.Format("Fmt_PackMeta", pack.Version, pack.SizeBytes / 1048576.0),
                 Style = (Style)FindResource("BodySmall"),
             });
+            // El pack incluido se aplica solo al jugar. Se dice acá, en la fila, en vez de esconderlo
+            // del listado: sigue siendo un pack de imágenes como los demás (ADR-055).
+            if (_engine.IsBundledPack(pack))
+                info.Children.Add(new TextBlock
+                {
+                    Text = Strings.Get("Packs_Bundled"),
+                    Style = (Style)FindResource("BodySmall"),
+                    Foreground = (Brush)FindResource("GoldDim"),
+                });
             grid.Children.Add(info);
 
             var status = new TextBlock
@@ -469,8 +544,17 @@ namespace L5ArgentinaLauncher
                 status.Foreground = (Brush)FindResource("Gold");
                 button.Content = Strings.Get("Btn_PackUpdate");
             }
+            else if (_engine.PackIsPending(pack))
+            {
+                // Republicado, o un pack que antes no estaba: eso sí es novedad.
+                status.Text = Strings.Get(_engine.PackIsNew(pack) ? "Packs_BrandNew" : "Packs_PendingNew");
+                status.Foreground = (Brush)FindResource("Gold");
+                button.Content = Strings.Get("Btn_PackDownload");
+            }
             else
             {
+                // Versión inicial y ya existía: se puede bajar cuando se quiera, pero no es una
+                // novedad y por eso no se destaca (ni cuenta en el aviso de la pantalla principal).
                 status.Text = Strings.Get("Packs_NotInstalled");
                 status.Foreground = (Brush)FindResource("TextFaint");
                 button.Content = Strings.Get("Btn_PackDownload");
@@ -524,7 +608,9 @@ namespace L5ArgentinaLauncher
             finally
             {
                 SetBusy(false);
-                BuildPacksList(); // re-render de estados + re-habilita botones
+                BuildPacksList();     // re-render de estados + re-habilita botones
+                UpdatePendingStrip(); // el pack que se acaba de aplicar deja de ser pendiente
+                UpdatePacksSummary();
             }
         }
 

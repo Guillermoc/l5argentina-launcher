@@ -34,7 +34,7 @@
   <data name="Card_OriginalTitle" xml:space="preserve"><value>Sun and Moon original</value></data>
   <data name="Card_OriginalDesc" xml:space="preserve"><value>Base Kamisasori sin nuestras modificaciones</value></data>
   <data name="Card_OriginalStatusDefault" xml:space="preserve"><value>Respaldo local del primer arranque</value></data>
-  <data name="Label_OwnImages" xml:space="preserve"><value>Imágenes Samurai Extended:</value></data>
+  <data name="Label_ImagePacks" xml:space="preserve"><value>Imágenes de cartas:</value></data>
   <data name="Section_News" xml:space="preserve"><value>Noticias y torneos</value></data>
   <data name="News_Placeholder" xml:space="preserve"><value>Próximamente: novedades de la comunidad e info de torneos.</value></data>
   <data name="Btn_Play" xml:space="preserve"><value>JUGAR</value></data>
@@ -231,13 +231,32 @@
   <!-- ══════════ Packs de imágenes (manifest del pool) ══════════ -->
   <data name="Btn_Packs" xml:space="preserve"><value>Packs de imágenes…</value></data>
   <data name="Packs_Title" xml:space="preserve"><value>Packs de imágenes</value></data>
-  <data name="Packs_Help" xml:space="preserve"><value>Arte oficial de cartas por arco. Cada pack se descarga, se verifica y se instala sobre la carpeta images de Sun and Moon (se fusiona con lo que ya tengas). Conviene hacerlo con el juego cerrado.</value></data>
+  <data name="Packs_Help" xml:space="preserve"><value>Arte de cartas: los packs oficiales por arco y los de la comunidad. Cada pack se descarga, se verifica y se instala sobre la carpeta images de Sun and Moon (se fusiona con lo que ya tengas). Conviene hacerlo con el juego cerrado.</value></data>
   <data name="Status_LoadingPacks" xml:space="preserve"><value>Consultando packs de imágenes…</value></data>
   <data name="Fmt_PacksLoadError" xml:space="preserve"><value>No se pudo consultar la lista de packs. Reintentá con conexión. ({0})</value></data>
   <data name="Fmt_PackMeta" xml:space="preserve"><value>v{0} · {1:0} MB</value></data>
   <data name="Fmt_PackApplied" xml:space="preserve"><value>Aplicado (v{0})</value></data>
   <data name="Packs_UpdateAvailable" xml:space="preserve"><value>Actualización disponible</value></data>
   <data name="Packs_NotInstalled" xml:space="preserve"><value>No descargado</value></data>
+  <data name="Packs_PendingNew" xml:space="preserve"><value>Novedad · falta descargar</value></data>
+  <data name="Packs_BrandNew" xml:space="preserve"><value>Pack nuevo · falta descargar</value></data>
+  <data name="Packs_SummaryChecking" xml:space="preserve"><value>consultando…</value></data>
+  <data name="Packs_SummaryUnknown" xml:space="preserve"><value>no se pudieron consultar</value></data>
+  <data name="Packs_SummaryOffline" xml:space="preserve"><value>sin conexión</value></data>
+  <data name="Fmt_PacksSummary" xml:space="preserve"><value>{0} de {1} packs descargados</value></data>
+  <data name="Fmt_PacksSummaryPendingOne" xml:space="preserve"><value>{0} de {1} packs descargados · 1 con novedad</value></data>
+  <data name="Fmt_PacksSummaryPendingMany" xml:space="preserve"><value>{0} de {1} packs descargados · {2} con novedades</value></data>
+  <data name="Packs_Bundled" xml:space="preserve"><value>Incluido · se aplica al jugar</value></data>
+  <!-- ═══════ Estado de novedades del launcher ═══════ -->
+  <data name="Pending_Checking" xml:space="preserve"><value>Verificando si hay novedades…</value></data>
+  <data name="Pending_AllUpToDate" xml:space="preserve"><value>Todo al día.</value></data>
+  <data name="Pending_Unknown" xml:space="preserve"><value>Sin conexión: no se pudo verificar si hay novedades.</value></data>
+  <data name="Pending_UpToDateNoPacks" xml:space="preserve"><value>Todo al día, salvo los packs de imágenes: no se pudieron consultar.</value></data>
+  <data name="Pending_PacksUnknown" xml:space="preserve"><value>los packs de imágenes no se pudieron consultar</value></data>
+  <data name="Fmt_Pending" xml:space="preserve"><value>Hay novedades: {0}.</value></data>
+  <data name="Pending_CommunityBase" xml:space="preserve"><value>base Comunidad</value></data>
+  <data name="Pending_PacksOne" xml:space="preserve"><value>1 pack de imágenes</value></data>
+  <data name="Fmt_PendingPacksMany" xml:space="preserve"><value>{0} packs de imágenes</value></data>
   <data name="Btn_PackDownload" xml:space="preserve"><value>Descargar</value></data>
   <data name="Btn_PackUpdate" xml:space="preserve"><value>Actualizar</value></data>
   <data name="Btn_PackReapply" xml:space="preserve"><value>Reaplicar</value></data>

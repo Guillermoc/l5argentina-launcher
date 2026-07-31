@@ -42,6 +42,18 @@ namespace L5ArgentinaLauncher.Models
         [JsonPropertyName("appliedImagePacks")]
         public Dictionary<string, CachedFile> AppliedImagePacks { get; set; } = new Dictionary<string, CachedFile>();
 
+        /// <summary>
+        /// Ids de packs de imágenes que este launcher **ya vio** en el manifest del pool. Sirve para
+        /// una sola cosa: distinguir un pack **nuevo** de uno viejo que nunca bajaste
+        /// ([ADR-056](../../docs/DECISIONS.md)). Se siembra con todo lo que había la primera vez, así
+        /// que estrenar esta versión no marca los ~20 arcos existentes como novedades.
+        ///
+        /// **`null` ≠ lista vacía**: null es "todavía no se sembró" y vacío sería "no había ningún
+        /// pack". Por eso no se inicializa acá.
+        /// </summary>
+        [JsonPropertyName("knownImagePacks")]
+        public List<string> KnownImagePacks { get; set; }
+
         /// <summary>Versión del pack de imágenes ya aplicado (para no re-extraer si no cambió).</summary>
         [JsonPropertyName("appliedImagePackVersion")]
         public string AppliedImagePackVersion { get; set; }

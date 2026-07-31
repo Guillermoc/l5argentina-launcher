@@ -65,6 +65,18 @@
                         <Button x:Name="SettingsButton" Content="{loc:Loc Btn_Settings}" Style="{StaticResource GhostButton}"
                                 Click="SettingsButton_Click" />
                     </StackPanel>
+
+                    <!-- Estado de novedades: siempre dice algo, incluso que no hay nada. Va acá y no
+                         en una franja propia porque el lienzo tiene alto fijo (1080×720) y cada fila
+                         nueva se la come el cuerpo: le recortaba el placeholder de Noticias. Debajo
+                         de los botones del header hay lugar libre y es donde uno mira al abrir. -->
+                    <StackPanel x:Name="PendingStrip" Orientation="Horizontal" HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom" Margin="0,0,2,6">
+                        <Ellipse x:Name="PendingDot" Width="9" Height="9" Margin="0,0,9,0"
+                                 VerticalAlignment="Center" Fill="{StaticResource GoldDim}" />
+                        <TextBlock x:Name="PendingText" Style="{StaticResource Body}"
+                                   VerticalAlignment="Center" Text="{loc:Loc Pending_Checking}" />
+                    </StackPanel>
                 </Grid>
 
                 <!-- ===== Banner de actualización ===== -->
@@ -86,6 +98,7 @@
                                 HorizontalAlignment="Right" Click="UpdateLinkButton_Click" />
                     </Grid>
                 </Border>
+
 
                 <!-- ===== Body ===== -->
                 <StackPanel Grid.Row="2" Margin="0,22,0,0">
@@ -155,9 +168,16 @@
                     <Border Margin="0,18,0,0" Background="{StaticResource SurfaceGlassSoft}" CornerRadius="9"
                             BorderBrush="{StaticResource OutlineSoft}" BorderThickness="1" Padding="16,8">
                         <Grid>
+                            <!-- Una sola línea sobre TODOS los packs de imágenes. Antes esta fila
+                                 mostraba solo el pack de la comunidad, con nombre fijo en el resx,
+                                 como si fuera una categoría aparte: con un segundo pack de la
+                                 comunidad —una expa— habría seguido nombrando al primero y mintiendo
+                                 (ADR-055). Qué packs hay lo dice el pool, no el launcher. -->
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="{loc:Loc Label_OwnImages}" Style="{StaticResource Body}" Foreground="{StaticResource Text}" Margin="0,0,8,0" />
-                                <TextBlock x:Name="ImagesStatusText" Style="{StaticResource Body}" Text="{loc:Loc Value_Dash}" />
+                                <TextBlock Text="{loc:Loc Label_ImagePacks}" Style="{StaticResource Body}"
+                                           Foreground="{StaticResource Text}" Margin="0,0,8,0" />
+                                <TextBlock x:Name="PacksSummaryText" Style="{StaticResource Body}"
+                                           Text="{loc:Loc Packs_SummaryChecking}" />
                             </StackPanel>
                             <Button x:Name="PacksButton" Content="{loc:Loc Btn_Packs}" Style="{StaticResource GhostButton}"
                                     Height="32" FontSize="15" HorizontalAlignment="Right" VerticalAlignment="Center"

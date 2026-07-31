@@ -268,21 +268,92 @@ namespace L5ArgentinaLauncher
                 "Pool: solo los packages type=images son packs");
             Assert(!enginePool.PackIsCurrent(enginePool.ImagePacks[0]), "Pool: pack no aplicado inicialmente");
 
-            // El pack propio de la comunidad (sección `images` del manifest del launcher) también
-            // está publicado en el pool: mismo archivo, mismo hash. Si apareciera en las dos
-            // partes, el usuario lo bajaría dos veces y cada mitad llevaría su propio registro de
-            // "aplicado", contradiciéndose. Se saca de la lista del pool identificándolo por hash.
+            // El pack que el manifest del bucket marca como incluido también está publicado en el
+            // pool: mismo archivo, mismo hash. Ya NO se lo saca de la lista (ADR-055): es un pack de
+            // imágenes como cualquier otro y el pool es quien dice cuáles hay. Lo que sí cambia es
+            // que se lo marca, y que los dos registros de "aplicado" se mantienen en sincronía —eso
+            // era el problema real de ADR-048, no que apareciera en la lista—.
             var dupPoolPath = Path.Combine(pool, "manifest-dup.json");
             File.WriteAllText(dupPoolPath, "{\"packages\":[" +
                 PoolPkg("testpack", "images", "1.0", poolPackZip) + "," +
                 PoolPkg("samuraiEx", "images", "1.0", packZip) + "]}");
             var dupEngine = new LauncherEngine(new UserConfig { ManifestUrl = manifestUrl, SunAndMoonPath = install });
             dupEngine.LoadPoolManifestAsync(new Uri(dupPoolPath).AbsoluteUri).GetAwaiter().GetResult();
-            Assert(dupEngine.ImagePacks.Count == 2,
-                "Pool: sin el manifest del launcher cargado, no se puede descartar nada");
+            Assert(dupEngine.ImagePacks.Count == 2, "Pool: los dos packages type=images están en la lista");
+            var bundledPack = dupEngine.ImagePacks.First(p => p.Id == "samuraiEx");
+            Assert(!dupEngine.IsBundledPack(bundledPack),
+                "Pool: sin el manifest del launcher cargado, ningún pack es el incluido");
             dupEngine.LoadManifestAsync().GetAwaiter().GetResult();
-            Assert(dupEngine.ImagePacks.Count == 1 && dupEngine.ImagePacks[0].Id == "testpack",
-                "Pool: el pack propio (mismo sha256 que manifest.images) se saca de la lista");
+            Assert(dupEngine.ImagePacks.Count == 2,
+                "Pool: el pack incluido sigue en la lista, no se esconde");
+            Assert(dupEngine.IsBundledPack(bundledPack) &&
+                   !dupEngine.IsBundledPack(dupEngine.ImagePacks.First(p => p.Id == "testpack")),
+                "Pool: el incluido se reconoce por sha256 contra manifest.images, y solo ese");
+
+            // Los dos caminos (JUGAR y el listado) escriben los dos registros: si no, el mismo
+            // archivo quedaba "al día" por un lado y "actualización disponible" por el otro.
+            Assert(!dupEngine.PackIsCurrent(bundledPack), "Pool: el incluido arranca sin aplicar");
+            dupEngine.SyncImagesAsync(null).GetAwaiter().GetResult();
+            Assert(dupEngine.PackIsCurrent(bundledPack),
+                "Pool: aplicado por JUGAR, el listado lo ve al día (no lo ofrece de nuevo)");
+            Assert(dupEngine.Config.AppliedImagePacks.ContainsKey("samuraiEx"),
+                "Pool: JUGAR deja el registro por id, no solo el suelto");
+
+            // ---------- Qué cuenta como "pendiente" ----------
+            // Un pack en versión inicial (1.0) es catálogo, no novedad: se puede bajar, pero no
+            // aparece como pendiente. Cualquier otra versión sí, porque significa republicado.
+            Assert(LauncherEngine.IsInitialPackVersion("1.0") && LauncherEngine.IsInitialPackVersion("1")
+                   && LauncherEngine.IsInitialPackVersion("1.0.0"),
+                "Pendientes: 1, 1.0 y 1.0.0 son la misma versión inicial");
+            Assert(!LauncherEngine.IsInitialPackVersion("1.1") && !LauncherEngine.IsInitialPackVersion("2.0")
+                   && !LauncherEngine.IsInitialPackVersion("0.9"),
+                "Pendientes: cualquier otra versión no es la inicial");
+            Assert(!enginePool.PackIsPending(enginePool.ImagePacks[0]),
+                "Pendientes: un pack 1.0 sin descargar no es pendiente");
+            Assert(enginePool.GetPendingSummary().ImagePacks == 0,
+                "Pendientes: no se cuentan los packs en versión inicial");
+
+            var mixedPoolPath = Path.Combine(pool, "manifest-mixed.json");
+            File.WriteAllText(mixedPoolPath, "{\"packages\":[" +
+                PoolPkg("packInicial", "images", "1.0", poolPackZip) + "," +
+                PoolPkg("packNuevo", "images", "1.1", poolPackZip) + "]}");
+            var mixedEngine = new LauncherEngine(new UserConfig { ManifestUrl = manifestUrl, SunAndMoonPath = install });
+            mixedEngine.LoadPoolManifestAsync(new Uri(mixedPoolPath).AbsoluteUri).GetAwaiter().GetResult();
+            Assert(mixedEngine.PackIsPending(mixedEngine.ImagePacks.First(p => p.Id == "packNuevo")),
+                "Pendientes: un pack con versión distinta de 1.0 sin descargar sí es pendiente");
+            var mixedSummary = mixedEngine.GetPendingSummary();
+            Assert(mixedSummary.ImagePacks == 1 && mixedSummary.AnyData,
+                "Pendientes: se cuenta solo el pack republicado, y el resumen lo reporta");
+            Assert(!enginePool.GetPendingSummary().AnyData,
+                "Pendientes: sin nada que bajar, el resumen dice que está todo al día");
+
+            // ---------- Un pack NUEVO avisa aunque salga en 1.0 (ADR-056) ----------
+            // La siembra es lo que evita que estrenar esta versión marque como novedad los ~20 arcos
+            // que existen desde siempre.
+            var newCfg = new UserConfig { ManifestUrl = manifestUrl, SunAndMoonPath = install };
+            var newEngine = new LauncherEngine(newCfg);
+            newEngine.LoadPoolManifestAsync(new Uri(mixedPoolPath).AbsoluteUri).GetAwaiter().GetResult();
+            Assert(newCfg.KnownImagePacks != null && newCfg.KnownImagePacks.Count == 2,
+                "Nuevos: la primera vista del pool siembra todos los packs como conocidos");
+            Assert(!newEngine.PackIsNew(newEngine.ImagePacks.First(p => p.Id == "packInicial")),
+                "Nuevos: lo que ya estaba en la siembra no es nuevo");
+            Assert(newEngine.GetPendingSummary().ImagePacks == 1,
+                "Nuevos: tras sembrar, solo el republicado cuenta");
+
+            var laterPoolPath = Path.Combine(pool, "manifest-later.json");
+            File.WriteAllText(laterPoolPath, "{\"packages\":[" +
+                PoolPkg("packInicial", "images", "1.0", poolPackZip) + "," +
+                PoolPkg("packNuevo", "images", "1.1", poolPackZip) + "," +
+                PoolPkg("expaComunidad", "images", "1.0", poolPackZip) + "]}");
+            newEngine.LoadPoolManifestAsync(new Uri(laterPoolPath).AbsoluteUri).GetAwaiter().GetResult();
+            var expa = newEngine.ImagePacks.First(p => p.Id == "expaComunidad");
+            Assert(newEngine.PackIsNew(expa) && newEngine.PackIsPending(expa),
+                "Nuevos: un pack que aparece después es novedad AUNQUE esté en 1.0");
+            Assert(newEngine.GetPendingSummary().ImagePacks == 2,
+                "Nuevos: el pack nuevo se suma al conteo de pendientes");
+            newEngine.ApplyPoolImagePackAsync(expa, null).GetAwaiter().GetResult();
+            Assert(!newEngine.PackIsNew(expa) && !newEngine.PackIsPending(expa),
+                "Nuevos: descargarlo lo saca de novedades");
 
             enginePool.ApplyPoolImagePackAsync(enginePool.ImagePacks[0], null).GetAwaiter().GetResult();
             Assert(File.Exists(Path.Combine(install, "images", "cards", "POOLSET", "img1.jpg")),
