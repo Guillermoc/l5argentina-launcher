@@ -112,7 +112,7 @@
                          UniformToFill llena la celda entera: sin letterbox no hay marco que asome. -->
                     <Border x:Name="cellArt" CornerRadius="9">
                         <Border.Background>
-                            <ImageBrush ImageSource="{Binding Thumb, IsAsync=True}" Stretch="UniformToFill" />
+                            <ImageBrush ImageSource="{Binding Thumb}" Stretch="UniformToFill" />
                         </Border.Background>
                     </Border>
                     <!-- Pastilla de estado compacta (BANNED/UNIQUE…): fondo claro fijo para que

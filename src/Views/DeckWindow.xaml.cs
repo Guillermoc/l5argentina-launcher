@@ -1031,8 +1031,10 @@ namespace L5ArgentinaLauncher.Views
             // blancas), y el marco de la celda solo se dibuja cuando NO hay imagen.
             var art = new Border { CornerRadius = new CornerRadius(7), DataContext = vm };
             var artBrush = new ImageBrush { Stretch = Stretch.UniformToFill };
+            // Binding sincrónico a propósito: GridCell.Thumb devuelve lo ya decodificado y encola el
+            // resto en ThumbnailLoader. Con IsAsync, WPF despachaba los pedidos a cuentagotas.
             BindingOperations.SetBinding(artBrush, ImageBrush.ImageSourceProperty,
-                new Binding(nameof(GridCell.Thumb)) { Source = vm, IsAsync = true });
+                new Binding(nameof(GridCell.Thumb)) { Source = vm });
             art.Background = artBrush;
             imgHost.Children.Add(art);
             layout.Children.Add(imgHost);

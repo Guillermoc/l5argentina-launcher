@@ -1989,8 +1989,8 @@ namespace L5ArgentinaLauncher.Views
 
     /// <summary>
     /// Celda de la grilla de miniaturas. INPC para la selección y el estado de la barra de
-    /// acciones (las celdas se recrean por búsqueda). El thumbnail se decodifica lazy vía
-    /// Binding IsAsync y se sirve desde <see cref="ThumbnailCache"/> (LRU compartida y
+    /// acciones (las celdas se recrean por búsqueda). El thumbnail se decodifica lazy en
+    /// <see cref="ThumbnailLoader"/> y se sirve desde <see cref="ThumbnailCache"/> (LRU compartida y
     /// acotada): al reciclar contenedores en scroll rápido, una celda ya vista vuelve al
     /// instante en vez de re-decodificar y parpadear en blanco.
     /// </summary>
@@ -2042,10 +2042,115 @@ namespace L5ArgentinaLauncher.Views
         private void Notify(string name) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
-        /// <summary>Se lee vía Binding IsAsync (thread pool): la decodificación no bloquea la UI.</summary>
-        public BitmapImage Thumb => ThumbnailCache.Get(CandidatePaths);
+        private BitmapImage _thumb;
+        private bool _thumbRequested;
+
+        /// <summary>
+        /// Miniatura de la celda. El binding es **sincrónico**: devuelve lo que ya esté decodificado
+        /// y, la primera vez, encola el resto en <see cref="ThumbnailLoader"/>; cuando llega, la celda
+        /// se repinta sola por <c>PropertyChanged</c>.
+        ///
+        /// Antes esto era un getter bloqueante detrás de un binding `IsAsync`. Medido: con la caché
+        /// caliente y el proceso ocioso, la primera miniatura tardaba **23 s** y el resto **39 s**,
+        /// en tandas separadas por ~16 s y con la CPU plana — no era el disco ni el decode, era el
+        /// planificador de bindings asíncronos de WPF, que los despacha a prioridad baja del
+        /// dispatcher. El mismo arranque sin `IsAsync` mostraba todo de entrada, pero pagando el
+        /// decode de la pantalla entera en el thread de UI (y otra vez en cada scroll).
+        /// </summary>
+        public BitmapImage Thumb
+        {
+            get
+            {
+                if (_thumb != null || _thumbRequested) return _thumb;
+                _thumbRequested = true;
+                _thumb = ThumbnailCache.Peek(CandidatePaths); // ya vista: sin cola ni parpadeo
+                if (_thumb == null)
+                    ThumbnailLoader.Enqueue(CandidatePaths, bmp =>
+                    {
+                        _thumb = bmp;
+                        Notify(nameof(Thumb));
+                    });
+                return _thumb;
+            }
+        }
 
         public event PropertyChangedEventHandler PropertyChanged;
+    }
+
+    /// <summary>
+    /// Cola de decodificación de miniaturas: unos pocos workers del thread pool atienden los
+    /// pedidos de las celdas y devuelven el resultado al thread que los pidió.
+    ///
+    /// Reemplaza a los bindings `IsAsync` de WPF, que despachaban a cuentagotas (ver
+    /// <see cref="GridCell.Thumb"/>). Dos decisiones que no son obvias:
+    ///
+    /// <list type="bullet">
+    /// <item><b>Se atiende LIFO</b>, el último pedido primero. Al scrollear rápido, lo que quedó en
+    /// pantalla es lo último que se pidió: con FIFO se decodifica primero todo lo que ya pasó de
+    /// largo y la pantalla actual espera al final.</item>
+    /// <item><b>No se descarta nada.</b> Un pedido viejo sigue costando ~10 ms y su resultado queda
+    /// en el caché; descartarlo por antigüedad arriesga dejar en blanco una celda que sigue visible,
+    /// que es peor que decodificar de más.</item>
+    /// </list>
+    /// </summary>
+    internal static class ThumbnailLoader
+    {
+        // Tres alcanzan para llenar una pantalla en un pestañeo sin pelearle el disco al resto.
+        private const int MaxWorkers = 3;
+
+        private static readonly object _gate = new object();
+        private static readonly List<Request> _queue = new List<Request>();
+        private static int _running;
+
+        private sealed class Request
+        {
+            public List<string> Candidates;
+            public Action<BitmapImage> Done;
+            public Dispatcher Dispatcher;
+        }
+
+        public static void Enqueue(List<string> candidates, Action<BitmapImage> done)
+        {
+            if (candidates == null || candidates.Count == 0 || done == null) return;
+
+            var request = new Request
+            {
+                Candidates = candidates,
+                Done = done,
+                Dispatcher = Dispatcher.CurrentDispatcher,
+            };
+
+            lock (_gate)
+            {
+                _queue.Add(request);
+                if (_running >= MaxWorkers) return; // ya hay quien lo levante
+                _running++;
+            }
+            System.Threading.ThreadPool.QueueUserWorkItem(_ => Work());
+        }
+
+        private static void Work()
+        {
+            while (true)
+            {
+                Request request;
+                lock (_gate)
+                {
+                    if (_queue.Count == 0) { _running--; return; }
+                    request = _queue[_queue.Count - 1]; // LIFO
+                    _queue.RemoveAt(_queue.Count - 1);
+                }
+
+                BitmapImage bmp;
+                try { bmp = ThumbnailCache.Get(request.Candidates); }
+                catch { bmp = null; } // un archivo roto no puede llevarse el worker
+
+                if (bmp == null) continue; // sin imagen: la celda se queda con el nombre
+                var done = request.Done;
+                request.Dispatcher.BeginInvoke(DispatcherPriority.Background,
+                                               (Action)(() => done(bmp)));
+            }
+        }
     }
 
     /// <summary>
@@ -2053,8 +2158,9 @@ namespace L5ArgentinaLauncher.Views
     /// ventanas). Reemplaza el <see cref="WeakReference"/> por-celda: el weak-ref dejaba que
     /// el GC se llevara los thumbnails y forzaba re-decode, que con contenedores reciclados
     /// se veía como celdas en blanco al volver a scrollear. El LRU los retiene con un tope
-    /// fijo (~<see cref="Capacity"/> × ~0.6 MB a 340px ≈ 250 MB en el peor caso). Thread-safe:
-    /// el Binding IsAsync lee <see cref="Get"/> desde el thread pool.
+    /// fijo (~<see cref="StrongCapacity"/> × ~0.6 MB a 340px ≈ 250 MB en el peor caso). Thread-safe:
+    /// los workers de <see cref="ThumbnailLoader"/> llaman a <see cref="Get"/> desde el thread pool,
+    /// y la UI a <see cref="Peek"/>.
     /// </summary>
     internal static class ThumbnailCache
     {
@@ -2100,6 +2206,20 @@ namespace L5ArgentinaLauncher.Views
                 if (bmp == null) continue; // archivo corrupto → probar el siguiente candidato
                 Store(path, bmp);
                 return bmp;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Lo que ya esté decodificado, **sin tocar disco**: la usa la celda para pintarse de una
+        /// cuando vuelve a una zona ya vista, en vez de encolarse y parpadear.
+        /// </summary>
+        public static BitmapImage Peek(IEnumerable<string> candidatePaths)
+        {
+            foreach (var path in candidatePaths)
+            {
+                var cached = Lookup(path);
+                if (cached != null) return cached;
             }
             return null;
         }
