@@ -143,7 +143,9 @@ el filtro y el `✓` del subtítulo. Una carta recortada no cubre slot ni suma a
   con el editor en vista Lista y todo colapsado. Es el layout de armar — ver
   [ui.md](ui.md).
 - **Vista Grilla**: mismos cuatro tamaños de celda que el Buscador (`－`/`＋` o **Ctrl + rueda**) y la
-  misma previsualización con **Alt**. Click derecho copia el arte. En el tamaño más chico los
+  misma previsualización con **Alt**. Click derecho copia el arte. Las miniaturas salen del mismo
+  `GridCell` que el Buscador, así que comparte su caché y su cola de decodificación
+  ([ADR-053](../DECISIONS.md#adr-053)) — y compartía también su defecto. En el tamaño más chico los
   `−`/`+`/`✕` no entran y queda solo la cantidad, que es lo único que no se deduce mirando la carta;
   para editar a ese tamaño está la vista Lista.
 - **`?`** al final de la barra: el listado de atajos de esta ventana.

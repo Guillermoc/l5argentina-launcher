@@ -3,7 +3,7 @@
 Qué hace el launcher hoy y cómo está construido, en prosa y de corrido. Es el documento para leer
 entero: para consulta rápida están los índices ([../index/](../index/)), que son densos a propósito.
 
-**Versión descrita:** v0.6.0 · **Última pasada contra el código:** 2026-07-28.
+**Versión descrita:** v0.7.0 · **Última pasada contra el código:** 2026-07-30.
 Se actualiza en cada **cierre de fase o release**, sección por sección, contra el código real (o
 contra `docs/index/`, que debería estar al día). No en cada commit.
 
@@ -149,9 +149,11 @@ sobre el zip descargado y después `ZipUtil.ExtractSingleXml` saca el XML: exige
 **exactamente un** `.xml` adentro y rechaza el archivo si hay cero o varios, para que un zip ambiguo
 no decida por su cuenta qué se copia sobre la instalación.
 
-Las imágenes se distribuyen en dos canales que terminan en el mismo lugar. El pack propio de la
-comunidad —unas 30 cartas que no existen en los packs clásicos— viene del manifest del launcher; los
-packs oficiales por arco vienen del pool. En ambos casos `ImagePackService` extrae **entrada por
+Las imágenes son **una sola familia** y el manifest del pool es quien dice cuáles hay: todo lo que
+tenga `type: "images"` es un pack, venga de un arco oficial o de la comunidad, y uno nuevo aparece solo
+sin tocar el launcher (ADR-055). La sección `images` del manifest del bucket no significa "el pack de
+la comunidad" sino **"este pack se aplica solo al apretar JUGAR"** —una propiedad de un pack, no una
+categoría—; se lo reconoce por hash y en el listado sale marcado. En ambos casos `ImagePackService` extrae **entrada por
 entrada** sobre `<SunAndMoon>\images\`, resolviendo la ruta destino final y verificando que caiga
 dentro de esa carpeta antes de escribir: es la protección zip-slip, obligatoria desde el día uno. La
 comparación se hace contra la raíz canónica con separador final, así `images-evil` no pasa por
@@ -167,7 +169,8 @@ que centraliza `InstallationService`.
 
 El estado del usuario se reparte entre `%APPDATA%` —lo que es configuración— y `%LOCALAPPDATA%` —lo
 que es regenerable o pesado—. En el primero viven `config.json` (instalación, URL del manifest, base
-seleccionada y aplicada, hashes cacheados, packs aplicados), `usercards.json` (favoritas y ocultas
+seleccionada y aplicada, hashes cacheados, packs aplicados y **packs ya vistos**, que es lo que
+permite distinguir un pack nuevo de uno viejo que nunca se bajó), `usercards.json` (favoritas y ocultas
 del Buscador), `presets.json` (presets de filtros) y `decksmeta.json` (el sidecar de los mazos y las
 listas). En el segundo, la caché de descargas —incluidas `catalog\` y `packs\`— y los backups.
 
@@ -320,7 +323,17 @@ Buscador al 70 % y el editor al 30 % para armar mirando las dos cosas a la vez. 
 lo que se usa seguido: el tamaño de celda, el orden y el CRUD de listas viven en el componente que les
 corresponde (ADR-050). La grilla de cartas
 tiene cuatro tamaños de celda (con `Ctrl + rueda`), y con **Alt** apretado pasar el mouse sobre una
-carta la abre grande al lado del cursor.
+carta la abre grande al lado del cursor, garantizando que el popup **nunca quede debajo del cursor**
+—si queda, tapa la celda y arranca un parpadeo infinito— (ADR-052).
+
+El Buscador y el editor **abren juntos** (`OpenWorkspace`): los `+`/`−` escriben contra el mazo activo
+y el editor es el único lugar donde se lo ve. El editor es único por proceso, de Buscadores puede haber
+varios, y abrir juntos no es cerrar juntos: cerrar el editor cierra solo el editor y `Ctrl+D` lo
+reabre. Las ventanas que abren otra la corren en diagonal, para que no se tapen al píxel (ADR-052).
+
+Las miniaturas de la grilla se decodifican en una **cola propia** —tres workers, atendida LIFO para que
+lo que está en pantalla gane— y no con los bindings `IsAsync` de WPF, que las despachaban a cuentagotas:
+medido, la primera miniatura tardaba 23 segundos con la caché caliente y el proceso ocioso (ADR-053).
 
 Los controles siguen una taxonomía explícita —una forma por rol— en vez del chip universal de la
 primera versión: rieles verticales para colapsar paneles, pestañas adosadas para cambiar el contenido
@@ -332,7 +345,10 @@ No se usa ningún `MessageBox` del sistema. En `MainWindow` los errores, confirm
 y el menú de packs son overlays dentro del lienzo escalado; el Buscador y el editor, que no tienen
 overlay propio, usan `Views/Dialogs.cs` (`Prompt`/`Confirm`/`Info`), ventanas modales con el tema.
 Cerrar `MainWindow` cierra la aplicación entera y por eso confirma primero; las otras ventanas se
-cierran solas. La estética —pergamino cálido, rojo lacado
+cierran solas. La pantalla principal lleva además un **aviso de novedades** que siempre dice algo —lo
+que falta bajar, o "Todo al día"—, con una regla explícita de qué es novedad: un pack de imágenes en su
+versión inicial no lo es, salvo que sea un pack **nuevo**, que aparece después de la primera vez que
+este launcher vio el pool (ADR-054, ADR-056). La estética —pergamino cálido, rojo lacado
 para la acción, oro decorativo, tipografía de marca L5RTitles— vive en `Themes/Theme.xaml`, que
 además tematiza hasta las scrollbars; los estilos que comparten el Buscador y el editor están en
 `Views/CardUiStyles.xaml`, y el panel de detalle de carta es un control compartido por las dos

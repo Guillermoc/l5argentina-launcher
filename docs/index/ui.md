@@ -12,7 +12,7 @@ Handoff original del rediseño: [../design/visual/](../design/visual/).
 
 | Ventana | Tamaño | Notas |
 |---|---|---|
-| `MainWindow` | **810×540 fija** (3:2), `ResizeMode=NoResize`, `WindowStyle=None` + `WindowChrome` propio | El diseño se **compone a 1080×720** y se escala con un `Viewbox Stretch=Uniform` (810×540 = 75 %). Todo lo que se agregue va en el lienzo de 1080×720. |
+| `MainWindow` | **810×540 fija** (3:2), `ResizeMode=NoResize`, `WindowStyle=None` + `WindowChrome` propio | El diseño se **compone a 1080×720** y se escala con un `Viewbox Stretch=Uniform` (810×540 = 75 %). Todo lo que se agregue va en el lienzo de 1080×720 — y como el alto es fijo, **lo que se agrega arriba se lo saca al cuerpo**: el aviso de novedades terminó dentro del header por eso (ver abajo). |
 | `FirstRunWindow` | diálogo modal | Detección de instalación + captura de la base Original. Devuelve `true`/`false` a `App`. |
 | `SearchWindow` | 1323×798, `Min` **460×460**, redimensionable/maximizable | Chrome propio (`CaptionHeight=35`). `Ctrl+N` abre otra instancia sobre el mismo catálogo. |
 | `DeckWindow` | 1323×798, `Min` **460×460** | Mismo chrome. `DeckWindow.Open(...)` reusa la ventana si ya está abierta. Los paneles se agrupan **por objeto** ([ADR-051](../DECISIONS.md#adr-051)): el izquierdo es el **mazo abierto** (pestañas `PanelTab` **Filtros \| Stats**) y el derecho es la **carta seleccionada**, sin pestañas. Elegir qué mazo abrir **no es un panel**: cuelga del título (ver abajo). En modo lista desaparecen `−`/qty/`+`, los conteos Dynasty/Fate, el estado de armado y el toggle de recortadas. |
@@ -121,6 +121,30 @@ maximizar (responde `WM_GETMINMAXINFO`; sin eso Windows maximiza contra el monit
 chrome propio le saca el marco que lo acotaba) y al abrir (el tamaño de diseño puede no
 entrar en el área útil y `CenterScreen` centra contra la pantalla completa). Reemplaza
 al margen de 7 DIP que antes compensaba el desborde a mano.
+
+**Ventanas en cascada** (`WindowSizingFix.CascadeFrom`): cuando una ventana abre otra —el espacio de
+trabajo, `Ctrl+N`, el botón "Buscador" del editor— la nueva se corre 34 DIP en diagonal. Las dos
+tienen el mismo tamaño de diseño y las dos se abren centradas, así que si no coincidían **al píxel** y
+parecían una sola. Hay que poner `WindowStartupLocation.Manual` **antes** de tocar `Left`/`Top`: con
+`CenterScreen`, WPF recalcula la posición al mostrar y pisa lo que se le haya puesto.
+
+> **Trampa de unidades, ya pisada dos veces** (la otra está en [ADR-050](../DECISIONS.md#adr-050)):
+> `Window.Left`/`Top` viven en las unidades del escritorio virtual y los rectángulos de monitor de
+> Win32 vienen en **píxeles de dispositivo**. Compararlos con dos pantallas a distinta escala da
+> resultados sin sentido — la primera versión de la cascada no corría nada porque creía que el
+> desplazamiento "no entraba" en pantalla. `CascadeFrom` no valida nada: de que entre se encarga
+> `ClampToWorkArea` en `SourceInitialized`, que hace la cuenta en el espacio correcto.
+
+**Aviso de novedades** (`PendingStrip`, en el **header**, bajo los botones) — **siempre** dice algo:
+`Hay novedades: …` con punto dorado, o `Todo al día.` apagado ([ADR-054](../DECISIONS.md#adr-054)).
+Es solo texto, y va ahí y no en una franja propia porque el lienzo tiene **alto fijo**: una fila nueva
+se la come el cuerpo, y la primera versión le recortaba el placeholder de Noticias.
+
+La fila de imágenes resume **todos** los packs (`Imágenes de cartas: N de M packs descargados`,
+`· K con novedades` en oro cuando corresponde). Antes mostraba un solo pack —el de la comunidad, con
+el nombre fijo en el `.resx`— al lado del botón que abre el listado de los otros: se leía como si
+hablara de todos, y con un segundo pack de la comunidad habría seguido nombrando al primero
+([ADR-055](../DECISIONS.md#adr-055)).
 
 **No se usan `MessageBox` del sistema** ([ADR-013](../DECISIONS.md#adr-013)). En `MainWindow` los
 errores, confirmaciones, Configuración y Packs de imágenes son *overlays* dentro del lienzo escalado;

@@ -5,7 +5,7 @@ Rings* en la app **Sun and Moon**. Resuelve el problema de mantener sincronizada
 nuestra base de cartas curada: en lugar de copiar archivos a mano, el launcher chequea si hay una base
 nueva en nuestro bucket, deja **elegir con qué base jugar**, la aplica de forma segura y lanza el juego.
 
-Versión actual: **0.6.0**.
+Versión actual: **0.7.0**.
 
 > **Documentación:** mapa completo en [docs/README.md](docs/README.md) · estado actual del código en
 > [docs/index/](docs/index/) (empezar por
@@ -42,7 +42,10 @@ Versión actual: **0.6.0**.
 | Resumen de filtros activos y copiar imagen con click derecho | ✅ | v0.6.0 | [index/buscador.md](docs/index/buscador.md) |
 | Zoom de grilla en 4 tamaños, previsualización con Alt y atajos (`?`) | ✅ | v0.6.0 | [index/ui.md](docs/index/ui.md) |
 | Ventanas lado a lado y adaptación a ventanas angostas | ✅ | v0.6.0 | [index/ui.md](docs/index/ui.md) |
-| Exportar el mazo a PDF para imprimir proxies (3×3, tamaño real) | ✅ | sin publicar | [DECISIONS ADR-049](docs/DECISIONS.md#adr-049) |
+| Exportar el mazo a PDF para imprimir proxies (3×3, tamaño real) | ✅ | v0.7.0 | [DECISIONS ADR-049](docs/DECISIONS.md#adr-049) |
+| Buscador y Mazos abren juntos como un espacio de trabajo | ✅ | v0.7.0 | [DECISIONS ADR-052](docs/DECISIONS.md#adr-052) |
+| Paneles ajustables con el mouse y agrupados por objeto | ✅ | v0.7.0 | [DECISIONS ADR-051](docs/DECISIONS.md#adr-051) |
+| El launcher avisa si hay novedades pendientes (o dice `Todo al día`) | ✅ | v0.7.0 | [DECISIONS ADR-054](docs/DECISIONS.md#adr-054) |
 | Firma del ejecutable (SignPath) | ⏳ esperando aprobación OSS | — | [ROADMAP §1](docs/ROADMAP.md) |
 | Noticias y torneos | ⬜ placeholder en UI, sin implementar | — | [functional/noticias-v2-borrador.md](docs/functional/noticias-v2-borrador.md) |
 | Firma del `manifest.json` | ⏸️ diferido con criterio | — | [DECISIONS ADR-015](docs/DECISIONS.md#adr-015) |
@@ -176,7 +179,7 @@ quedan al lado).
 
 Un harness de verificación monta un bucket+instalación falsos en `%TEMP%` y ejercita el pipeline real
 (hash, confinamiento de origen, zip-slip, backups, base zippeada, catálogo y packs del pool) sin tocar
-tu instalación — **264 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
+tu instalación — **282 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
 los **25 golden tests** del deckbuilder, ambos contra la lógica real de la app Android:
 
 ```sh

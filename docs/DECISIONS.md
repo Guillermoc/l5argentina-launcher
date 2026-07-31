@@ -65,6 +65,10 @@ backlog; su fecha es la del momento en que se tomaron.
 | [050](#adr-050) | En la barra van las acciones frecuentes; el resto, al componente que le toca | 2026-07-29 | Vigente |
 | [051](#adr-051) | Los paneles se agrupan por objeto, no por lado de la pantalla | 2026-07-29 | Vigente |
 | [052](#adr-052) | Buscador y Mazos son un solo espacio de trabajo; correcciones de la pasada de UI | 2026-07-30 | Vigente |
+| [053](#adr-053) | Las miniaturas se decodifican en una cola propia, no con `IsAsync` | 2026-07-30 | Vigente |
+| [054](#adr-054) | El launcher dice si hay novedades; un pack en 1.0 no es una novedad | 2026-07-30 | Vigente |
+| [055](#adr-055) | Los packs de imágenes son una sola familia; el pool dice cuáles hay | 2026-07-30 | Vigente |
+| [056](#adr-056) | Un pack **nuevo** avisa aunque salga en 1.0 | 2026-07-30 | Vigente |
 
 ---
 
@@ -1284,12 +1288,18 @@ que el ✓ prometiera algo que no puede verificar.
 <a id="adr-048"></a>
 ## ADR-048 — El pack propio se identifica por hash, no por id
 
-**Fecha:** 2026-07-28 · **Estado:** vigente.
+**Fecha:** 2026-07-28 · **Estado:** vigente **en parte** — la identificación por hash sigue; la
+exclusión de la lista **la revierte [ADR-055](#adr-055)**.
 
 **Decisión.** El pack de imágenes propio de la comunidad —la sección `images` del manifest del
 launcher, la que muestra la barra "Imágenes Samurai Extended"— **también está publicado en el pool**.
 `LauncherEngine.ImagePacks` lo excluye de la lista del overlay comparando el **sha256** contra
 `Manifest.Images.Sha256`.
+
+> **Revisado por [ADR-055](#adr-055).** Sacarlo de la lista atacaba el síntoma: el problema era que
+> cada camino llevaba su propio registro de "aplicado". Hoy aparece en la lista como un pack más
+> —marcado "Incluido · se aplica al jugar"— y los dos registros se escriben juntos. Lo que sigue
+> vigente de este ADR es **identificarlo por hash y no por id**, por las razones de abajo.
 
 **El problema.** Aparecía en los dos lados: en la barra de info y en la lista de packs. Peor que la
 duplicación visual es que **cada mitad lleva su propio registro de "aplicado"** —
@@ -1308,8 +1318,9 @@ nadie toque código.
 
 - Gana la barra de info: ese camino ya aplica el pack durante la sincronización normal, sin que el
   usuario tenga que entrar a un overlay.
-- Los `appliedImagePacks["samuraiEx"]` que ya estén en un `config.json` quedan ahí. Son inertes —un
-  registro de algo que ya no se lista— y no hace falta migrarlos.
+- Los `appliedImagePacks["samuraiEx"]` que ya estén en un `config.json` quedan ahí. *(Con
+  [ADR-055](#adr-055) dejaron de ser inertes: el pack vuelve a la lista y ese registro es justamente
+  lo que evita que se ofrezca de nuevo.)*
 - Cubierto en el selftest con un pool que publica el mismo zip que el manifest del launcher.
 
 ---
@@ -1528,3 +1539,172 @@ dos pantallas).
 La geometría quedó como **función pura** (`ComputePosition`) y el selftest la barre en toda la pantalla
 con paso de 8 px verificando el invariante, más el caso patológico de un área más chica que el propio
 popup. Era verificable sin UI y no había motivo para dejarlo sin cubrir.
+
+---
+
+## ADR-053 — Las miniaturas se decodifican en una cola propia, no con `IsAsync`
+
+**Fecha:** 2026-07-30 · **Estado:** vigente.
+
+**Síntoma.** Abrir el Buscador y ver la grilla entera con los nombres pero **sin una sola imagen**
+durante decenas de segundos; después, todas de golpe.
+
+**Medición** (caché del SO caliente, proceso ocioso, binding `{Binding Thumb, IsAsync=True}`):
+
+| t | qué se ve | CPU acumulada del proceso |
+|---|---|---|
+| 1,7 s | ventana lista, 6332 resultados, cero imágenes | — |
+| 1,7 → 23 s | nada | +0,25 s en 21 s (≈1 %) |
+| 23 s | **una** carta | +0,02 s |
+| 39 s | todas | +0,55 s de golpe |
+
+La tercera columna es la que decide: durante los 20 s en blanco **nadie trabaja**. No es el disco, no
+es el antivirus, no es el decode. Se descartaron por experimento, no por razonamiento:
+
+- **input**: mandarle `WM_MOUSEMOVE` a la ventana no adelanta nada — la cadencia es temporal, tandas
+  cada ~16 s;
+- **el pipeline de URI de WPF** (`UriSource` → `FileWebRequest`, que en frío puede quedarse en
+  detección de proxy): leer con `FileStream` da exactamente lo mismo;
+- **quitar `IsAsync`**: la ventana muestra **todo** de entrada, pagando el decode de la pantalla
+  entera en el thread de UI.
+
+O sea: decodificar una pantalla cuesta unos segundos de UI; los 40 s los ponía el planificador de
+bindings asíncronos de WPF, que los despacha a prioridad baja del dispatcher.
+
+**Decisión.** Binding sincrónico + `ThumbnailLoader` propio. `GridCell.Thumb` devuelve lo que ya esté
+decodificado (`ThumbnailCache.Peek`, sin tocar disco) y, la primera vez, encola el resto; el resultado
+vuelve por `PropertyChanged` al dispatcher que lo pidió. Tres workers del thread pool.
+
+**Dos detalles que no son obvios.**
+
+- **LIFO.** Se atiende el último pedido primero: al scrollear rápido, lo que quedó en pantalla es lo
+  último que se pidió. Con FIFO se decodifica primero todo lo que ya pasó de largo y lo visible espera
+  al final — exactamente el defecto que estábamos arreglando, en chiquito.
+- **No se descarta nada.** Un pedido viejo igual cuesta ~10 ms y su resultado queda en el caché;
+  descartarlo por antigüedad arriesga dejar en blanco una celda que **sigue visible**, que es peor que
+  decodificar de más.
+
+**Verificación.** Es de pipeline de UI, no entra al selftest (§5.1): se verificó midiendo. Después del
+cambio, la grilla aparece **con las miniaturas ya puestas** (~2,4 s) y, scrolleando de a tres páginas
+con `ScrollPattern`, a los **150 ms** de cada salto todas las celdas visibles tienen arte. El editor de
+Mazos comparte `GridCell` y arrastraba el mismo defecto: se arregló con el mismo cambio.
+
+---
+
+## ADR-054 — El launcher dice si hay novedades; un pack en 1.0 no es una novedad
+
+**Fecha:** 2026-07-30 · **Estado:** vigente.
+
+**Problema.** El estado de las descargas estaba **repartido**: la base tenía su línea, el pack propio la
+suya, y los packs del pool solo se veían **adentro del modal**. Desde la pantalla no se podía saber si
+faltaba algo sin abrir el modal y revisar fila por fila. "No veo nada raro" no significaba nada.
+
+**Decisión.** Un aviso fijo en el **header**, debajo de los botones, que **siempre dice algo**:
+`Hay novedades: …` o **`Todo al día.`**. Que exista el caso "no hay nada" es la mitad del valor: sin
+él, la ausencia de aviso es ambigua entre "estás al día" y "no miré".
+
+Va en el header y no en una franja propia por una restricción concreta: el lienzo de `MainWindow` es
+**fijo** (1080×720 escalado), así que cada fila nueva se la come el cuerpo — la primera versión, una
+franja con caja propia entre el banner y las bases, le recortaba el placeholder de Noticias. Debajo de
+los botones del header había lugar libre, y encima es donde uno mira al abrir.
+
+**Qué cuenta.** Base Comunidad por descargar, el pack de imágenes propio, y los packs del pool
+pendientes. El update del launcher **no** entra en la enumeración: ya tiene su banner arriba, en
+grande, con su botón. El catálogo del Buscador tampoco: se sincroniza solo y no hay nada que el
+usuario pueda hacer al respecto.
+
+**La regla del 1.0.** Un pack de imágenes en su **versión inicial** no genera pendiente. Los packs por
+arco son **catálogo, no novedades**: son ~20 arcos de arte opcional que se bajan cuando uno quiere, y
+marcarlos todos como "te falta esto" en cada arranque convierte el aviso en ruido permanente — y un
+aviso que siempre está prendido se aprende a ignorar, con lo cual deja de servir para lo que sí
+importa. Que un pack pase de 1.0 **sí** es novedad: significa que se republicó con imágenes nuevas o
+corregidas. Se compara numéricamente, así que `1`, `1.0` y `1.0.0` son lo mismo.
+
+En el modal la distinción se ve igual: un pack republicado sin bajar dice **"Novedad · falta
+descargar"** en oro; uno en 1.0 sin bajar sigue en "No descargado" apagado. Se puede bajar igual — no
+está escondido, solo no está destacado.
+
+**La fila de imágenes pasa a resumir todos los packs** (`Imágenes de cartas: 8 de 8 packs
+descargados`, con `· N con novedades` en oro cuando corresponde). Antes mostraba un solo pack pero
+tenía al lado el botón que abre el listado de los otros, así que se leía como si hablara de todos: con
+dos packs actualizados no cambiaba **nada** ahí, y encima contradecía al aviso del header. El resto de
+ese hilo está en [ADR-055](#adr-055).
+
+Con el manifest de producción de hoy la regla deja **1** pendiente (`promo` 1.2) y descarta los seis
+arcos en 1.0, que es exactamente el resultado buscado.
+
+**Límite conocido.** Si un pack se republica **sin** subir la versión, no se cuenta. Es deliberado: la
+versión es lo único que el pool promete como "esto cambió". El pack igual aparece con "Actualización
+disponible" al abrir el listado, porque ahí sí se compara por hash.
+
+**Honestidad del "todo al día".** Si el manifest del pool no se pudo cargar, no hay lista de packs, y
+"cero pendientes" no es lo mismo que "no sé": en ese caso la franja lo dice
+(`Todo al día, salvo los packs de imágenes: no se pudieron consultar`). Sin eso, la primera vez que el
+pool estuviera caído el aviso mentiría, y un aviso que mintió una vez ya no se cree.
+
+---
+
+## ADR-055 — Los packs de imágenes son una sola familia; el pool dice cuáles hay
+
+**Fecha:** 2026-07-30 · **Estado:** vigente. **Revisa** [ADR-048](#adr-048).
+
+**El error.** El launcher trataba al pack de imágenes de la comunidad como una **categoría**: sección
+`images` (objeto, no lista) en el manifest del bucket, dos campos sueltos en `config.json`
+(`appliedImagePackVersion`/`Sha256`), métodos propios (`ImagesNeedSync`/`SyncImagesAsync`), una fila
+propia en la pantalla y hasta el **nombre hardcodeado en el `.resx`** ("Imágenes Samurai Extended").
+Todo eso asume que las cartas de la comunidad van a ir **siempre a ese único pack**. El día que salga
+una expa, hay un segundo pack de la comunidad y la fila sigue nombrando al primero.
+
+**Decisión.** Los packs de imágenes son **una sola familia** y el **manifest del pool** es quien dice
+cuáles hay: cualquier pack nuevo aparece solo por su `type: "images"`, sea de un arco o de la
+comunidad, sin tocar una línea del launcher ni el manifest del bucket. Se acabaron la fila propia y el
+nombre fijo: la pantalla dice `Imágenes de cartas: N de M packs descargados` y el listado los muestra
+a todos.
+
+**Qué queda de la sección `images` del bucket.** Deja de significar "el pack de la comunidad" y pasa a
+significar **"este pack se aplica solo al apretar JUGAR"** — una propiedad de *un* pack, no una
+familia. Se lo sigue reconociendo por hash y se lo marca en el listado con
+**"Incluido · se aplica al jugar"**. Los packs de la comunidad que vengan después son packs del pool
+como cualquier otro: se bajan a mano desde el listado.
+
+**Qué se revisa de ADR-048.** Aquel ADR sacaba el pack incluido de la lista del pool porque aparecía
+duplicado. El diagnóstico estaba a medias: el problema real no era que **apareciera** en la lista sino
+que cada camino llevaba **su propio registro de aplicado**, así que uno decía "al día" y el otro
+"actualización disponible" sobre el mismo archivo. Ahora aparece una sola vez (el pool es la única
+fuente de la lista) y los dos registros se escriben y se leen juntos, con lo cual no se contradicen ni
+se baja dos veces. Esconderlo, además, tenía un costo que no habíamos visto: el único pack que el
+launcher aplica solo era el único que no se podía ver en ninguna lista.
+
+**Sin migración de config.** Los dos campos sueltos se conservan y se siguen escribiendo: cambiar el
+formato del `config.json` de todos los usuarios para ahorrar dos campos no se paga sola.
+
+**Punto abierto** — resuelto enseguida en [ADR-056](#adr-056): con [ADR-054](#adr-054), un pack nuevo
+que aparece en 1.0 no se destacaba, y una expa de la comunidad sale justamente en 1.0.
+
+---
+
+## ADR-056 — Un pack nuevo avisa aunque salga en 1.0
+
+**Fecha:** 2026-07-30 · **Estado:** vigente. **Completa** [ADR-054](#adr-054).
+
+**El choque.** ADR-054 dice que un pack en versión inicial no es novedad, porque los ~20 arcos son
+catálogo opcional y marcarlos todos sería ruido permanente. [ADR-055](#adr-055) dice que un pack nuevo
+de la comunidad —una expa— aparece en el pool como cualquier otro. Y una expa nueva sale en **1.0**:
+juntas, las dos reglas garantizaban que lo más importante que puede pasar no se avise nunca.
+
+**La distinción que faltaba.** "Pack que nunca vimos" no es lo mismo que "pack viejo que nunca
+bajaste". El primero es una novedad; el segundo es una decisión que el usuario ya tomó. Para separarlos
+alcanza con recordar qué ids se vieron: `config.knownImagePacks`.
+
+**La siembra es la clave.** La primera vez que este launcher ve el pool, anota **todo** lo que hay como
+conocido. Sin eso, estrenar esta versión marcaría los ~20 arcos de siempre como novedades — exactamente
+el ruido que ADR-054 evita, con el agravante de aparecer una sola vez y quemar la confianza en el
+aviso. Después de sembrar, lo que aparezca es genuinamente nuevo. Por eso `knownImagePacks` es `null`
+—"todavía no se sembró"— y no una lista vacía, que significaría "no había ningún pack".
+
+**Regla final:** un pack es pendiente si no lo tenés aplicado **y** (se republicó **o** es nuevo). Baja
+de novedad al descargarlo; de ahí en más manda la versión, como cualquier otro. En el listado se
+distinguen: **"Pack nuevo · falta descargar"** contra **"Novedad · falta descargar"**.
+
+**Costo.** Un campo más en `config.json` que solo crece, con ids de packs. Se paga con la única cosa
+que el aviso tiene que acertar sí o sí.

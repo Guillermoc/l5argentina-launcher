@@ -64,6 +64,12 @@ replace. Nunca queda un archivo a medias que un arranque posterior tome por buen
 `appliedImagePacks`, `appliedImagePack*`). Se compara contra el manifest, sin re-hashear la caché en
 cada arranque.
 
+**4 bis. `knownImagePacks` guarda lo que ya se vio, no lo que se tiene.** Es la única entrada de
+`config.json` que no responde "¿está aplicado?" sino "¿esto es nuevo?"
+([ADR-056](../DECISIONS.md#adr-056)). Se **siembra** con todos los packs la primera vez que se ve el
+pool, así estrenar la versión no marca como novedad los arcos de siempre; por eso `null` (sin sembrar)
+y lista vacía significan cosas distintas y el default **no** se inicializa.
+
 **5. Los archivos del juego mandan sobre el estado propio.** Los mazos son `.txt` del juego
 ([ADR-022](../DECISIONS.md#adr-022)) y el `decksmeta.json` es un **sidecar**: si se pierde o se
 corrompe, se regenera y no se pierde ningún mazo. Por eso se indexa por nombre de archivo y no por

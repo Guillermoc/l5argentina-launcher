@@ -54,8 +54,8 @@ solo lista). Los filtros **aplican en vivo**, sin modal ni botón Aplicar.
 `t.` + Enter agregan keyword o activan chip de clan/tipo (match exacto o prefijo único).
 
 **Vistas** — grilla de miniaturas por defecto (celda de 226×322 en el zoom del medio, filas
-virtualizadas por chunking manual, thumbnails con `DecodePixelWidth` + `IsAsync` + caché de dos
-niveles, ver abajo) y tabla virtualizada con
+virtualizadas por chunking manual, thumbnails con `DecodePixelWidth` + cola propia de decodificación
++ caché de dos niveles, ver abajo) y tabla virtualizada con
 orden por click en cabecera. Chip "Impresiones" = ver todas las impresiones de cada carta; con
 filtro de Edición activo muestra solo las de esos sets, y si ninguna coincide conserva la preferida
 para no perder la carta. Navegación por teclado en la grilla; `Ctrl+F` enfoca la búsqueda; `Ctrl+N`
@@ -111,11 +111,17 @@ caché en cada cambio y a redecodificar desde disco todo lo visible.
 falta para scrollear en las dos direcciones sin tocar disco— y el resto con **`WeakReference`**:
 siguen disponibles mientras el GC no las reclame, así que volver a una zona ya vista casi nunca
 redecodifica, pero bajo presión de memoria el runtime se las lleva en vez de que el proceso siga
-creciendo. Nunca es peor que un LRU puro del mismo tamaño: lo desalojado no se pierde, se degrada. El tamaño viaja por dos
-`DependencyProperty` de la ventana (`CellWidth`/`CellHeight`) a las que se bindea la plantilla, así
-un solo cambio re-mide todas las celdas realizadas. En el nivel grande el caché de miniaturas se
-reconfigura a 460 px de decodificación y baja su tope de 400 a 150 entradas: sin eso la carta se
-vería blanda, y decodificando más grande con el tope viejo la memoria se multiplicaba.
+creciendo. Nunca es peor que un LRU puro del mismo tamaño: lo desalojado no se pierde, se degrada. El
+tamaño de celda viaja por dos `DependencyProperty` de la ventana (`CellWidth`/`CellHeight`) a las que
+se bindea la plantilla, así un solo cambio re-mide todas las celdas realizadas.
+
+**Quién decodifica: `ThumbnailLoader`, no `IsAsync`** ([ADR-053](../DECISIONS.md#adr-053)). El binding
+de `GridCell.Thumb` es **sincrónico** y devuelve lo que ya esté en caché (`ThumbnailCache.Peek`, sin
+tocar disco); la primera vez encola el archivo y la celda se repinta por `PropertyChanged` cuando
+llega. La cola tiene tres workers, se atiende **LIFO** —al scrollear rápido, lo que quedó en pantalla
+es lo último pedido— y no descarta pedidos viejos. Reemplaza a los bindings `IsAsync`, que
+**despachaban a cuentagotas**: medido con la caché caliente, la primera miniatura tardaba 23 s y el
+resto 39 s, con la CPU plana. El editor de Mazos usa el mismo `GridCell` y se arregló con él.
 
 **Previsualización con Alt** — mantener **Alt** y pasar sobre una carta la abre grande al lado del
 cursor, con el arte **original** (no la miniatura). El modificador se lee en el `MouseMove` y no

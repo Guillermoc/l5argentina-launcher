@@ -4,7 +4,8 @@ Qué falta. **Se lee al empezar cualquier sesión**, junto con [index/OVERVIEW.m
 
 Leyenda: ⏳ en curso/esperando · 🔜 próximo · ⬜ pendiente · ⏸️ diferido · 🔁 recurrente · ✅ hecho.
 
-**Estado hoy:** v0.6.0 publicada. Batería en verde.
+**Estado hoy:** v0.7.0 lista para publicar (export a PDF, espacio de trabajo Buscador+Mazos, pasada de
+UI sobre botoneras y paneles, y el aviso de novedades del launcher). Batería en verde.
 **Foco actual:** SEC-6 (firma del exe con SignPath, esperando aprobación OSS).
 
 ---
@@ -131,6 +132,8 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 - ✅ Buscador y Mazos **abren** juntos como un solo espacio de trabajo (cerrar el editor cierra solo el
   editor; `Ctrl+D` lo reabre) ([ADR-052](DECISIONS.md#adr-052)).
 - ✅ Botón **lado a lado** (`⫞`): Buscador 70 % / editor 30 %, en vista Lista y todo colapsado.
+- ✅ Las miniaturas aparecen al abrir y al scrollear: cola propia de decodificación en vez de los
+  bindings `IsAsync` de WPF, que las despachaban a cuentagotas ([ADR-053](DECISIONS.md#adr-053)).
 - ⏸️ Goldfish (sandbox de testeo) — fuera de alcance; la spec del handoff lo cubre si se quiere.
 - ⏸️ Grupos de usuario (carpetas de mazos) y subgrupos dentro del mazo — no portados.
 - ✅ Export PDF: grilla 3×3 a tamaño real para imprimir proxies, con copias ajustables por carta
@@ -154,6 +157,13 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 - ✅ El acceso a Cartas y mazos salió del grupo de utilidades del header y quedó al lado de JUGAR.
 - ✅ El pack de imágenes propio dejó de aparecer duplicado en el overlay de packs
   ([ADR-048](DECISIONS.md#adr-048)).
+- ✅ La pantalla avisa si hay algo pendiente —o dice **"Todo al día"**—, sin tener que abrir el modal
+  de packs. Un pack en versión 1.0 no cuenta como novedad ([ADR-054](DECISIONS.md#adr-054)).
+- ✅ Los packs de imágenes son una sola familia y el pool dice cuáles hay: un pack nuevo de la
+  comunidad aparece solo, sin tocar el launcher ni el manifest ([ADR-055](DECISIONS.md#adr-055)).
+- ✅ Un pack **nuevo** avisa aunque salga en 1.0: `knownImagePacks` separa "nunca lo vimos" de "nunca
+  lo bajaste", con siembra en la primera vista para no inventar novedades
+  ([ADR-056](DECISIONS.md#adr-056)).
 
 **Estado del usuario**
 - ⬜ Aviso al usuario cuando una actualización de la base deja nombres sin resolver (hoy esas

@@ -33,8 +33,9 @@ y confinadas al directorio del manifest. Secciones:
 
 - `launcher.latest_version` → banner de update (compara contra `AppConstants.LauncherVersion`).
 - `databases[]` → la entrada con `id == "community"` es la única que se descarga (la Original es local).
-- `images` → pack de imágenes propio de la comunidad (~30 cartas fuera de los packs clásicos).
-  **Está publicado también en el pool**; el overlay lo filtra por hash ([ADR-048](../DECISIONS.md#adr-048)).
+- `images` → **el pack que se aplica solo al jugar**, no "el pack de la comunidad"
+  ([ADR-055](../DECISIONS.md#adr-055)). Está publicado también en el pool y se lo reconoce ahí por
+  hash ([ADR-048](../DECISIONS.md#adr-048)); qué packs existen lo dice el pool, no esta sección.
 - `catalog` (opcional) → `cards`/`rules`/`filters`; hoy es **fallback** del pool.
 - `news[]` → modelado, no usado (v2).
 
@@ -62,7 +63,9 @@ el manifest vive en `/production/` y los archivos en `/pool/`). De acá salen:
 ### Buscar actualizaciones (MainWindow)
 
 1. `LoadManifestAsync` (launcher) y `LoadPoolManifestAsync` (pool).
-2. `LauncherUpdateAvailable()` → banner con link a `ReleasesPageUrl` (hardcodeado).
+2. `LauncherUpdateAvailable()` → banner con link a `ReleasesPageUrl` (hardcodeado). El aviso de
+   novedades del header (`GetPendingSummary`, ver packs más abajo) se recalcula **después** del sync
+   del catálogo: hasta ahí el pool no está cargado y no se sabe nada de los packs.
 3. `CommunityNeedsDownload()` / `ImagesNeedSync()` / `CatalogNeedsSyncFromPool()` comparan el hash del
    manifest contra el guardado en `config.json` (no contra el archivo: no se re-hashea la caché).
 4. `SyncCatalogFromPoolAsync` baja `cards_db-X.Y.Z.zip` / `rules-X.Y.Z.json` / `filters-X.Y.Z.json` a
@@ -82,10 +85,27 @@ el manifest vive en `/production/` y los archivos en `/pool/`). De acá salen:
 
 ### Packs de imágenes (overlay "Packs de imágenes…")
 
-Lista los `type == "images"` del pool, **menos el pack propio de la comunidad**: ese mismo archivo
-está publicado en los dos manifests y se lo reconoce por **sha256** contra `Manifest.Images.Sha256`
-([ADR-048](../DECISIONS.md#adr-048)). Ofrecerlo en las dos partes hacía que se descargara dos veces
-y que cada camino llevara su propio registro de "aplicado", contradiciéndose.
+Lista **todos** los `type == "images"` del pool ([ADR-055](../DECISIONS.md#adr-055)). No hay familias:
+un pack nuevo —de un arco o de la comunidad— aparece solo, sin tocar el launcher ni el manifest del
+bucket. La sección `images` del bucket ya no significa "el pack de la comunidad" sino **"este pack se
+aplica solo al apretar JUGAR"**: se lo reconoce por **sha256** (`IsBundledPack`, la parte que sigue
+vigente de [ADR-048](../DECISIONS.md#adr-048)) y en el listado sale marcado "Incluido · se aplica al
+jugar". Como se puede aplicar por los **dos** caminos, al aplicarlo se escriben los **dos** registros
+(`appliedImagePackVersion/Sha256` y `appliedImagePacks[id]`) y `PackIsCurrent` consulta los dos: sin
+eso, uno decía "al día" y el otro "actualización disponible" sobre el mismo archivo.
+
+**Qué se considera pendiente** ([ADR-054](../DECISIONS.md#adr-054)). Un pack en su **versión inicial**
+(`LauncherEngine.IsInitialPackVersion`: `1`, `1.0` y `1.0.0` son la misma) **no** genera pendiente —es
+catálogo opcional, no una novedad— y en el listado queda apagado en "No descargado". **Salvo que sea
+nuevo**: un pack que aparece después de la siembra de `knownImagePacks` avisa igual, porque una expa
+de la comunidad sale justamente en 1.0 (`PackIsNew`, [ADR-056](../DECISIONS.md#adr-056)); en el
+listado dice "Pack nuevo · falta descargar". Con cualquier otra versión también: sin descargar aparece
+como **"Novedad · falta descargar"** en oro. Los dos casos cuentan en
+`GetPendingSummary().ImagePacks`, que alimenta el aviso del header (base Comunidad + packs; el update
+del launcher va aparte, en su banner) y el resumen de la fila de imágenes (cuántos descargados sobre
+el total). Si el manifest del pool no cargó, los dos lo dicen en vez de afirmar que está todo al día
+(`PoolManifestLoaded`); ahí el único pack del que se sabe algo es el incluido, que viene por el
+manifest del bucket.
 
 Por pack: `ResolveSameOriginUrl` → descarga verificada a
 `cache/packs/<id>-<version>.zip` → `ImagePackService.ApplyImagePack` sobre `<SunAndMoon>\images\` →
@@ -99,7 +119,8 @@ Los packs sirven al juego **y** al Buscador (misma carpeta `images`).
 
 `sunAndMoonPath`, `manifestUrl`, `selectedBaseId`, `appliedBaseId`, `appliedBaseVersion`,
 `cachedDatabases{}`, `cachedCatalogFiles{}`, `appliedImagePacks{}`, `appliedImagePackVersion/Sha256`,
-`originalBackupCaptured`. Detalle: [../design/persistencia.md](../design/persistencia.md).
+`knownImagePacks[]` (packs ya vistos, para distinguir un pack **nuevo**,
+[ADR-056](../DECISIONS.md#adr-056)), `originalBackupCaptured`. Detalle: [../design/persistencia.md](../design/persistencia.md).
 
 ---
 
