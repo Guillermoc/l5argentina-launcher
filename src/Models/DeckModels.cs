@@ -43,6 +43,33 @@ namespace L5ArgentinaLauncher.Models
 
         /// <summary>Líneas del txt que no matchearon el catálogo (se reescriben verbatim al guardar).</summary>
         public List<UnknownDeckLine> Unknown { get; } = new List<UnknownDeckLine>();
+
+        /// <summary>
+        /// Vocabulario de etiquetas de ESTE mazo (ADR-057). Extra del launcher: la app tenía
+        /// `deck_card_groups` y quedó en desuso. El orden es el del usuario y define el orden de
+        /// las secciones al agrupar por etiqueta.
+        /// </summary>
+        public List<DeckTag> Tags { get; } = new List<DeckTag>();
+
+        /// <summary>
+        /// Qué etiquetas tiene cada carta. En memoria va por CardId; al disco, por NOMBRE de carta
+        /// (ADR-044). Se manipula desde <c>Services.Deck.DeckTags</c>, no a mano.
+        /// </summary>
+        public Dictionary<string, List<string>> CardTags { get; } =
+            new Dictionary<string, List<string>>(StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Etiqueta de usuario dentro de un mazo: un nombre libre y un color de la paleta. La
+    /// identidad es el nombre (único sin distinguir mayúsculas dentro del mazo), que es también
+    /// lo que se escribe al sidecar.
+    /// </summary>
+    public class DeckTag
+    {
+        public string Name { get; set; }
+
+        /// <summary>"#RRGGBB" de <c>DeckTags.Palette</c>.</summary>
+        public string Color { get; set; }
     }
 
     /// <summary>Fila de `deck_cards`: quantity=0 = carta "recortada" (la fila persiste).</summary>

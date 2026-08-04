@@ -43,6 +43,25 @@ namespace L5ArgentinaLauncher.Services.Deck
             [JsonPropertyName("trimmed")]
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
             public List<string> Trimmed { get; set; }
+
+            /// <summary>
+            /// Vocabulario de etiquetas del mazo (ADR-057). Va aparte de las asignaciones para que
+            /// una etiqueta recién creada, todavía sin cartas, sobreviva al reinicio.
+            /// </summary>
+            [JsonPropertyName("tags")]
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+            public List<TagMeta> Tags { get; set; }
+
+            /// <summary>Qué etiquetas tiene cada carta, por NOMBRE de carta (ADR-044).</summary>
+            [JsonPropertyName("cardTags")]
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+            public Dictionary<string, List<string>> CardTags { get; set; }
+        }
+
+        private class TagMeta
+        {
+            [JsonPropertyName("name")] public string Name { get; set; }
+            [JsonPropertyName("color")] public string Color { get; set; }
         }
 
         private class MetaDto
@@ -168,6 +187,7 @@ namespace L5ArgentinaLauncher.Services.Deck
                         deck.CreatedAt = new DateTimeOffset(File.GetLastWriteTimeUtc(file))
                             .ToUnixTimeMilliseconds();
                     if (type != ListType) RestoreTrimmed(deck, m);
+                    RestoreTags(deck, m); // después del recorte: una recortada también se etiqueta
                     Repo.AttachLoadedDeck(deck);
                     _fileByDeckId[deck.Id] = baseName;
                     _updatedAt[deck.Id] = File.GetLastWriteTimeUtc(file);
@@ -199,6 +219,36 @@ namespace L5ArgentinaLauncher.Services.Deck
                     Quantity = 0,
                     SortOrder = sortOrder++,
                 });
+            }
+        }
+
+        /// <summary>
+        /// Reconstruye las etiquetas del sidecar. Las asignaciones vienen por nombre de carta y se
+        /// resuelven con la misma tolerancia que el .txt; las de cartas que ya no están en el mazo
+        /// se descartan (la etiqueta acompaña a la carta). Una etiqueta que aparezca solo en
+        /// `cardTags` —sidecar editado a mano— se crea igual, para no perder la clasificación.
+        /// </summary>
+        private void RestoreTags(Models.Deck deck, DeckMeta meta)
+        {
+            if (meta == null) return;
+            if (meta.Tags != null)
+                foreach (var tag in meta.Tags)
+                {
+                    var created = DeckTags.Add(deck, tag?.Name);
+                    if (created != null && !string.IsNullOrWhiteSpace(tag.Color)) created.Color = tag.Color;
+                }
+            if (meta.CardTags == null) return;
+            foreach (var pair in meta.CardTags)
+            {
+                if (pair.Value == null) continue;
+                var card = Repo.GetCardByNameRelaxed(pair.Key);
+                if (card == null) continue;
+                if (!deck.Cards.Any(e => string.Equals(e.CardId, card.Id, StringComparison.Ordinal))) continue;
+                foreach (var name in pair.Value)
+                {
+                    var tag = DeckTags.Add(deck, name); // ya existe → devuelve la que había
+                    if (tag != null) DeckTags.Set(deck, card.Id, tag.Name, true);
+                }
             }
         }
 
@@ -327,6 +377,10 @@ namespace L5ArgentinaLauncher.Services.Deck
                     Repo.SetInList(copyId, entry.CardId, true);
             }
             else Repo.ImportCards(copyId, Repo.ExportDeck(id));
+            // Las etiquetas son del mazo, así que la copia se las lleva: duplicar un mazo para
+            // probar una variante y perder la clasificación sería empezar de cero.
+            DeckTags.CopyTo(deck, Repo.GetDeckById(copyId));
+            PersistMeta();
             return copyId;
         }
 
@@ -371,6 +425,12 @@ namespace L5ArgentinaLauncher.Services.Deck
         }
 
         /// <summary>
+        /// Guarda **solo** el sidecar. Para lo que el juego no ve —las etiquetas— reescribir el
+        /// .txt no aporta nada y toca un archivo ajeno sin necesidad (ADR-024).
+        /// </summary>
+        public void SaveMeta() => PersistMeta();
+
+        /// <summary>
         /// Última vez que se escribió el .txt del conjunto (para ordenar por "más reciente").
         /// Sin dato —conjunto recién creado que todavía no se guardó— cae en su fecha de creación.
         /// </summary>
@@ -396,6 +456,9 @@ namespace L5ArgentinaLauncher.Services.Deck
                     .Select(e => Repo.GetCardById(e.CardId)?.Name)
                     .Where(n => n != null)
                     .ToList();
+                // Sacar una carta con ✕ se lleva su clasificación: acá se limpia lo que quedó
+                // colgando, así memoria y disco dicen lo mismo.
+                DeckTags.Prune(deck);
                 dto.Decks[MetaKey(baseName, deck.Type)] = new DeckMeta
                 {
                     Notes = deck.Notes,
@@ -403,11 +466,33 @@ namespace L5ArgentinaLauncher.Services.Deck
                     CreatedAt = deck.CreatedAt,
                     SortOrder = deck.SortOrder,
                     Trimmed = trimmed != null && trimmed.Count > 0 ? trimmed : null,
+                    Tags = deck.Tags.Count == 0 ? null : deck.Tags
+                        .Select(t => new TagMeta { Name = t.Name, Color = t.Color })
+                        .ToList(),
+                    CardTags = CardTagsByName(deck),
                 };
             }
             Directory.CreateDirectory(Path.GetDirectoryName(_metaPath));
             File.WriteAllText(_metaPath,
                 JsonSerializer.Serialize(dto, new JsonSerializerOptions { WriteIndented = true }));
+        }
+
+        /// <summary>
+        /// Asignaciones traducidas de CardId a NOMBRE de carta (ADR-044). null si no hay ninguna,
+        /// para no ensuciar el sidecar de los mazos que no usan etiquetas.
+        /// </summary>
+        private Dictionary<string, List<string>> CardTagsByName(Models.Deck deck)
+        {
+            Dictionary<string, List<string>> result = null;
+            foreach (var pair in deck.CardTags)
+            {
+                if (pair.Value == null || pair.Value.Count == 0) continue;
+                var name = Repo.GetCardById(pair.Key)?.Name;
+                if (name == null) continue;
+                if (result == null) result = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+                result[name] = pair.Value.ToList();
+            }
+            return result;
         }
 
         private string FileOf(string deckId) =>
