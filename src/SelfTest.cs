@@ -414,6 +414,12 @@ namespace L5ArgentinaLauncher
             // ---------- Estado de armado: mazo terminado vs pendiente ----------
             RunDeckStateTests(tempRoot);
 
+            // ---------- Etiquetas: persistencia por nombre y partición por combinación ----------
+            RunDeckTagTests(tempRoot);
+
+            // ---------- Prefijos de la barra de filtro (los usan el Buscador y Mazos) ----------
+            RunBarPrefixTests();
+
             // ---------- Exportación a PDF: geometría de la hoja y estructura del archivo ----------
             RunPdfExportTests(tempRoot);
 
@@ -1082,6 +1088,196 @@ namespace L5ArgentinaLauncher
             // Una lista nunca está terminada
             var listId = lib.CreateList("Lista estado");
             Assert(!repo.IsDeckComplete(listId), "Estado: una lista nunca cuenta como terminada");
+        }
+
+        /// <summary>
+        /// Etiquetas de las cartas de un mazo (ADR-057): extra del launcher, así que no hay golden
+        /// que las cubra. Lo que se verifica es lo que no atrapa el compilador: que van al sidecar
+        /// **por nombre de carta** y nunca al .txt del juego, y que agrupar por combinación es una
+        /// partición (cada carta en una sola pila, y el cruce con entidad propia).
+        /// </summary>
+        private static void RunDeckTagTests(string tempRoot)
+        {
+            var fixturesDir = FindRepoRelative(Path.Combine("tests", "fixtures", "deckbuilder"));
+            if (fixturesDir == null) return;
+
+            Line("");
+            Line("=== Etiquetas de las cartas del mazo ===");
+            var dataDir = Path.Combine(fixturesDir, "data");
+            var catalog = Services.Search.CatalogStore.Load(dataDir);
+            var root = Path.Combine(tempRoot, "taginstall");
+            var decksDir = Path.Combine(root, "Decks");
+            var listsDir = Path.Combine(root, "Lists");
+            var metaPath = Path.Combine(tempRoot, "tagmeta.json");
+            Directory.CreateDirectory(decksDir);
+
+            var lib = new DeckLibrary(catalog, decksDir, metaPath, listsDir);
+            var deckId = lib.CreateDeck("Deshonor");
+            lib.Repo.SetCardQuantity(deckId, "Ivory032", 2);    // Jade Works
+            lib.Repo.SetCardQuantity(deckId, "TDoW012", 1);     // Hida Akeno
+            lib.Repo.SetCardQuantity(deckId, "Samurai395", 1);  // The Seventh Tower
+            var deck = lib.Repo.GetDeckById(deckId);
+
+            DeckTags.Add(deck, "Deshonor");
+            DeckTags.Add(deck, "Magistrados");
+            DeckTags.Add(deck, "Sin uso"); // etiqueta creada y todavía sin cartas
+            DeckTags.Set(deck, "Ivory032", "Deshonor", true);
+            DeckTags.Set(deck, "TDoW012", "Deshonor", true);
+            DeckTags.Set(deck, "TDoW012", "Magistrados", true);
+            lib.SaveMeta();
+
+            Assert(DeckTags.Add(deck, "deshonor") == DeckTags.Find(deck, "Deshonor") && deck.Tags.Count == 3,
+                "Etiquetas: crear una que ya existe devuelve la misma (sin distinguir mayúsculas)");
+            Assert(DeckTags.CardCount(deck, "Deshonor") == 2 && DeckTags.CardCount(deck, "Sin uso") == 0,
+                "Etiquetas: el conteo por etiqueta cuenta cartas distintas del mazo");
+
+            // Color: sale uno de la paleta sin preguntar y después se cambia, pero solo por otro de
+            // la paleta (un color libre puede quedar ilegible como punto de 8 px sobre el arte)
+            Assert(DeckTags.Palette.Contains(DeckTags.Find(deck, "Deshonor").Color) &&
+                   DeckTags.Find(deck, "Deshonor").Color != DeckTags.Find(deck, "Magistrados").Color,
+                "Etiquetas: el color por defecto sale de la paleta y dos seguidas no repiten");
+            Assert(DeckTags.SetColor(deck, "Deshonor", DeckTags.Palette[4]) &&
+                   DeckTags.Find(deck, "Deshonor").Color == DeckTags.Palette[4],
+                "Etiquetas: se le puede cambiar el color");
+            Assert(!DeckTags.SetColor(deck, "Deshonor", "#123456") &&
+                   DeckTags.Find(deck, "Deshonor").Color == DeckTags.Palette[4],
+                "Etiquetas: un color fuera de la paleta se rechaza sin tocar el que había");
+            lib.SaveMeta(); // el color elegido tiene que llegar al disco antes de recargar
+
+            // El .txt es del juego: las etiquetas no pueden asomar ahí de ninguna forma
+            var txt = File.ReadAllText(Path.Combine(decksDir, "Deshonor.txt"));
+            Assert(!txt.Contains("Magistrados") && !txt.Contains("Sin uso"),
+                "Etiquetas: NO se escriben en el .txt del juego");
+            var meta = File.ReadAllText(metaPath);
+            Assert(meta.Contains("\"cardTags\"") && meta.Contains("Jade Works") && !meta.Contains("Ivory032"),
+                "Etiquetas: van al sidecar por NOMBRE de carta, nunca por id (ADR-044)");
+
+            // Round-trip por disco
+            var lib2 = new DeckLibrary(catalog, decksDir, metaPath, listsDir);
+            var deck2 = lib2.Repo.Decks.First(d => d.Name == "Deshonor");
+            Assert(deck2.Tags.Count == 3 && DeckTags.Find(deck2, "Sin uso") != null,
+                "Etiquetas: una etiqueta sin cartas también sobrevive al reinicio");
+            Assert(DeckTags.Find(deck2, "Deshonor").Color == DeckTags.Palette[4],
+                "Etiquetas: el color elegido vuelve del sidecar");
+            Assert(DeckTags.Has(deck2, "TDoW012", "Deshonor") && DeckTags.Has(deck2, "TDoW012", "Magistrados"),
+                "Etiquetas: las asignaciones vuelven del sidecar");
+            Assert(DeckTags.Of(deck2, "TDoW012").SequenceEqual(new[] { "Deshonor", "Magistrados" }),
+                "Etiquetas: salen en el orden del vocabulario, no en el de asignación");
+
+            // Agrupar = una pila por etiqueta, y la carta compartida está en TODAS las suyas: al
+            // armar, la pila "Deshonor" tiene que mostrar todo lo que deshonra, incluida la carta
+            // que además pide magistrados.
+            var sections = DeckTags.Sections(deck2, deck2.Cards, e => e.CardId);
+            Assert(sections.Count == 3, "Etiquetas: una sección por etiqueta con cartas, más las sin etiquetar");
+            Assert(sections[0].Tag == "Deshonor" && sections[1].Tag == "Magistrados" &&
+                   sections[2].Tag == null,
+                "Etiquetas: las pilas van en el orden del vocabulario y sin etiquetar al final");
+            Assert(sections[0].Items.Select(e => e.CardId).OrderBy(x => x, StringComparer.Ordinal)
+                       .SequenceEqual(new[] { "Ivory032", "TDoW012" }.OrderBy(x => x, StringComparer.Ordinal)) &&
+                   sections[1].Items.Single().CardId == "TDoW012",
+                "Etiquetas: la carta de dos etiquetas aparece en LAS DOS pilas");
+            Assert(sections[0].Shared == 1 && sections[1].Shared == 1 && sections[2].Shared == 0,
+                "Etiquetas: cada pila dice cuántas de sus cartas están también en otra");
+            Assert(sections.Sum(s => s.Items.Count) > deck2.Cards.Count,
+                "Etiquetas: los conteos por pila NO suman el mazo (se solapan, no son cajas)");
+
+            // Filtro: unión vs cruce
+            var both = new[] { "Deshonor", "Magistrados" };
+            Assert(DeckTags.Matches(deck2, "Ivory032", both, all: false) &&
+                   !DeckTags.Matches(deck2, "Ivory032", both, all: true),
+                "Etiquetas: 'alguna' incluye la carta de una sola pila; 'todas' la deja afuera");
+            Assert(DeckTags.Matches(deck2, "Samurai395", new string[0], all: false),
+                "Etiquetas: sin nada marcado pasan todas");
+
+            // Renombrar arrastra las asignaciones; el nombre repetido se rechaza
+            Assert(DeckTags.Rename(deck2, "Deshonor", "Deshonor total"), "Etiquetas: renombrar");
+            Assert(DeckTags.Has(deck2, "TDoW012", "Deshonor total") &&
+                   !DeckTags.Has(deck2, "TDoW012", "Deshonor"),
+                "Etiquetas: renombrar arrastra las cartas que la tenían");
+            Assert(!DeckTags.Rename(deck2, "Magistrados", "Deshonor total"),
+                "Etiquetas: no se puede renombrar a un nombre ya usado");
+
+            // Borrar la etiqueta la saca de las cartas, sin tocar el mazo
+            DeckTags.Delete(deck2, "Magistrados");
+            Assert(!DeckTags.Has(deck2, "TDoW012", "Magistrados") &&
+                   lib2.Repo.GetDeckCard(deck2.Id, "TDoW012") != null,
+                "Etiquetas: borrar una etiqueta no saca la carta del mazo");
+
+            // Una recortada sigue clasificada (está en el mazo, no se juega)
+            lib2.Repo.RemoveCard(deck2.Id, "Ivory032", keepRowAtZero: true);
+            lib2.Repo.RemoveCard(deck2.Id, "Ivory032", keepRowAtZero: true); // 2 → 1 → 0
+            var lib3 = new DeckLibrary(catalog, decksDir, metaPath, listsDir);
+            var deck3 = lib3.Repo.Decks.First(d => d.Name == "Deshonor");
+            Assert(lib3.Repo.GetDeckCard(deck3.Id, "Ivory032")?.Quantity == 0 &&
+                   DeckTags.Has(deck3, "Ivory032", "Deshonor total"),
+                "Etiquetas: una carta recortada conserva las suyas");
+
+            // Sacarla del todo se lleva su clasificación (levantar la carta de la mesa)
+            lib3.Repo.DeleteCardEntry(deck3.Id, "Ivory032");
+            Assert(!File.ReadAllText(metaPath).Contains("Jade Works"),
+                "Etiquetas: sacar la carta del mazo limpia sus etiquetas del sidecar");
+
+            // Duplicar el mazo se lleva la clasificación
+            var copyId = lib3.DuplicateDeck(deck3.Id);
+            var copy = lib3.Repo.GetDeckById(copyId);
+            Assert(DeckTags.Find(copy, "Deshonor total") != null &&
+                   DeckTags.Has(copy, "TDoW012", "Deshonor total"),
+                "Etiquetas: duplicar el mazo copia vocabulario y asignaciones");
+
+            // Las listas también se etiquetan (son el mismo objeto, ADR-045)
+            var listId = lib3.CreateList("Para conseguir");
+            lib3.Repo.SetInList(listId, "TDoW012", true);
+            var list = lib3.Repo.GetDeckById(listId);
+            DeckTags.Add(list, "Prioridad");
+            DeckTags.Set(list, "TDoW012", "Prioridad", true);
+            lib3.SaveMeta();
+            var reloadedList = new DeckLibrary(catalog, decksDir, metaPath, listsDir)
+                .Lists.First(d => d.Name == "Para conseguir");
+            Assert(DeckTags.Has(reloadedList, "TDoW012", "Prioridad"),
+                "Etiquetas: una lista también las guarda, con su propio vocabulario");
+
+            // Identidad por nombre: una base nueva reasigna los ids y la etiqueta tiene que seguir
+            // en la MISMA carta (el bug que ADR-044 evita)
+            var shuffled = Services.Search.CatalogStore.Load(dataDir);
+            foreach (var card in shuffled.Cards) card.Id = "NEW-" + card.Id;
+            var shuffledDeck = new DeckLibrary(shuffled, decksDir, metaPath, listsDir)
+                .Repo.Decks.First(d => d.Name == "Deshonor");
+            Assert(DeckTags.Has(shuffledDeck, "NEW-TDoW012", "Deshonor total"),
+                "Etiquetas: sobreviven a un cambio de ids del catálogo");
+        }
+
+        /// <summary>
+        /// Prefijos de la barra de filtro (`parseBarText` de la app). Hasta que el panel de filtros
+        /// se compartió con el editor de Mazos ([ADR-058](../docs/DECISIONS.md)) esto era privado
+        /// del Buscador; ahora lo usan dos ventanas y es un parser, que es justo lo que conviene
+        /// verificar de a un caso. Lo delicado es el orden: `tx.` **antes** que `t.`.
+        /// </summary>
+        private static void RunBarPrefixTests()
+        {
+            Line("");
+            Line("=== Prefijos de la barra de filtro ===");
+
+            string value;
+            Assert(Views.CardFilterPanel.ParseBar("hida", out value) == Views.CardFilterPanel.BarMode.Name &&
+                   value == "hida", "Barra: sin prefijo es búsqueda por nombre");
+            Assert(Views.CardFilterPanel.ParseBar("tx.destruye", out value) == Views.CardFilterPanel.BarMode.Text &&
+                   value == "destruye", "Barra: tx. es texto de carta");
+            Assert(Views.CardFilterPanel.ParseBar("t.personality", out value) == Views.CardFilterPanel.BarMode.Type &&
+                   value == "personality", "Barra: t. es tipo");
+            Assert(Views.CardFilterPanel.ParseBar("tx.algo", out value) == Views.CardFilterPanel.BarMode.Text,
+                "Barra: tx. gana sobre t. (si no, 'tx.algo' se leería como tipo 'x.algo')");
+            Assert(Views.CardFilterPanel.ParseBar("k.bushi", out value) == Views.CardFilterPanel.BarMode.Keyword &&
+                   value == "bushi", "Barra: k. es keyword");
+            Assert(Views.CardFilterPanel.ParseBar("c.crab", out value) == Views.CardFilterPanel.BarMode.Clan &&
+                   value == "crab", "Barra: c. es clan");
+            Assert(Views.CardFilterPanel.ParseBar("TX.Algo", out value) == Views.CardFilterPanel.BarMode.Text &&
+                   value == "Algo", "Barra: el prefijo no distingue mayúsculas y el valor se conserva tal cual");
+            Assert(Views.CardFilterPanel.ParseBar("", out value) == Views.CardFilterPanel.BarMode.Name &&
+                   value == "", "Barra: vacía es nombre vacío");
+            Assert(Views.CardFilterPanel.ParseBar(null, out value) == Views.CardFilterPanel.BarMode.Name &&
+                   value == "", "Barra: null no explota");
+            Assert(Views.CardFilterPanel.ParseBar("Kolat", out value) == Views.CardFilterPanel.BarMode.Name,
+                "Barra: un nombre que empieza con K no se confunde con k.");
         }
 
         /// <summary>
