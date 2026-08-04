@@ -345,7 +345,7 @@
   <data name="Fmt_DeckDeleteConfirm" xml:space="preserve"><value>¿Eliminar el mazo "{0}"? Se borra su archivo .txt de la carpeta Decks.</value></data>
   <data name="Deck_OpenFolder" xml:space="preserve"><value>Carpeta</value></data>
   <data name="Deck_OpenFolderTip" xml:space="preserve"><value>Abrir la carpeta Decks de Sun and Moon (ahí viven los .txt de los mazos)</value></data>
-  <data name="Deck_FilterHint" xml:space="preserve"><value>Filtrar cartas del mazo…</value></data>
+  <data name="Deck_FilterHint" xml:space="preserve"><value>Filtrar por nombre… (tx. k. c. t.)</value></data>
   <data name="Deck_AddFromSearchHint" xml:space="preserve"><value>Las cartas nuevas se agregan desde el Buscador (+ sobre el mazo activo) o con Importar.</value></data>
   <data name="Deck_TabCard" xml:space="preserve"><value>Carta</value></data>
   <data name="Deck_TabStats" xml:space="preserve"><value>Stats</value></data>
@@ -466,7 +466,7 @@ c.   —  clan (Enter para confirmar)
 t.   —  tipo (Enter para confirmar)</value></data>
   <data name="Help_ShortcutsDeck" xml:space="preserve"><value>MOUSE
 Click en una carta  —  verla en el panel de la derecha
-Click derecho  —  copiar la imagen al portapapeles
+Click derecho  —  etiquetarla, y copiar su imagen
 Alt + pasar por encima  —  ver la carta en grande (grilla y lista)
 Ctrl + rueda  —  achicar o agrandar las cartas (vista Grilla)
 Arrastrar el borde de un panel  —  cambiarle el ancho; hasta el fondo lo colapsa
@@ -475,6 +475,22 @@ EN LA LISTA DE CARTAS DEL MAZO
 −  —  quitar una copia; la última deja la carta recortada
 +  —  agregar una copia, o devolver una recortada
 ✕  —  sacar la carta del mazo del todo
+
+FILTROS DE CARTA (panel Filtros)
+Los mismos que el Buscador: keywords, tipo, clan, designador, stats, edición y rareza
+Filtran las cartas del mazo; los conteos de las cabeceras siguen a lo que quedó
+
+PREFIJOS DE LA CAJA DE FILTRO
+tx.  —  buscar en el texto de la carta
+k.   —  keyword (Enter para confirmar)
+c.   —  clan (Enter para confirmar)
+t.   —  tipo (Enter para confirmar)
+
+ETIQUETAS (panel Filtros)
+＋  —  crear una etiqueta en este mazo
+Click en su chip  —  filtrar por ella; con dos o más, Alguna o Todas
+Click derecho en su chip  —  cambiarle el color, renombrarla o borrarla
+Por etiqueta  —  agrupa las cartas en pilas; la que tiene dos está en las dos
 
 BOTONES DE LA BARRA
 Nombre del mazo ▾  —  elegir qué mazo o lista abrir, o crear uno
@@ -511,4 +527,31 @@ Los dos paneles  —  acomodar Buscador y editor lado a lado
   <data name="Fmt_PdfMissingImages" xml:space="preserve"><value>{0} cartas salieron en blanco porque no tenés su imagen descargada.</value></data>
   <data name="Fmt_PdfError" xml:space="preserve"><value>No se pudo generar el PDF: {0}</value></data>
   <data name="Deck_PdfNoCards" xml:space="preserve"><value>El mazo no tiene cartas para imprimir</value></data>
+  <!-- ═══════ Etiquetas de las cartas del mazo (las pilas de la mesa) ═══════ -->
+  <data name="Deck_CardFiltersHeader" xml:space="preserve"><value>Filtros de carta</value></data>
+  <data name="Deck_TagsHeader" xml:space="preserve"><value>Etiquetas</value></data>
+  <data name="Fmt_TagsHeaderCount" xml:space="preserve"><value>Etiquetas ({0})</value></data>
+  <data name="Fmt_TagsHeaderFiltering" xml:space="preserve"><value>Etiquetas · filtrando ({0})</value></data>
+  <data name="Deck_TagsHint" xml:space="preserve"><value>Agrupá las cartas por lo que hacen: creá una etiqueta con ＋ y ponésela a las cartas con click derecho, o desde el panel de la derecha.</value></data>
+  <data name="Deck_TagsHintUse" xml:space="preserve"><value>Click derecho sobre una carta para etiquetarla; sobre una etiqueta, para cambiarle el color, renombrarla o borrarla.</value></data>
+  <data name="Deck_NewTagTip" xml:space="preserve"><value>Crear una etiqueta nueva en este mazo</value></data>
+  <data name="Deck_NewTagChip" xml:space="preserve"><value>＋  Etiqueta nueva…</value></data>
+  <data name="Deck_NewTagTitle" xml:space="preserve"><value>Etiqueta nueva</value></data>
+  <data name="Deck_NewTagLabel" xml:space="preserve"><value>Nombre de la etiqueta (por ejemplo: Deshonor, Magistrados)</value></data>
+  <data name="Deck_TagColor" xml:space="preserve"><value>Color</value></data>
+  <data name="Deck_TagRename" xml:space="preserve"><value>Renombrar etiqueta…</value></data>
+  <data name="Deck_TagDelete" xml:space="preserve"><value>Eliminar etiqueta</value></data>
+  <data name="Deck_TagChipTip" xml:space="preserve"><value>Click para filtrar por esta etiqueta; click derecho para cambiarle el color, renombrarla o borrarla</value></data>
+  <data name="Deck_TagUntagged" xml:space="preserve"><value>Sin etiquetar</value></data>
+  <data name="Fmt_TagShared" xml:space="preserve"><value>  ·  {0} también en otra</value></data>
+  <data name="Deck_GroupByType" xml:space="preserve"><value>Por tipo</value></data>
+  <data name="Deck_GroupByTypeTip" xml:space="preserve"><value>Agrupar las cartas como el juego: Starter, Dynasty y Fate, y adentro por tipo</value></data>
+  <data name="Deck_GroupByTag" xml:space="preserve"><value>Por etiqueta</value></data>
+  <data name="Deck_GroupByTagTip" xml:space="preserve"><value>Agrupar las cartas en pilas por sus etiquetas. Una carta con dos etiquetas aparece en las dos pilas: cada pila muestra todo lo que hace esa cosa.</value></data>
+  <data name="Deck_TagMatchAny" xml:space="preserve"><value>Alguna</value></data>
+  <data name="Deck_TagMatchAnyTip" xml:space="preserve"><value>Mostrar las cartas que tengan alguna de las etiquetas marcadas (la unión)</value></data>
+  <data name="Deck_TagMatchAll" xml:space="preserve"><value>Todas</value></data>
+  <data name="Deck_TagMatchAllTip" xml:space="preserve"><value>Mostrar solo las cartas que tengan todas las etiquetas marcadas (el cruce)</value></data>
+  <data name="Fmt_TagExists" xml:space="preserve"><value>Ya existe una etiqueta "{0}" en este mazo</value></data>
+  <data name="Fmt_TagDeleteConfirm" xml:space="preserve"><value>"{0}" está en {1} cartas. Se borra la etiqueta; las cartas se quedan en el mazo.</value></data>
 </root>

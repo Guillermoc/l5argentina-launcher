@@ -57,6 +57,25 @@
             </Border>
         </Popup>
 
+        <!-- Menú contextual de una carta del mazo: sus etiquetas (tildar/destildar), crear una
+             nueva, y copiar el arte. Se llena en código porque las etiquetas son del mazo. -->
+        <Popup x:Name="CardMenuPopup" Placement="MousePoint"
+               AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade">
+            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource GoldDim}"
+                    BorderThickness="1" CornerRadius="8" Width="252" Padding="0,5">
+                <StackPanel x:Name="CardMenuItems" />
+            </Border>
+        </Popup>
+
+        <!-- Menú de una etiqueta (click derecho sobre su chip): renombrar y eliminar. -->
+        <Popup x:Name="TagMenuPopup" Placement="MousePoint"
+               AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade">
+            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource GoldDim}"
+                    BorderThickness="1" CornerRadius="8" Width="210" Padding="0,5">
+                <StackPanel x:Name="TagMenuItems" />
+            </Border>
+        </Popup>
+
         <!-- ══ Selector de mazo: era el panel "Abrir" ══
              Elegir QUÉ mazo abrir es navegación sobre la biblioteca; filtrar el mazo ya abierto es
              otra tarea sobre otro objeto. Compartían el panel izquierdo y, peor, colapsarlo para ver
@@ -400,11 +419,15 @@
                                 </StackPanel>
                             </Grid>
 
-                            <!-- Filtros sobre las cartas del mazo abierto -->
-                            <StackPanel x:Name="FiltersPane" Grid.Row="1" VerticalAlignment="Top">
+            <!-- Filtros sobre las cartas del mazo abierto. Scrollea: además de lo propio del
+                 mazo lleva el panel de filtros compartido con el Buscador (ADR-058). -->
+            <ScrollViewer x:Name="FiltersPane" Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel>
                                 <Grid>
                                     <TextBox x:Name="FilterBox" Style="{StaticResource InvertedTextBox}" Height="30"
-                                             FontSize="13" TextChanged="Filter_Changed" />
+                                             FontSize="13" TextChanged="Filter_Changed"
+                                             KeyDown="FilterBox_KeyDown" />
                                     <TextBlock Text="{loc:Loc Deck_FilterHint}" Foreground="{StaticResource InputPlace}"
                                                Margin="14,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12">
                                         <TextBlock.Style>
@@ -439,9 +462,76 @@
                                               Content="{loc:Loc Deck_ShowTrimmed}"
                                               ToolTip="{loc:Loc Deck_ShowTrimmedTip}"
                                               Checked="ShowTrimmed_Click" Unchecked="ShowTrimmed_Click" />
+
+                                <!-- ══ Etiquetas: las pilas de la mesa (ADR-057) ══
+                                     Agrupar por etiqueta cambia el eje del centro; los chips filtran.
+                                     Todo junto en un solo bloque porque es una sola idea, y plegado
+                                     como las secciones de filtros de abajo. Si hay etiquetas
+                                     marcadas, la cabecera lo dice: filtrar sin ninguna señal a la
+                                     vista es cómo se llega a "no entiendo por qué faltan cartas". -->
+                                <Rectangle Height="1" Margin="0,12,0,4" Fill="{StaticResource OutlineSoft}" />
+                                <Expander x:Name="TagsSection" Header="{loc:Loc Deck_TagsHeader}"
+                                          Style="{StaticResource FilterExpander}" FontSize="15">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <ToggleButton x:Name="GroupByTypeBtn" Style="{StaticResource SegmentLeft}"
+                                                          IsChecked="True" FontSize="12" Padding="9,4"
+                                                          Content="{loc:Loc Deck_GroupByType}"
+                                                          ToolTip="{loc:Loc Deck_GroupByTypeTip}" Click="GroupBy_Click" />
+                                            <ToggleButton x:Name="GroupByTagBtn" Style="{StaticResource SegmentRight}"
+                                                          FontSize="12" Padding="9,4"
+                                                          Content="{loc:Loc Deck_GroupByTag}"
+                                                          ToolTip="{loc:Loc Deck_GroupByTagTip}" Click="GroupBy_Click" />
+                                            <Button x:Name="NewTagBtn" Content="＋"
+                                                    Style="{StaticResource GhostButton}" Height="26" FontSize="13"
+                                                    Padding="9,0" Margin="10,0,0,0"
+                                                    ToolTip="{loc:Loc Deck_NewTagTip}" Click="NewTag_Click" />
+                                        </StackPanel>
+                                        <ScrollViewer MaxHeight="168" VerticalScrollBarVisibility="Auto"
+                                                      HorizontalScrollBarVisibility="Disabled" Margin="0,9,0,0">
+                                            <WrapPanel x:Name="TagChips" />
+                                        </ScrollViewer>
+                                        <!-- Solo cuando hay más de una marcada: con una sola, unión e
+                                             intersección son lo mismo y el control sería ruido. -->
+                                        <StackPanel x:Name="TagMatchRow" Orientation="Horizontal"
+                                                    Visibility="Collapsed" Margin="0,2,0,0">
+                                            <ToggleButton x:Name="TagAnyBtn" Style="{StaticResource SegmentLeft}"
+                                                          IsChecked="True" FontSize="11" Padding="8,3"
+                                                          Content="{loc:Loc Deck_TagMatchAny}"
+                                                          ToolTip="{loc:Loc Deck_TagMatchAnyTip}" Click="TagMatch_Click" />
+                                            <ToggleButton x:Name="TagAllBtn" Style="{StaticResource SegmentRight}"
+                                                          FontSize="11" Padding="8,3"
+                                                          Content="{loc:Loc Deck_TagMatchAll}"
+                                                          ToolTip="{loc:Loc Deck_TagMatchAllTip}" Click="TagMatch_Click" />
+                                        </StackPanel>
+                                        <TextBlock x:Name="TagsHint" Text="{loc:Loc Deck_TagsHint}"
+                                                   Style="{StaticResource BodySmall}" FontSize="11"
+                                                   TextWrapping="Wrap" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </Expander>
+
+                                <!-- ══ Filtros del Buscador, sobre las cartas del mazo (ADR-058) ══
+                                     Mismo control que el panel del Buscador. Arranca plegado y sin
+                                     la sección "Otros", que adentro de un mazo solo podría sacar de
+                                     la vista cartas que el mazo tiene. -->
+                                <Rectangle Height="1" Margin="0,12,0,10" Fill="{StaticResource OutlineSoft}" />
+                                <Grid>
+                                    <TextBlock Text="{loc:Loc Deck_CardFiltersHeader}"
+                                               FontFamily="{StaticResource BrushFont}" FontSize="15"
+                                               Foreground="{StaticResource GoldSoft}"
+                                               VerticalAlignment="Center" />
+                                    <Button x:Name="ClearCardFiltersBtn" HorizontalAlignment="Right"
+                                            Style="{StaticResource GhostButton}" Height="24" FontSize="12"
+                                            Padding="9,0" Visibility="Collapsed"
+                                            Content="{loc:Loc Search_ClearFilters}"
+                                            Click="ClearCardFilters_Click" />
+                                </Grid>
+                                <v:CardFilterPanel x:Name="CardFilters" Margin="0,4,0,0" />
+
                                 <TextBlock Text="{loc:Loc Deck_AddFromSearchHint}" Style="{StaticResource BodySmall}"
-                                           FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                           FontSize="11" TextWrapping="Wrap" Margin="0,12,0,0" />
                             </StackPanel>
+            </ScrollViewer>
 
                             <!-- Sin mazo abierto: el panel dice por dónde empezar en vez de mostrar
                                  filtros y stats de nada. -->
@@ -493,12 +583,24 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
                             <TextBlock Grid.Row="0" Text="{loc:Loc Deck_TabCard}" Margin="0,0,0,8"
                                        FontFamily="{StaticResource BrushFont}" FontSize="16"
                                        Foreground="{StaticResource GoldSoft}" />
                             <v:CardDetailPanel x:Name="Detail" Grid.Row="1" />
+
+                            <!-- Etiquetas de la carta seleccionada: al pie del panel, fuera del
+                                 scroll del detalle, para que estén siempre a un click. El detalle
+                                 en sí es compartido con el Buscador y no sabe de mazos. -->
+                            <StackPanel x:Name="TagAssignPane" Grid.Row="2" Visibility="Collapsed">
+                                <Rectangle Height="1" Margin="0,10,0,8" Fill="{StaticResource OutlineSoft}" />
+                                <TextBlock Text="{loc:Loc Deck_TagsHeader}"
+                                           FontFamily="{StaticResource BrushFont}" FontSize="15"
+                                           Foreground="{StaticResource GoldSoft}" />
+                                <WrapPanel x:Name="TagAssignChips" Margin="0,7,0,0" />
+                            </StackPanel>
                         </Grid>
                     </Border>
                 </Grid>

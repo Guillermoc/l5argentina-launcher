@@ -517,6 +517,33 @@
         </Setter>
     </Style>
 
+    <!-- ══ Muestra de color (paleta de las etiquetas del mazo) ══
+         El color ES el contenido, así que el botón es el círculo y no tiene texto. La muestra
+         elegida se marca con el borde dorado grueso y no con un tilde encima, que a 22 px taparía
+         justo lo que hay que ver. -->
+    <Style x:Key="ColorSwatch" TargetType="Button">
+        <Setter Property="Width" Value="22" />
+        <Setter Property="Height" Value="22" />
+        <Setter Property="Margin" Value="0,0,5,5" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{StaticResource OutlineSoft}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" CornerRadius="11" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ══ Título que además es selector ══
          El nombre del mazo abierto es el disparador del picker: se lee como título (misma tipografía
          y tamaño que antes) y solo al pasar el mouse aparece el fondo que delata que es clickeable.

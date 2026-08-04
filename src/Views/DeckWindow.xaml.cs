@@ -68,6 +68,13 @@ namespace L5ArgentinaLauncher.Views
         private readonly string _installPath;
         private readonly DispatcherTimer _notesTimer;
         private readonly DispatcherTimer _statusTimer;
+        // Filtros del Buscador aplicados a las cartas del mazo (ADR-058): el motor y los datos de
+        // usuario son los mismos; lo único distinto es sobre qué se aplica el resultado.
+        private readonly CardSearchEngine _engine;
+        private readonly UserCardDataStore _store;
+        // Tipear en el panel (texto de carta, topes de stats) es una ráfaga de teclas y cada una
+        // rearmaría el cuerpo entero: se espera a que pare, como en el Buscador.
+        private readonly DispatcherTimer _filterDebounce;
         // VMs de imagen por carta (GridCell del Buscador: decode lazy + weak ref); el caché
         // evita re-decodificar en cada rebuild del cuerpo (cada +/− lo dispara)
         private readonly Dictionary<string, GridCell> _imageCells =
@@ -76,6 +83,10 @@ namespace L5ArgentinaLauncher.Views
         private string _selectedCardId;
         // qué solapa está abierta a la izquierda: mazos (.txt de Decks) o listas (.txt de Lists)
         private string _kind = DeckLibrary.DeckType;
+        // Etiquetas marcadas en el panel de filtros. Son del mazo abierto, así que se limpian al
+        // cambiar de mazo (_tagFilterDeckId es quien lo detecta).
+        private readonly HashSet<string> _tagFilter = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private string _tagFilterDeckId;
 
         /// <summary>Opacidad de una carta recortada (está en el mazo, no se juega).</summary>
         private const double TrimmedOpacity = 0.42;
@@ -159,6 +170,23 @@ namespace L5ArgentinaLauncher.Views
             _resolver = new CardImageResolver(installPath);
             _catalog = catalog;
             _installPath = installPath;
+            _engine = new CardSearchEngine(catalog);
+            // después del library, como en el Buscador: la migración v1 de usercards.json necesita
+            // el catálogo para traducir ids a nombres
+            _store = UserCardDataStore.Load(_library);
+
+            // Mismo panel que el Buscador, sobre las cartas del mazo (ADR-058). Arranca plegado:
+            // acá comparte lugar con los filtros del mazo y las etiquetas.
+            CardFilters.Initialize(catalog);
+            CardFilters.CollapseSections();
+            CardFilters.ShowOtherSection = false;
+            CardFilters.Changed += (s, e) => { _filterDebounce.Stop(); OnCardFiltersChanged(); };
+            CardFilters.TextTyped += (s, e) => { _filterDebounce.Stop(); _filterDebounce.Start(); };
+            _filterDebounce = new DispatcherTimer(DispatcherPriority.Background)
+            {
+                Interval = TimeSpan.FromMilliseconds(250),
+            };
+            _filterDebounce.Tick += (s, e) => { _filterDebounce.Stop(); OnCardFiltersChanged(); };
 
             var sortFields = new[]
             {
@@ -668,6 +696,7 @@ namespace L5ArgentinaLauncher.Views
             System.Windows.Automation.AutomationProperties.SetName(DeckPickerBtn, DeckTitle.Text);
 
             RefreshCounts(deck);
+            RefreshTags(); // antes del cuerpo: puede limpiar el filtro al cambiar de mazo
             RebuildDeckBody(deck);
             RebuildStats(deck);
 
@@ -720,6 +749,66 @@ namespace L5ArgentinaLauncher.Views
 
         private void Filter_Changed(object sender, RoutedEventArgs e) => RebuildIfReady();
         private void Filter_Changed(object sender, TextChangedEventArgs e) => RebuildIfReady();
+
+        // ------------------------------------------------------------------ filtros del Buscador
+
+        /// <summary>
+        /// Cambió algo del panel compartido: rearma el cuerpo y actualiza el botón de limpiar,
+        /// que solo aparece cuando hay algo que limpiar (mismo criterio que el Buscador).
+        /// </summary>
+        private void OnCardFiltersChanged()
+        {
+            RefreshClearFiltersBtn();
+            RebuildIfReady();
+        }
+
+        private void RefreshClearFiltersBtn() =>
+            ClearCardFiltersBtn.Visibility = CardFilters.HasAnyFilter
+                ? Visibility.Visible : Visibility.Collapsed;
+
+        private void ClearCardFilters_Click(object sender, RoutedEventArgs e)
+        {
+            CardFilters.Clear();
+            OnCardFiltersChanged();
+        }
+
+        /// <summary>
+        /// Los prefijos de la barra del Buscador también acá: `tx.` filtra el texto de la carta en
+        /// vivo y `k.`/`c.`/`t.` + Enter agregan keyword o prenden el chip de clan/tipo del panel.
+        /// </summary>
+        private void FilterBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape) { FilterBox.Text = ""; e.Handled = true; return; }
+            if (e.Key != Key.Enter) return;
+            var mode = CardFilterPanel.ParseBar(FilterBox.Text, out var value);
+            if (mode == CardFilterPanel.BarMode.Name || mode == CardFilterPanel.BarMode.Text) return;
+            if (CardFilters.ApplyBarMode(mode, value)) FilterBox.Text = "";
+            e.Handled = true;
+        }
+
+        /// <summary>
+        /// Ids de las cartas que pasan los filtros del panel, o **null** si no hay ninguno puesto
+        /// (y entonces no se filtra nada). Se corre el mismo motor que el Buscador contra el
+        /// catálogo entero y después se intersecta con el mazo: así la semántica es exactamente la
+        /// misma y no hay una segunda implementación que se despegue.
+        ///
+        /// Dos criterios se fuerzan: baneadas y ocultas **siempre entran**. Son filtros para
+        /// navegar el catálogo; adentro de un mazo lo único que podrían hacer es esconder cartas
+        /// que el mazo tiene de verdad (ADR-058).
+        /// </summary>
+        private HashSet<string> FilteredCardIds(CardFilterPanel.BarMode barMode, string barValue)
+        {
+            var textMode = barMode == CardFilterPanel.BarMode.Text && barValue.Trim().Length > 0;
+            if (!CardFilters.HasAnyFilter && !textMode) return null;
+
+            var criteria = new CardSearchCriteria();
+            CardFilters.Fill(criteria);
+            if (textMode) criteria.Text = barValue;
+            criteria.IncludeBanned = true;
+            criteria.IncludeHidden = true;
+            return new HashSet<string>(
+                _engine.Search(criteria, _store.Data).Select(c => c.Id), StringComparer.Ordinal);
+        }
         private void Sort_Changed(object sender, RoutedEventArgs e) => RebuildIfReady();
         private void Sort_Changed(object sender, SelectionChangedEventArgs e) => RebuildIfReady();
 
@@ -753,10 +842,10 @@ namespace L5ArgentinaLauncher.Views
         }
 
         /// <summary>
-        /// Rearma el centro: secciones Starter/Dynasty/Fate → sub-secciones por tipo (orden
-        /// canónico TYPE_ORDER_MAP), filas con controles −/qty/+/✕, y avisos "Falta: {slot}"
-        /// bajo Starter (blandos, como la app). El orden dentro de cada tipo es el elegido
-        /// (coste/nombre/fuerza; solo el campo se invierte, port de sortComparator).
+        /// Rearma el centro. Filtra (texto, recortadas, etiquetas marcadas) y después agrupa por
+        /// el eje elegido: **tipo** —Starter/Dynasty/Fate → tipo, el canónico de la app— o
+        /// **etiqueta** (ADR-057). Las filas llevan los controles −/qty/+/✕ y los avisos
+        /// "Falta: {slot}" son blandos, como la app.
         /// </summary>
         private void RebuildDeckBody(Models.Deck deck)
         {
@@ -768,7 +857,11 @@ namespace L5ArgentinaLauncher.Views
                 return;
             }
 
-            var filter = (FilterBox.Text ?? "").Trim();
+            // La caja acepta los prefijos del Buscador: en modo operador (tx./k./c./t.) no filtra
+            // por nombre, o "k.bushi" no matchearía ningún nombre y el mazo se vería vacío.
+            var barMode = CardFilterPanel.ParseBar(FilterBox.Text, out var barValue);
+            var filter = barMode == CardFilterPanel.BarMode.Name ? barValue.Trim() : "";
+            var allowed = FilteredCardIds(barMode, barValue);
             var selected = SortCombo.SelectedItem as SortOption;
             var sort = selected?.Field ?? DeckCardSort.GOLD_COST;
             var asc = selected?.Ascending ?? true;
@@ -780,8 +873,29 @@ namespace L5ArgentinaLauncher.Views
             var entries = Repo.GetCardsWithCards(deck.Id)
                 .Where(x => x.Entry.Quantity > 0 || (showTrimmed && x.Entry.Quantity == 0))
                 .Where(x => filter.Length == 0 || CardSearchEngine.LikeContains(x.Card.Name, filter))
+                .Where(x => allowed == null || allowed.Contains(x.Card.Id))
+                .Where(x => DeckTags.Matches(deck, x.Card.Id, _tagFilter, TagAllBtn.IsChecked == true))
                 .ToList();
 
+            if (GroupByTagBtn.IsChecked == true) BuildTagSections(deck, entries, sort, asc, gridView);
+            else BuildTypeSections(deck, entries, sort, asc, gridView);
+
+            // Líneas del txt que no matchearon el catálogo: se conservan y se muestran
+            if (deck.Unknown.Count > 0)
+            {
+                DeckBody.Children.Add(GroupHeader(Strings.Get("Deck_UnknownHeader")));
+                foreach (var unknown in deck.Unknown.ToList())
+                    DeckBody.Children.Add(UnknownRow(deck, unknown));
+            }
+
+            if (DeckBody.Children.Count == 0)
+                DeckBody.Children.Add(BodyText(Strings.Get("Deck_EmptyDeck"), dim: true));
+        }
+
+        /// <summary>Agrupado canónico de la app: Starter/Dynasty/Fate → tipo.</summary>
+        private void BuildTypeSections(Models.Deck deck, List<(DeckCardEntry Entry, Card Card)> entries,
+                                       DeckCardSort sort, bool asc, bool gridView)
+        {
             foreach (var group in DeckGroups.Order)
             {
                 if (!GroupVisible(group)) continue;
@@ -804,32 +918,7 @@ namespace L5ArgentinaLauncher.Views
                 {
                     DeckBody.Children.Add(TypeHeader(
                         $"{Capitalize(typeGroup.Key)} — ({typeGroup.Sum(x => x.Entry.Quantity)}) [{typeGroup.Count(x => x.Entry.Quantity > 0)}]"));
-
-                    IOrderedEnumerable<(DeckCardEntry Entry, Card Card)> sorted;
-                    switch (sort)
-                    {
-                        case DeckCardSort.NAME:
-                            sorted = Order(typeGroup, x => x.Card.Name, asc, StringComparer.Ordinal);
-                            break;
-                        case DeckCardSort.FORCE:
-                            sorted = Order(typeGroup, x => x.Card.Force ?? int.MinValue, asc, Comparer<int>.Default);
-                            break;
-                        default: // GOLD_COST
-                            sorted = Order(typeGroup, x => x.Card.Cost ?? int.MaxValue, asc, Comparer<int>.Default);
-                            break;
-                    }
-                    if (gridView)
-                    {
-                        // cartas en imagen: ~3 columnas con el layout por defecto (más si se
-                        // colapsan paneles), manteniendo la sección por tipo
-                        var wrap = new WrapPanel { Margin = new Thickness(4, 2, 0, 4) };
-                        foreach (var x in sorted.ThenByName())
-                            wrap.Children.Add(CardImageCell(deck, x.Entry, x.Card));
-                        DeckBody.Children.Add(wrap);
-                    }
-                    else
-                        foreach (var x in sorted.ThenByName())
-                            DeckBody.Children.Add(CardRow(deck, x.Entry, x.Card));
+                    AddCards(deck, SortEntries(typeGroup, sort, asc), gridView);
                 }
 
                 // Aviso blando de slots de holding inicial sin cubrir (bajo Starter)
@@ -837,17 +926,71 @@ namespace L5ArgentinaLauncher.Views
                     DeckBody.Children.Add(BodyText(
                         Strings.Format("Fmt_DeckMissingSlots", slot.Label ?? slot.SlotId), error: true));
             }
+        }
 
-            // Líneas del txt que no matchearon el catálogo: se conservan y se muestran
-            if (deck.Unknown.Count > 0)
+        /// <summary>
+        /// Agrupado por etiqueta (ADR-057): una sección por etiqueta, en el orden en que se
+        /// crearon, y las sin clasificar al final. **Una carta está en todas sus pilas**: la que
+        /// quita honor y pide magistrados aparece en las dos, porque la pregunta al armar es
+        /// "cuánto deshonor tengo" y una pila que se saltea las compartidas contesta de menos. Por
+        /// eso los conteos no suman el mazo, y la cabecera dice cuántas están además en otra pila.
+        /// Los chips Starter/Dynasty/Fate siguen filtrando: son un filtro, no el eje.
+        /// </summary>
+        private void BuildTagSections(Models.Deck deck, List<(DeckCardEntry Entry, Card Card)> entries,
+                                      DeckCardSort sort, bool asc, bool gridView)
+        {
+            var visible = SortEntries(entries.Where(x => GroupVisible(x.Card.DeckGroup)), sort, asc);
+            foreach (var section in DeckTags.Sections(deck, visible, x => x.Card.Id))
             {
-                DeckBody.Children.Add(GroupHeader(Strings.Get("Deck_UnknownHeader")));
-                foreach (var unknown in deck.Unknown.ToList())
-                    DeckBody.Children.Add(UnknownRow(deck, unknown));
+                var title = section.Tag ?? Strings.Get("Deck_TagUntagged");
+                var header = $"{title} — ({section.Items.Sum(x => x.Entry.Quantity)})" +
+                             $" [{section.Items.Count(x => x.Entry.Quantity > 0)}]";
+                if (section.Shared > 0) header += Strings.Format("Fmt_TagShared", section.Shared);
+                DeckBody.Children.Add(GroupHeader(header));
+                AddCards(deck, section.Items, gridView);
             }
 
-            if (DeckBody.Children.Count == 0)
-                DeckBody.Children.Add(BodyText(Strings.Get("Deck_EmptyDeck"), dim: true));
+            // El aviso de slots sin cubrir es del mazo entero, no de una pila: va al pie.
+            if (deck.Type != DeckLibrary.ListType)
+                foreach (var slot in Repo.UncoveredRequiredSlots(deck.Id))
+                    DeckBody.Children.Add(BodyText(
+                        Strings.Format("Fmt_DeckMissingSlots", slot.Label ?? slot.SlotId), error: true));
+        }
+
+        /// <summary>Filas o celdas, según la vista. Las cartas ya vienen ordenadas.</summary>
+        private void AddCards(Models.Deck deck, IEnumerable<(DeckCardEntry Entry, Card Card)> cards,
+                              bool gridView)
+        {
+            if (gridView)
+            {
+                // cartas en imagen: ~3 columnas con el layout por defecto (más si se colapsan
+                // paneles), manteniendo la sección
+                var wrap = new WrapPanel { Margin = new Thickness(4, 2, 0, 4) };
+                foreach (var x in cards)
+                    wrap.Children.Add(CardImageCell(deck, x.Entry, x.Card));
+                DeckBody.Children.Add(wrap);
+            }
+            else
+                foreach (var x in cards)
+                    DeckBody.Children.Add(CardRow(deck, x.Entry, x.Card));
+        }
+
+        /// <summary>
+        /// Orden dentro de una sección: solo el campo se invierte (port de sortComparator), y el
+        /// desempate siempre es por nombre.
+        /// </summary>
+        private static IEnumerable<(DeckCardEntry Entry, Card Card)> SortEntries(
+            IEnumerable<(DeckCardEntry Entry, Card Card)> source, DeckCardSort sort, bool asc)
+        {
+            switch (sort)
+            {
+                case DeckCardSort.NAME:
+                    return Order(source, x => x.Card.Name, asc, StringComparer.Ordinal).ThenByName();
+                case DeckCardSort.FORCE:
+                    return Order(source, x => x.Card.Force ?? int.MinValue, asc, Comparer<int>.Default).ThenByName();
+                default: // GOLD_COST
+                    return Order(source, x => x.Card.Cost ?? int.MaxValue, asc, Comparer<int>.Default).ThenByName();
+            }
         }
 
         private static IOrderedEnumerable<(DeckCardEntry Entry, Card Card)> Order<TKey>(
@@ -908,6 +1051,14 @@ namespace L5ArgentinaLauncher.Views
                 HidePreview();
             };
             row.MouseLeftButtonUp += (s, e) => SelectCard(card);
+            // Click derecho = menú de la carta (etiquetas). Selecciona primero, para que el panel
+            // de la derecha muestre de qué carta se está hablando.
+            row.MouseRightButtonUp += (s, e) =>
+            {
+                e.Handled = true;
+                SelectCard(card);
+                ShowCardMenu(deck, card, null);
+            };
             // Alt también en la vista Lista: los candidatos se resuelven acá porque la fila no
             // tiene GridCell. Perezoso: solo se paga cuando Alt está apretado.
             row.MouseMove += (s, e) =>
@@ -969,6 +1120,15 @@ namespace L5ArgentinaLauncher.Views
             if (mini.Length > 0)
                 name.Inlines.Add(new System.Windows.Documents.Run("   " + mini)
                 { Foreground = (Brush)FindResource("TextDim"), FontSize = 11 });
+
+            // Puntitos de las etiquetas, antes del nombre: en la vista por tipo son la única
+            // señal de que esta carta está en dos pilas.
+            var marks = TagMarks(deck, card.Id, 8);
+            if (marks != null)
+            {
+                DockPanel.SetDock(marks, Dock.Left);
+                dock.Children.Add(marks);
+            }
             dock.Children.Add(name);
 
             row.Child = dock;
@@ -1007,13 +1167,13 @@ namespace L5ArgentinaLauncher.Views
             // Alt + pasar por encima = ver la carta grande al lado del cursor (igual que el Buscador)
             cell.MouseMove += (s, e) => ShowPreview(vm, card);
             cell.MouseLeave += (s, e) => HidePreview();
-            // click derecho = copiar el arte, igual que en la grilla del Buscador
+            // click derecho = menú de la carta: sus etiquetas y, al pie, copiar el arte (que era
+            // lo que hacía el click derecho antes de que existieran las etiquetas)
             cell.MouseRightButtonUp += (s, e) =>
             {
                 e.Handled = true;
-                var ok = CardImageClipboard.TryCopy(vm.CandidatePaths);
-                ShowStatus(ok ? Strings.Format("Fmt_CopiedImage", card.Name)
-                              : Strings.Get("Detail_CopyImageFail"));
+                SelectCard(card);
+                ShowCardMenu(deck, card, vm);
             };
             AnimateIfPending(cell, card, isTrimmed);
 
@@ -1044,6 +1204,21 @@ namespace L5ArgentinaLauncher.Views
                 new Binding(nameof(GridCell.Thumb)) { Source = vm });
             art.Background = artBrush;
             imgHost.Children.Add(art);
+
+            // Las etiquetas, sobre el arte y con fondo propio: sobre una carta clara los puntos
+            // solos no se leen. Encima del arte porque se agrega después.
+            var marks = TagMarks(deck, card.Id, IsTinyZoom ? 7 : 9);
+            if (marks != null)
+                imgHost.Children.Add(new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(0xCC, 0x14, 0x0A, 0x05)),
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(6, 3, 0, 3), // el último punto ya trae su margen
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(5),
+                    Child = marks,
+                });
             layout.Children.Add(imgHost);
 
             ApplyCellFrame(cell, art, card.Id == _selectedCardId);
@@ -1135,6 +1310,361 @@ namespace L5ArgentinaLauncher.Views
         }
 
         private void ShowTrimmed_Click(object sender, RoutedEventArgs e) => RebuildIfReady();
+
+        // ------------------------------------------------------------------ etiquetas (ADR-057)
+
+        private Models.Deck CurrentDeck =>
+            _selectedDeckId != null ? Repo.GetDeckById(_selectedDeckId) : null;
+
+        /// <summary>
+        /// Rearma los dos lados de las etiquetas: los chips que filtran (panel izquierdo) y los que
+        /// asignan a la carta seleccionada (panel derecho). Las etiquetas son **del mazo**, así que
+        /// al cambiar de mazo el filtro se limpia en vez de arrastrar nombres que ahí no existen.
+        /// </summary>
+        private void RefreshTags()
+        {
+            var deck = CurrentDeck;
+            if (deck?.Id != _tagFilterDeckId)
+            {
+                _tagFilter.Clear();
+                _tagFilterDeckId = deck?.Id;
+            }
+            else _tagFilter.RemoveWhere(t => DeckTags.Find(deck, t) == null); // borradas mientras tanto
+
+            NewTagBtn.IsEnabled = deck != null;
+            GroupByTagBtn.IsEnabled = deck != null && deck.Tags.Count > 0;
+            // Sin etiquetas no hay eje por el cual agrupar: el segmentado vuelve a Tipo solo.
+            if (GroupByTagBtn.IsEnabled != true && GroupByTagBtn.IsChecked == true)
+            {
+                GroupByTagBtn.IsChecked = false;
+                GroupByTypeBtn.IsChecked = true;
+            }
+
+            TagChips.Children.Clear();
+            if (deck != null)
+                foreach (var tag in deck.Tags)
+                {
+                    var chip = TagChip(tag, $"{tag.Name}  {DeckTags.CardCount(deck, tag.Name)}",
+                                       _tagFilter.Contains(tag.Name));
+                    chip.ToolTip = Strings.Get("Deck_TagChipTip");
+                    chip.Click += (s, e) =>
+                    {
+                        if (chip.IsChecked == true) _tagFilter.Add(tag.Name);
+                        else _tagFilter.Remove(tag.Name);
+                        RefreshTagMatchRow();
+                        RefreshTagsHeader(deck);
+                        RebuildIfReady();
+                    };
+                    // El menú de la etiqueta (renombrar / eliminar) cuelga de su propio chip: es
+                    // donde está el objeto, y así no hace falta un ⋯ por chip.
+                    chip.MouseRightButtonUp += (s, e) => { e.Handled = true; ShowTagMenu(deck, tag); };
+                    TagChips.Children.Add(chip);
+                }
+
+            RefreshTagMatchRow();
+            TagsHint.Text = Strings.Get(deck == null || deck.Tags.Count == 0
+                ? "Deck_TagsHint" : "Deck_TagsHintUse");
+            RefreshTagsHeader(deck);
+            RefreshTagAssign();
+        }
+
+        /// <summary>
+        /// La cabecera de la sección dice cuántas etiquetas hay y, si se está filtrando por
+        /// alguna, lo avisa: la sección arranca **plegada**, así que sin esto se puede quedar
+        /// filtrando con la única señal de que "faltan cartas".
+        /// </summary>
+        private void RefreshTagsHeader(Models.Deck deck)
+        {
+            var total = deck?.Tags.Count ?? 0;
+            TagsSection.Header =
+                _tagFilter.Count > 0 ? Strings.Format("Fmt_TagsHeaderFiltering", _tagFilter.Count)
+                : total > 0 ? Strings.Format("Fmt_TagsHeaderCount", total)
+                : Strings.Get("Deck_TagsHeader");
+        }
+
+        /// <summary>El modo unión/intersección solo significa algo con dos o más marcadas.</summary>
+        private void RefreshTagMatchRow() =>
+            TagMatchRow.Visibility = _tagFilter.Count >= 2 ? Visibility.Visible : Visibility.Collapsed;
+
+        /// <summary>Chips de la carta seleccionada: tildar uno la pone o la saca de esa pila.</summary>
+        private void RefreshTagAssign()
+        {
+            var deck = CurrentDeck;
+            var card = _selectedCardId != null ? Repo.GetCardById(_selectedCardId) : null;
+            var inDeck = deck != null && card != null &&
+                         deck.Cards.Any(e => string.Equals(e.CardId, card.Id, StringComparison.Ordinal));
+            TagAssignPane.Visibility = inDeck ? Visibility.Visible : Visibility.Collapsed;
+            TagAssignChips.Children.Clear();
+            if (!inDeck) return;
+
+            foreach (var tag in deck.Tags)
+            {
+                var chip = TagChip(tag, tag.Name, DeckTags.Has(deck, card.Id, tag.Name));
+                chip.Click += (s, e) =>
+                {
+                    DeckTags.Set(deck, card.Id, tag.Name, chip.IsChecked == true);
+                    AfterTagsChanged();
+                };
+                // el mismo menú que en el panel de filtros: el chip de una etiqueta es la etiqueta,
+                // esté donde esté
+                chip.MouseRightButtonUp += (s, e) => { e.Handled = true; ShowTagMenu(deck, tag); };
+                TagAssignChips.Children.Add(chip);
+            }
+            var add = new Button
+            {
+                Style = (Style)FindResource("GhostButton"),
+                Content = Strings.Get("Deck_NewTagChip"),
+                Height = 26,
+                FontSize = 12,
+                Padding = new Thickness(10, 0, 10, 0),
+                Margin = new Thickness(0, 0, 6, 6),
+                ToolTip = Strings.Get("Deck_NewTagTip"),
+            };
+            add.Click += (s, e) => CreateTagFor(card.Id);
+            TagAssignChips.Children.Add(add);
+        }
+
+        /// <summary>Chip con el punto del color de la etiqueta (el mismo que llevan las cartas).</summary>
+        private ToggleButton TagChip(DeckTag tag, string text, bool on)
+        {
+            var content = new StackPanel { Orientation = Orientation.Horizontal };
+            content.Children.Add(TagDot(tag, 9));
+            content.Children.Add(new TextBlock
+            {
+                Text = text,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+            });
+            var chip = new ToggleButton
+            {
+                Style = (Style)FindResource("FilterChip"),
+                Content = content,
+                IsChecked = on,
+                MaxWidth = 224,
+            };
+            // El contenido es un panel (punto + texto), así que sin esto el chip no tiene nombre
+            // accesible y un lector de pantalla no dice de qué etiqueta se trata.
+            System.Windows.Automation.AutomationProperties.SetName(chip, text);
+            return chip;
+        }
+
+        private Ellipse TagDot(DeckTag tag, double size) => new Ellipse
+        {
+            Width = size,
+            Height = size,
+            Margin = new Thickness(0, 0, 6, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Fill = TagBrush(tag),
+        };
+
+        private static Brush TagBrush(DeckTag tag) => ColorBrush(tag?.Color);
+
+        private static Brush ColorBrush(string hex)
+        {
+            try { return new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex ?? "#7F8C8D")); }
+            catch { return Brushes.Gray; }
+        }
+
+        /// <summary>
+        /// Puntitos de las etiquetas de una carta. Van también en la vista por tipo: es lo que hace
+        /// visible el solapamiento sin tener que cambiar de agrupación.
+        /// </summary>
+        private UIElement TagMarks(Models.Deck deck, string cardId, double size)
+        {
+            var tags = DeckTags.Of(deck, cardId);
+            if (tags.Count == 0) return null;
+            var panel = new StackPanel { Orientation = Orientation.Horizontal };
+            foreach (var name in tags)
+                panel.Children.Add(TagDot(DeckTags.Find(deck, name), size));
+            panel.ToolTip = string.Join(" · ", tags);
+            return panel;
+        }
+
+        private void GroupBy_Click(object sender, RoutedEventArgs e)
+        {
+            var byTag = ReferenceEquals(sender, GroupByTagBtn);
+            GroupByTagBtn.IsChecked = byTag;
+            GroupByTypeBtn.IsChecked = !byTag;
+            RebuildIfReady();
+        }
+
+        private void TagMatch_Click(object sender, RoutedEventArgs e)
+        {
+            var all = ReferenceEquals(sender, TagAllBtn);
+            TagAllBtn.IsChecked = all;
+            TagAnyBtn.IsChecked = !all;
+            RebuildIfReady();
+        }
+
+        private void NewTag_Click(object sender, RoutedEventArgs e) => CreateTagFor(null);
+
+        /// <summary>
+        /// Crea una etiqueta y —si vino de una carta— se la pone de una: crear la pila y no meter
+        /// la carta que la motivó sería dejar el gesto por la mitad.
+        /// </summary>
+        private void CreateTagFor(string cardId)
+        {
+            var deck = CurrentDeck;
+            if (deck == null) return;
+            var name = Dialogs.Prompt(this, Strings.Get("Deck_NewTagTitle"),
+                                      Strings.Get("Deck_NewTagLabel"), "");
+            if (string.IsNullOrWhiteSpace(name)) return;
+            var existed = DeckTags.Find(deck, name) != null;
+            var tag = DeckTags.Add(deck, name);
+            if (tag == null) return;
+            if (existed) ShowStatus(Strings.Format("Fmt_TagExists", tag.Name));
+            if (cardId != null) DeckTags.Set(deck, cardId, tag.Name, true);
+            AfterTagsChanged();
+        }
+
+        /// <summary>
+        /// Las etiquetas viven en el sidecar: se guardan sin reescribir el .txt del juego, y no
+        /// pasan por DeckChanged (el mazo que se juega no cambió).
+        /// </summary>
+        private void AfterTagsChanged()
+        {
+            _library.SaveMeta();
+            RefreshTags();
+            RebuildIfReady();
+        }
+
+        /// <summary>
+        /// Menú de la etiqueta: elegir su color, renombrarla (arrastra las asignaciones) o
+        /// eliminarla. El color va arriba y como muestras, no como una fila más: es lo único del
+        /// menú que se elige mirando, no leyendo.
+        /// </summary>
+        private void ShowTagMenu(Models.Deck deck, DeckTag tag)
+        {
+            TagMenuItems.Children.Clear();
+            TagMenuItems.Children.Add(new TextBlock
+            {
+                Text = Strings.Get("Deck_TagColor"),
+                FontFamily = (FontFamily)FindResource("BodyFont"),
+                FontSize = 11,
+                Foreground = (Brush)FindResource("TextDim"),
+                Margin = new Thickness(14, 3, 14, 5),
+            });
+            TagMenuItems.Children.Add(ColorSwatches(deck, tag));
+            TagMenuItems.Children.Add(new Rectangle
+            {
+                Height = 1,
+                Margin = new Thickness(10, 2, 10, 5),
+                Fill = (Brush)FindResource("OutlineSoft"),
+            });
+            TagMenuItems.Children.Add(MenuRow(Strings.Get("Deck_TagRename"), () =>
+            {
+                var name = Dialogs.Prompt(this, Strings.Get("Deck_TagRename"),
+                                          Strings.Get("Deck_NewTagLabel"), tag.Name);
+                if (string.IsNullOrWhiteSpace(name)) return;
+                var previous = tag.Name;
+                if (!DeckTags.Rename(deck, previous, name))
+                {
+                    ShowStatus(Strings.Format("Fmt_TagExists", name.Trim()));
+                    return;
+                }
+                if (_tagFilter.Remove(previous)) _tagFilter.Add(tag.Name);
+                AfterTagsChanged();
+            }));
+            TagMenuItems.Children.Add(MenuRow(Strings.Get("Deck_TagDelete"), () =>
+            {
+                var n = DeckTags.CardCount(deck, tag.Name);
+                if (n > 0 && !Dialogs.Confirm(this, Strings.Get("Deck_TagDelete"),
+                        Strings.Format("Fmt_TagDeleteConfirm", tag.Name, n),
+                        Strings.Get("Btn_Delete"))) return;
+                DeckTags.Delete(deck, tag.Name);
+                _tagFilter.Remove(tag.Name);
+                AfterTagsChanged();
+            }, error: true));
+            TagMenuPopup.IsOpen = true;
+        }
+
+        /// <summary>
+        /// Menú de una carta del mazo: sus etiquetas para tildar, crear una nueva, y copiar el arte.
+        /// El click derecho copiaba el arte directo; ahora abre esto, con la copia adentro. Etiquetar
+        /// donde está la carta es el gesto de la mesa, y copiar es una acción ocasional.
+        /// </summary>
+        private void ShowCardMenu(Models.Deck deck, Card card, GridCell cell)
+        {
+            CardMenuItems.Children.Clear();
+            foreach (var tag in deck.Tags)
+            {
+                var on = DeckTags.Has(deck, card.Id, tag.Name);
+                CardMenuItems.Children.Add(MenuRow((on ? "✓  " : "     ") + tag.Name, () =>
+                {
+                    DeckTags.Toggle(deck, card.Id, tag.Name);
+                    AfterTagsChanged();
+                }, dot: tag));
+            }
+            CardMenuItems.Children.Add(MenuRow(Strings.Get("Deck_NewTagChip"), () => CreateTagFor(card.Id)));
+            if (cell != null)
+            {
+                CardMenuItems.Children.Add(new Rectangle
+                {
+                    Height = 1,
+                    Margin = new Thickness(10, 5, 10, 5),
+                    Fill = (Brush)FindResource("OutlineSoft"),
+                });
+                CardMenuItems.Children.Add(MenuRow(Strings.Get("Detail_CopyImage"), () =>
+                {
+                    var ok = CardImageClipboard.TryCopy(cell.CandidatePaths);
+                    ShowStatus(ok ? Strings.Format("Fmt_CopiedImage", card.Name)
+                                  : Strings.Get("Detail_CopyImageFail"));
+                }));
+            }
+            CardMenuPopup.IsOpen = true;
+        }
+
+        /// <summary>
+        /// Las diez muestras de la paleta, con la actual marcada. Elegir una la aplica y cierra el
+        /// menú: es una acción, no un formulario que haya que confirmar.
+        /// </summary>
+        private UIElement ColorSwatches(Models.Deck deck, DeckTag tag)
+        {
+            // 135 = cinco muestras por fila: diez en dos filas parejas en vez de 7+3
+            var wrap = new WrapPanel { Margin = new Thickness(14, 0, 8, 3), MaxWidth = 135 };
+            foreach (var color in DeckTags.Palette)
+            {
+                var current = string.Equals(color, tag.Color, StringComparison.OrdinalIgnoreCase);
+                var swatch = new Button
+                {
+                    Style = (Style)FindResource("ColorSwatch"),
+                    Background = ColorBrush(color),
+                    BorderThickness = new Thickness(current ? 3 : 1),
+                    BorderBrush = (Brush)FindResource(current ? "Gold" : "OutlineSoft"),
+                };
+                System.Windows.Automation.AutomationProperties.SetName(swatch, color);
+                swatch.Click += (s, e) =>
+                {
+                    TagMenuPopup.IsOpen = false;
+                    if (DeckTags.SetColor(deck, tag.Name, color)) AfterTagsChanged();
+                };
+                wrap.Children.Add(swatch);
+            }
+            return wrap;
+        }
+
+        /// <summary>Fila de menú de los popups armados en código (mismo estilo que el menú ⋯).</summary>
+        private Button MenuRow(string text, Action action, bool error = false, DeckTag dot = null)
+        {
+            var row = new Button { Style = (Style)FindResource("MenuRow") };
+            if (dot == null) row.Content = text;
+            else
+            {
+                var content = new StackPanel { Orientation = Orientation.Horizontal };
+                content.Children.Add(TagDot(dot, 9));
+                content.Children.Add(new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center });
+                row.Content = content;
+                System.Windows.Automation.AutomationProperties.SetName(row, text);
+            }
+            if (error) row.Foreground = (Brush)FindResource("ErrorText");
+            row.Click += (s, e) =>
+            {
+                CardMenuPopup.IsOpen = false;
+                TagMenuPopup.IsOpen = false;
+                action();
+            };
+            return row;
+        }
 
         // ------------------------------------------------------------------ zoom y previsualización
 
@@ -1362,7 +1892,8 @@ namespace L5ArgentinaLauncher.Views
         {
             _selectedCardId = card.Id;
             Detail.ShowCard(card, _resolver.ResolveCandidates(card, null, fallbackChain: true));
-            RebuildDeckBody(_selectedDeckId != null ? Repo.GetDeckById(_selectedDeckId) : null);
+            RefreshTagAssign(); // los chips de abajo son de ESTA carta
+            RebuildDeckBody(CurrentDeck);
         }
 
         // ------------------------------------------------------------------ stats del mazo
