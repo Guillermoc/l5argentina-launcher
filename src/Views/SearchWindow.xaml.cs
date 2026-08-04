@@ -30,33 +30,6 @@ namespace L5ArgentinaLauncher.Views
     /// </summary>
     public partial class SearchWindow : Window
     {
-        private static readonly string[] TypeValues =
-        {
-            // CardType.kt sin "wind" (la UI de la app también lo omite; no hay cartas wind)
-            "personality", "holding", "event", "strategy", "item", "spell", "follower",
-            "ring", "ancestor", "stronghold", "sensei", "region", "celestial",
-        };
-
-        private static readonly string[] ClanValues =
-            { "crab", "crane", "dragon", "lion", "mantis", "phoenix", "scorpion", "spider", "unicorn", "noclan" };
-
-        private static readonly string[] RarityValues = { "P", "R", "U", "C", "F" };
-
-        private static readonly string[] DesignatorValues =
-            { "Open", "Limited", "Engage", "Battle", "Dynasty", "Interrupt", "Reaction" };
-
-        // Agrupamiento visual en arcos (FilterModal de la app): cada uno de estos códigos abre
-        // un arco nuevo en el orden canónico; lo anterior al primero es el arco Lotus. No hay
-        // clasificación explícita set→arco: un set nuevo cae solo en el tramo que le toca.
-        private static readonly string[] ArcSeparatorCodes =
-            { "Samurai", "Celestial", "Emperor", "Ivory", "TwentyFestivals", "SExMRP", "P" };
-
-        private static readonly string[] ArcLabelKeys =
-        {
-            "Arc_Lotus", "Arc_Samurai", "Arc_Celestial", "Arc_Emperor", "Arc_Ivory",
-            "Arc_TwentyFestivals", "Arc_SamuraiExtended", "Arc_Promo",
-        };
-
         /// <summary>
         /// Cuatro tamaños de celda para la grilla. 226×322 es el histórico y sigue siendo el
         /// default; el grande sirve para mirar el arte y los dos chicos para barrer muchas cartas
@@ -86,11 +59,7 @@ namespace L5ArgentinaLauncher.Views
         // Referencias originales del ctor, para abrir más ventanas con Ctrl+N (los "tabs" de la app)
         private readonly CardCatalog _catalogRef;
         private readonly string _installPathRef;
-        private readonly List<string> _keywords = new List<string>();
-        private readonly List<string> _negKeywords = new List<string>();
-        private List<string> _allKwCodes = new List<string>();
         private bool _initializing = true;
-        private bool _kwUpdating;
         private bool _listComboSyncing;
         // el desplegable de conjuntos tiene dos niveles: listas (default) y mazos ("Usar mazo…")
         private bool _showingDecks;
@@ -111,10 +80,6 @@ namespace L5ArgentinaLauncher.Views
         // esto, cada tecla dispara un Search + BuildGrid sobre los ~6300 registros en el hilo
         // de UI (freeze con ruedita al tipear o al borrar de golpe un filtro largo).
         private readonly DispatcherTimer _searchDebounce;
-
-        private TextBox _forceMin, _forceMax, _chiMin, _chiMax, _costMin, _costMax,
-                        _honorMin, _honorMax, _pHonorMin, _pHonorMax, _focusMin, _focusMax;
-        private CheckBox _forceSpecial, _costSpecial, _honorNeg, _pHonorNeg;
 
         /// <summary>
         /// Una opción de orden **incluye su dirección**: antes eran dos controles (el combo y un
@@ -172,25 +137,14 @@ namespace L5ArgentinaLauncher.Views
 
             Title = Strings.Format("Fmt_SearchWindowTitle", catalog.CardsVersion ?? "?");
 
-            BuildChips(TypeChips, TypeValues.Select(t => Tuple.Create(Capitalize(t), t)));
-            BuildChips(ClanChips, ClanValues.Select(c => Tuple.Create(Strings.Get("Clan_" + c), c)));
-            BuildChips(RarityChips, RarityValues.Select(r => Tuple.Create(r, r)),
-                       tooltipFor: r => Strings.Get("Rarity_" + r));
-            BuildChips(DesignatorChips, DesignatorValues.Select(d => Tuple.Create(d, d)));
-            BuildSetChecks(catalog);
-            BuildStatsRows();
+            Filters.Initialize(catalog);
+            Filters.Changed += (s, e) => Recompute();
+            Filters.TextTyped += (s, e) => FilterTextTyped();
 
             // El chip de holdings iniciales solo existe si el catálogo trae cartas elegibles
             // (hasInitialHoldings de la app): sin filters.json no hay ninguna y sobraría.
             QuickHoldingsBtn.Visibility = catalog.Cards.Any(c => c.InitialHoldingSlot != null)
                 ? Visibility.Visible : Visibility.Collapsed;
-
-            _allKwCodes = catalog.KeywordCodes.OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
-            KwCombo.ItemsSource = _allKwCodes;
-            NegKwCombo.ItemsSource = _allKwCodes;
-            // Autocomplete estilo app: matching por "contiene" mientras se tipea
-            KwCombo.AddHandler(TextBoxBase.TextChangedEvent, new TextChangedEventHandler((s, e) => KwComboTextChanged(KwCombo)));
-            NegKwCombo.AddHandler(TextBoxBase.TextChangedEvent, new TextChangedEventHandler((s, e) => KwComboTextChanged(NegKwCombo)));
 
             // los 6 de la app primero; después los extras del launcher (cabeceras)
             var sortFields = new[]
@@ -288,125 +242,6 @@ namespace L5ArgentinaLauncher.Views
 
         // ------------------------------------------------------------------ armado de controles
 
-        private void BuildChips(Panel panel, IEnumerable<Tuple<string, string>> items,
-                                Func<string, string> tooltipFor = null)
-        {
-            foreach (var item in items)
-            {
-                var chip = new ToggleButton
-                {
-                    Content = item.Item1,
-                    Tag = item.Item2,
-                    Style = (Style)FindResource("FilterChip"),
-                };
-                if (tooltipFor != null) chip.ToolTip = tooltipFor(item.Item2);
-                chip.Checked += Filter_Changed;
-                chip.Unchecked += Filter_Changed;
-                panel.Children.Add(chip);
-            }
-        }
-
-        private void BuildSetChecks(CardCatalog catalog)
-        {
-            // Orden canónico del selector de Edición (presortSets, igual que la app),
-            // con títulos de arco cada vez que aparece un código separador.
-            var arcHeaderAdded = false;
-            foreach (var set in CardSearchEngine.PresortSets(catalog.Sets))
-            {
-                var sepIdx = Array.IndexOf(ArcSeparatorCodes, set.Code);
-                if (sepIdx >= 0)
-                {
-                    AddArcHeader(sepIdx + 1);
-                    arcHeaderAdded = true;
-                }
-                else if (!arcHeaderAdded)
-                {
-                    AddArcHeader(0); // todo lo previo al primer separador = arco Lotus
-                    arcHeaderAdded = true;
-                }
-
-                var check = new CheckBox
-                {
-                    Content = set.DisplayName,
-                    Tag = set.Code,
-                    ToolTip = set.Code,
-                    Style = (Style)FindResource("FilterCheck"),
-                    Margin = new Thickness(8, 3, 0, 3),
-                };
-                check.Checked += Filter_Changed;
-                check.Unchecked += Filter_Changed;
-                SetChecks.Children.Add(check);
-            }
-        }
-
-        private void AddArcHeader(int arcIdx)
-        {
-            if (arcIdx >= ArcLabelKeys.Length) return;
-            SetChecks.Children.Add(new TextBlock
-            {
-                Text = Strings.Get(ArcLabelKeys[arcIdx]),
-                FontFamily = (FontFamily)FindResource("BrushFont"),
-                FontSize = 14,
-                Foreground = (Brush)FindResource("GoldSoft"),
-                Margin = new Thickness(0, SetChecks.Children.Count == 0 ? 2 : 10, 0, 3),
-            });
-        }
-
-        private void BuildStatsRows()
-        {
-            AddStatRow(Strings.Get("Search_StatForce"), out _forceMin, out _forceMax, "+*",
-                       Strings.Get("Search_SpecialForceTip"), out _forceSpecial);
-            AddStatRow(Strings.Get("Search_StatChi"), out _chiMin, out _chiMax, null, null, out _);
-            AddStatRow(Strings.Get("Search_StatCost"), out _costMin, out _costMax, "*",
-                       Strings.Get("Search_SpecialCostTip"), out _costSpecial);
-            AddStatRow(Strings.Get("Search_StatHonor"), out _honorMin, out _honorMax, "−",
-                       Strings.Get("Search_NegativeHonorTip"), out _honorNeg);
-            AddStatRow(Strings.Get("Search_StatPHonor"), out _pHonorMin, out _pHonorMax, "−",
-                       Strings.Get("Search_NegativeHonorTip"), out _pHonorNeg);
-            AddStatRow(Strings.Get("Search_StatFocus"), out _focusMin, out _focusMax, null, null, out _);
-        }
-
-        private void AddStatRow(string label, out TextBox minBox, out TextBox maxBox,
-                                string specialLabel, string specialTip, out CheckBox specialBox)
-        {
-            // LastChildFill=false: sin él, el último control de la fila (max o check) se centra
-            // en el espacio sobrante y las filas de 2 cajas quedan desalineadas frente a las de 3.
-            var row = new DockPanel { Margin = new Thickness(0, 0, 0, 7), LastChildFill = false };
-            var text = new TextBlock
-            {
-                Text = label,
-                Width = 92,
-                VerticalAlignment = VerticalAlignment.Center,
-                Style = (Style)FindResource("BodySmall"),
-                FontSize = 12,
-            };
-            row.Children.Add(text);
-
-            minBox = new TextBox { Style = (Style)FindResource("SmallNumBox"), ToolTip = Strings.Get("Search_MinTip") };
-            maxBox = new TextBox { Style = (Style)FindResource("SmallNumBox"), ToolTip = Strings.Get("Search_MaxTip") };
-            minBox.TextChanged += FilterText_Changed;
-            maxBox.TextChanged += FilterText_Changed;
-            row.Children.Add(minBox);
-            row.Children.Add(maxBox);
-
-            specialBox = null;
-            if (specialLabel != null)
-            {
-                specialBox = new CheckBox
-                {
-                    Content = specialLabel,
-                    ToolTip = specialTip,
-                    Style = (Style)FindResource("FilterCheck"),
-                    Margin = new Thickness(4, 0, 0, 0),
-                    VerticalAlignment = VerticalAlignment.Center,
-                };
-                specialBox.Checked += Filter_Changed;
-                specialBox.Unchecked += Filter_Changed;
-                row.Children.Add(specialBox);
-            }
-            StatsPanel.Children.Add(row);
-        }
-
         // ------------------------------------------------------------------ criteria y búsqueda
 
         private void Filter_Changed(object sender, RoutedEventArgs e) => Recompute();
@@ -417,7 +252,9 @@ namespace L5ArgentinaLauncher.Views
         /// corre en el Tick, una sola vez, cuando el usuario para de tipear. Los toggles/combos
         /// siguen filtrando inmediatos (son acciones discretas, no una ráfaga de teclas).
         /// </summary>
-        private void FilterText_Changed(object sender, TextChangedEventArgs e)
+        private void FilterText_Changed(object sender, TextChangedEventArgs e) => FilterTextTyped();
+
+        private void FilterTextTyped()
         {
             if (_initializing) return;
             _searchDebounce.Stop();
@@ -458,93 +295,32 @@ namespace L5ArgentinaLauncher.Views
         }
 
         /// <summary>
-        /// Modos de la barra por prefijo (port de parseBarText de la app; tx. se evalúa antes
-        /// que t.). NAME filtra en vivo; TEXT (tx.) filtra el texto de carta en vivo; los modos
-        /// KEYWORD/CLAN/TYPE se confirman con Enter.
+        /// El criteria que va al motor: lo del panel compartido (Filters.Fill) más lo que solo
+        /// existe acá — la barra con sus modos, los toggles rápidos, el conjunto activo y el orden.
         /// </summary>
-        private enum BarMode { Name, Keyword, Clan, Type, Text }
-
-        private BarMode ParseBar(out string value)
-        {
-            var bar = NameBox.Text ?? "";
-            if (bar.StartsWith("tx.", StringComparison.OrdinalIgnoreCase)) { value = bar.Substring(3); return BarMode.Text; }
-            if (bar.StartsWith("k.", StringComparison.OrdinalIgnoreCase)) { value = bar.Substring(2); return BarMode.Keyword; }
-            if (bar.StartsWith("c.", StringComparison.OrdinalIgnoreCase)) { value = bar.Substring(2); return BarMode.Clan; }
-            if (bar.StartsWith("t.", StringComparison.OrdinalIgnoreCase)) { value = bar.Substring(2); return BarMode.Type; }
-            value = bar;
-            return BarMode.Name;
-        }
-
         private CardSearchCriteria BuildCriteria()
         {
-            var rarities = CheckedTags(RarityChips)
-                // La app filtra rareza case-sensitive y el dataset trae variantes en minúscula
-                // (⚠️ SPEC-FILTROS §7): el motor porta el bug, la UI manda ambas.
-                .SelectMany(r => new[] { r, r.ToLowerInvariant() })
-                .Distinct().ToList();
+            var c = new CardSearchCriteria();
+            Filters.Fill(c);
 
             // En modo operador la barra no filtra por nombre; en modo tx. pisa el texto del panel
-            var barMode = ParseBar(out var barValue);
+            var barMode = CardFilterPanel.ParseBar(NameBox.Text, out var barValue);
+            c.Name = barMode == CardFilterPanel.BarMode.Name ? barValue : "";
+            if (barMode == CardFilterPanel.BarMode.Text) c.Text = barValue;
 
             // "Solo conjunto": muestra únicamente las cartas del conjunto activo (p. ej. armar el
             // mazo de ninjas desde la lista de ninjas, o filtrar por lo que ya está en un mazo).
             // El conjunto se elige en el desplegable de la barra.
             var set = QuickListBtn.IsChecked == true ? ActiveSet : null;
+            c.ListId = set?.Name;
+            c.ListKind = set == null ? null : set.Kind.ToString().ToLowerInvariant();
 
-            return new CardSearchCriteria
-            {
-                Name = barMode == BarMode.Name ? barValue : "",
-                Text = barMode == BarMode.Text ? barValue : (TextSearchBox.Text ?? ""),
-                ListId = set?.Name,
-                ListKind = set == null ? null : set.Kind.ToString().ToLowerInvariant(),
-                Types = CheckedTags(TypeChips),
-                Clans = CheckedTags(ClanChips),
-                Rarities = rarities,
-                Sets = SetChecks.Children.OfType<CheckBox>()
-                    .Where(c => c.IsChecked == true).Select(c => (string)c.Tag).ToList(),
-                Designators = CheckedTags(DesignatorChips),
-                Keywords = _keywords.ToList(),
-                NegativeKeywords = _negKeywords.ToList(),
-                KeywordMatchAll = KwMatchAllBox.IsChecked == true,
-                IncludeActionKeywords = KwActionBox.IsChecked == true,
-                IncludeSubtitleKeywords = KwSubtitleBox.IsChecked == true,
-                IncludeBanned = IncludeBannedBox.IsChecked == true,
-                OnlyInitialHoldings = QuickHoldingsBtn.IsChecked == true,
-                OnlyFavorites = QuickFavBtn.IsChecked == true,
-                IncludeHidden = QuickHiddenBtn.IsChecked == true,
-                OnlyHidden = OnlyHiddenBox.IsChecked == true,
-                ForceMin = ParseIntBox(_forceMin),
-                ForceMax = ParseIntBox(_forceMax),
-                IncludeSpecialForce = _forceSpecial.IsChecked == true,
-                ChiMin = ParseIntBox(_chiMin),
-                ChiMax = ParseIntBox(_chiMax),
-                CostMin = ParseIntBox(_costMin),
-                CostMax = ParseIntBox(_costMax),
-                IncludeSpecialCost = _costSpecial.IsChecked == true,
-                HonorReqMin = ParseIntBox(_honorMin),
-                HonorReqMax = ParseIntBox(_honorMax),
-                IncludeNegativeHonorReq = _honorNeg.IsChecked == true,
-                PersonalHonorMin = ParseIntBox(_pHonorMin),
-                PersonalHonorMax = ParseIntBox(_pHonorMax),
-                IncludeNegativePersonalHonor = _pHonorNeg.IsChecked == true,
-                FocusMin = ParseIntBox(_focusMin),
-                FocusMax = ParseIntBox(_focusMax),
-                SortField = SelectedSort?.Field ?? SortField.NAME,
-                SortAscending = SelectedSort?.Ascending ?? true,
-            };
-        }
-
-        private static List<string> CheckedTags(Panel panel) =>
-            panel.Children.OfType<ToggleButton>()
-                .Where(t => t.IsChecked == true).Select(t => (string)t.Tag).ToList();
-
-        private static int? ParseIntBox(TextBox box)
-        {
-            var text = (box.Text ?? "").Trim();
-            if (text.Length == 0) { box.Tag = null; return null; }
-            if (int.TryParse(text, out var value)) { box.Tag = null; return value; }
-            box.Tag = "invalid";
-            return null;
+            c.OnlyInitialHoldings = QuickHoldingsBtn.IsChecked == true;
+            c.OnlyFavorites = QuickFavBtn.IsChecked == true;
+            c.IncludeHidden = QuickHiddenBtn.IsChecked == true;
+            c.SortField = SelectedSort?.Field ?? SortField.NAME;
+            c.SortAscending = SelectedSort?.Ascending ?? true;
+            return c;
         }
 
         // ------------------------------------------------------------------ resumen de filtros
@@ -1179,125 +955,14 @@ namespace L5ArgentinaLauncher.Views
         private void ClearFilters_Click(object sender, RoutedEventArgs e)
         {
             _initializing = true;
-
-            foreach (var chip in TypeChips.Children.OfType<ToggleButton>()
-                     .Concat(ClanChips.Children.OfType<ToggleButton>())
-                     .Concat(RarityChips.Children.OfType<ToggleButton>())
-                     .Concat(DesignatorChips.Children.OfType<ToggleButton>()))
-                chip.IsChecked = false;
-            foreach (var check in SetChecks.Children.OfType<CheckBox>())
-                check.IsChecked = false;
-
-            TextSearchBox.Text = "";
-            IncludeBannedBox.IsChecked = false;
-            OnlyHiddenBox.IsChecked = false;
+            Filters.Clear();
             QuickHoldingsBtn.IsChecked = false;
             QuickFavBtn.IsChecked = false;
             QuickHiddenBtn.IsChecked = false;
             QuickListBtn.IsChecked = false; // la selección de mazo/lista se conserva; el filtro se apaga
-            _keywords.Clear();
-            _negKeywords.Clear();
-            KwChips.Children.Clear();
-            NegKwChips.Children.Clear();
-            KwCombo.Text = "";
-            NegKwCombo.Text = "";
-            KwMatchAllBox.IsChecked = true;
-            KwActionBox.IsChecked = true;
-            KwSubtitleBox.IsChecked = true;
-
-            foreach (var box in new[] { _forceMin, _forceMax, _chiMin, _chiMax, _costMin, _costMax,
-                                        _honorMin, _honorMax, _pHonorMin, _pHonorMax, _focusMin, _focusMax })
-                box.Text = "";
-            foreach (var check in new[] { _forceSpecial, _costSpecial, _honorNeg, _pHonorNeg })
-                check.IsChecked = false;
-
             SortCombo.SelectedIndex = 0;
-
             _initializing = false;
             Recompute();
-        }
-
-        // ------------------------------------------------------------------ keywords
-
-        private void KwAdd_Click(object sender, RoutedEventArgs e) => AddKeyword(KwCombo, _keywords, KwChips);
-        private void NegKwAdd_Click(object sender, RoutedEventArgs e) => AddKeyword(NegKwCombo, _negKeywords, NegKwChips);
-
-        private void KwCombo_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter) { AddKeyword(KwCombo, _keywords, KwChips); e.Handled = true; }
-        }
-
-        private void NegKwCombo_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter) { AddKeyword(NegKwCombo, _negKeywords, NegKwChips); e.Handled = true; }
-        }
-
-        /// <summary>
-        /// Autocomplete por "contiene" (como las sugerencias de la app): filtra los códigos con
-        /// el fragmento tipeado y abre el dropdown. Con match exacto no lo reabre (evita que el
-        /// dropdown vuelva a saltar después de elegir una sugerencia).
-        /// </summary>
-        private void KwComboTextChanged(ComboBox combo)
-        {
-            if (_kwUpdating || _initializing) return;
-            _kwUpdating = true;
-            try
-            {
-                var text = combo.Text ?? "";
-                var editBox = combo.Template?.FindName("PART_EditableTextBox", combo) as TextBox;
-                var caret = editBox?.CaretIndex ?? text.Length;
-
-                var matches = text.Length == 0
-                    ? _allKwCodes
-                    : _allKwCodes.Where(k => k.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
-
-                combo.SelectedItem = null;
-                combo.ItemsSource = matches;
-                combo.Text = text;
-
-                var exact = matches.Any(m => string.Equals(m, text, StringComparison.OrdinalIgnoreCase));
-                combo.IsDropDownOpen = text.Length > 0 && matches.Count > 0 && !exact;
-
-                // El caret se restaura DESPUÉS de tocar el desplegable, no antes: al abrirlo, el
-                // ComboBox re-emite su texto sobre el editor y lo deja **entero seleccionado**, así
-                // que la tecla siguiente lo reemplazaba en vez de agregarse (se tipeaba "bushi" y
-                // quedaba "ushi"). Colapsar el caret acá deshace esa selección.
-                if (editBox != null) editBox.Select(Math.Min(caret, text.Length), 0);
-            }
-            finally
-            {
-                _kwUpdating = false;
-            }
-        }
-
-        private void AddKeyword(ComboBox combo, List<string> list, Panel chips)
-        {
-            var value = (combo.Text ?? "").Trim();
-            combo.Text = "";
-            combo.IsDropDownOpen = false;
-            if (value.Length == 0) return;
-            AddKeywordCore(list, chips, value);
-            Recompute();
-        }
-
-        /// <summary>Agrega la keyword y su chip removible, sin recomputar (para lote/preset).</summary>
-        private void AddKeywordCore(List<string> list, Panel chips, string value)
-        {
-            if (value.Length == 0 || list.Contains(value)) return;
-            list.Add(value);
-            var chip = new Button
-            {
-                Content = value,
-                Tag = value,
-                Style = (Style)FindResource("RemovableChip"),
-            };
-            chip.Click += (s, e) =>
-            {
-                list.Remove((string)chip.Tag);
-                chips.Children.Remove(chip);
-                Recompute();
-            };
-            chips.Children.Add(chip);
         }
 
         // ------------------------------------------------------------------ teclado
@@ -1329,23 +994,6 @@ namespace L5ArgentinaLauncher.Views
             }
         }
 
-        /// <summary>Activa el chip cuyo Tag coincide (exacto, o prefijo si es único).</summary>
-        private static bool ToggleChipByValue(Panel panel, string value)
-        {
-            var chips = panel.Children.OfType<ToggleButton>().ToList();
-            var match = chips.FirstOrDefault(c =>
-                string.Equals((string)c.Tag, value, StringComparison.OrdinalIgnoreCase));
-            if (match == null)
-            {
-                var byPrefix = chips.Where(c =>
-                    ((string)c.Tag).StartsWith(value, StringComparison.OrdinalIgnoreCase)).ToList();
-                if (byPrefix.Count == 1) match = byPrefix[0];
-            }
-            if (match == null) return false;
-            match.IsChecked = true;
-            return true;
-        }
-
         private void NameBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Escape)
@@ -1356,26 +1004,10 @@ namespace L5ArgentinaLauncher.Views
             else if (e.Key == Key.Enter)
             {
                 // Confirmación de los modos operador: k. agrega keyword, c./t. togglean el chip
-                var mode = ParseBar(out var value);
-                value = value.Trim();
-                if (value.Length == 0) return;
-                switch (mode)
-                {
-                    case BarMode.Keyword:
-                        AddKeywordCore(_keywords, KwChips, value);
-                        NameBox.Text = "";
-                        Recompute();
-                        e.Handled = true;
-                        break;
-                    case BarMode.Clan:
-                        if (ToggleChipByValue(ClanChips, value)) NameBox.Text = "";
-                        e.Handled = true;
-                        break;
-                    case BarMode.Type:
-                        if (ToggleChipByValue(TypeChips, value)) NameBox.Text = "";
-                        e.Handled = true;
-                        break;
-                }
+                var mode = CardFilterPanel.ParseBar(NameBox.Text, out var value);
+                if (mode == CardFilterPanel.BarMode.Name || mode == CardFilterPanel.BarMode.Text) return;
+                if (Filters.ApplyBarMode(mode, value)) NameBox.Text = "";
+                e.Handled = true;
             }
             else if (e.Key == Key.Down && ResultsList.Visibility == Visibility.Visible && ResultsList.Items.Count > 0)
             {
@@ -1432,47 +1064,10 @@ namespace L5ArgentinaLauncher.Views
             _initializing = true;
 
             NameBox.Text = c.Name ?? "";
-            TextSearchBox.Text = c.Text ?? "";
-            SetChipsByTags(TypeChips, c.Types);
-            SetChipsByTags(ClanChips, c.Clans);
-            // Los chips de rareza son mayúsculas; el criteria guardado trae ambas variantes
-            SetChipsByTags(RarityChips, c.Rarities.Select(r => r.ToUpperInvariant()).Distinct().ToList());
-            SetChipsByTags(DesignatorChips, c.Designators);
-            foreach (var check in SetChecks.Children.OfType<CheckBox>())
-                check.IsChecked = c.Sets.Contains((string)check.Tag, StringComparer.Ordinal);
-
-            _keywords.Clear();
-            KwChips.Children.Clear();
-            foreach (var kw in c.Keywords) AddKeywordCore(_keywords, KwChips, kw);
-            _negKeywords.Clear();
-            NegKwChips.Children.Clear();
-            foreach (var kw in c.NegativeKeywords) AddKeywordCore(_negKeywords, NegKwChips, kw);
-            KwMatchAllBox.IsChecked = c.KeywordMatchAll;
-            KwActionBox.IsChecked = c.IncludeActionKeywords;
-            KwSubtitleBox.IsChecked = c.IncludeSubtitleKeywords;
-
-            IncludeBannedBox.IsChecked = c.IncludeBanned;
+            Filters.Apply(c);
             QuickHoldingsBtn.IsChecked = c.OnlyInitialHoldings;
             QuickFavBtn.IsChecked = c.OnlyFavorites;
             QuickHiddenBtn.IsChecked = c.IncludeHidden;
-            OnlyHiddenBox.IsChecked = c.OnlyHidden;
-
-            _forceMin.Text = c.ForceMin?.ToString() ?? "";
-            _forceMax.Text = c.ForceMax?.ToString() ?? "";
-            _forceSpecial.IsChecked = c.IncludeSpecialForce;
-            _chiMin.Text = c.ChiMin?.ToString() ?? "";
-            _chiMax.Text = c.ChiMax?.ToString() ?? "";
-            _costMin.Text = c.CostMin?.ToString() ?? "";
-            _costMax.Text = c.CostMax?.ToString() ?? "";
-            _costSpecial.IsChecked = c.IncludeSpecialCost;
-            _honorMin.Text = c.HonorReqMin?.ToString() ?? "";
-            _honorMax.Text = c.HonorReqMax?.ToString() ?? "";
-            _honorNeg.IsChecked = c.IncludeNegativeHonorReq;
-            _pHonorMin.Text = c.PersonalHonorMin?.ToString() ?? "";
-            _pHonorMax.Text = c.PersonalHonorMax?.ToString() ?? "";
-            _pHonorNeg.IsChecked = c.IncludeNegativePersonalHonor;
-            _focusMin.Text = c.FocusMin?.ToString() ?? "";
-            _focusMax.Text = c.FocusMax?.ToString() ?? "";
 
             SortCombo.SelectedItem = (SortCombo.ItemsSource as IEnumerable<SortOption>)?
                 .FirstOrDefault(o => o.Field == c.SortField && o.Ascending == c.SortAscending)
