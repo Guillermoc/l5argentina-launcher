@@ -9,7 +9,7 @@
     <AssemblyName>L5ArgentinaLauncher</AssemblyName>
     <RootNamespace>L5ArgentinaLauncher</RootNamespace>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>0.7.0</Version>
+    <Version>0.8.0</Version>
     <Product>L5Argentina Launcher</Product>
     <Company>L5Argentina</Company>
     <AssemblyTitle>L5Argentina Launcher</AssemblyTitle>
