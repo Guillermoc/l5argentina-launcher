@@ -24,6 +24,7 @@ Kotlin) — que además sigue siendo la referencia viva de paridad: sus golden t
 | Sync | `LauncherEngine.SyncCatalogFromPoolAsync` (primaria) / `SyncCatalogAsync` (fallback) | Ver [sincronizacion.md](sincronizacion.md). |
 | Datos de usuario | `UserCardDataStore.cs`, `FilterPresetStore.cs` | Favoritas/ocultas (`usercards.json` v2, **por nombre de carta**, [ADR-044](../DECISIONS.md#adr-044)) y presets de filtros (`presets.json`). Las listas ya **no** viven acá: son `.txt` de `Lists\` ([mazos.md](mazos.md)). |
 | UI | `Views/SearchWindow.xaml(.cs)` | Ventana redimensionable, filtros en vivo, tabla/grilla, panel derecho Carta \| Mazo. |
+| Panel de filtros | `Views/CardFilterPanel.xaml(.cs)` | **Compartido con el editor de Mazos** ([ADR-058](../DECISIONS.md#adr-058)): keywords, texto, tipo, clan, designador, stats, edición, rareza y otros. No busca: llena un `CardSearchCriteria` (`Fill`) y avisa (`Changed`/`TextTyped`). También vive acá `ParseBar`, el parser de los prefijos de la barra. |
 | Render | `Views/CardTextRenderer.cs` | `<b>/<i>/<br>` + bullets → `Inline`s de WPF (sin WebView). |
 | Paridad | `SelfTest.RunGoldenSearchTests` | **53 golden tests** generados con la lógica real de la app. |
 
@@ -51,7 +52,15 @@ desarrollo (respeta `L5A_DATA_ROOT`). Sin catálogo, el botón del Buscador avis
 solo lista). Los filtros **aplican en vivo**, sin modal ni botón Aplicar.
 
 **Operadores de barra** (port de `parseBarText`): `tx.` filtra texto de carta en vivo; `k.` / `c.` /
-`t.` + Enter agregan keyword o activan chip de clan/tipo (match exacto o prefijo único).
+`t.` + Enter agregan keyword o activan chip de clan/tipo (match exacto o prefijo único). El parser
+(`CardFilterPanel.ParseBar`) lo comparte el editor de Mazos y tiene checks propios: lo delicado es
+que **`tx.` se evalúa antes que `t.`**.
+
+**El panel de filtros no es de esta ventana.** Es `CardFilterPanel`, compartido con el editor de
+Mazos ([ADR-058](../DECISIONS.md#adr-058)). Lo que sigue siendo del Buscador y se agrega **después**
+de `Fill`: la barra con sus modos, los toggles rápidos (favoritas / holdings iniciales / ver ocultas
+/ solo lista), el conjunto activo, el orden y los **presets** — que guardan justamente eso, y por eso
+no se fueron al control.
 
 **Vistas** — grilla de miniaturas por defecto (celda de 226×322 en el zoom del medio, filas
 virtualizadas por chunking manual, thumbnails con `DecodePixelWidth` + cola propia de decodificación

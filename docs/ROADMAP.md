@@ -4,8 +4,9 @@ Qué falta. **Se lee al empezar cualquier sesión**, junto con [index/OVERVIEW.m
 
 Leyenda: ⏳ en curso/esperando · 🔜 próximo · ⬜ pendiente · ⏸️ diferido · 🔁 recurrente · ✅ hecho.
 
-**Estado hoy:** v0.7.0 lista para publicar (export a PDF, espacio de trabajo Buscador+Mazos, pasada de
-UI sobre botoneras y paneles, y el aviso de novedades del launcher). Batería en verde.
+**Estado hoy:** v0.8.0 lista para publicar: **etiquetas de las cartas del mazo**
+([ADR-057](DECISIONS.md#adr-057)) y **los filtros del Buscador adentro del editor**, con el panel
+extraído a un control compartido ([ADR-058](DECISIONS.md#adr-058)). Batería en verde.
 **Foco actual:** SEC-6 (firma del exe con SignPath, esperando aprobación OSS).
 
 ---
@@ -134,8 +135,19 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 - ✅ Botón **lado a lado** (`⫞`): Buscador 70 % / editor 30 %, en vista Lista y todo colapsado.
 - ✅ Las miniaturas aparecen al abrir y al scrollear: cola propia de decodificación en vez de los
   bindings `IsAsync` de WPF, que las despachaban a cuentagotas ([ADR-053](DECISIONS.md#adr-053)).
+- ✅ **Los filtros del Buscador, adentro del mazo**: el panel se extrajo a un control compartido
+  (`CardFilterPanel`) en vez de copiarlo, y la caja de texto acepta los prefijos `tx.`/`k.`/`c.`/`t.`
+  ([ADR-058](DECISIONS.md#adr-058)).
+- ✅ **Etiquetas**: clasificar las cartas del mazo y verlas agrupadas en pilas, con la carta
+  compartida **en todas las suyas** (cada pila muestra el paquete completo), chips de filtro
+  (unión/cruce) y puntitos de color sobre cada carta ([ADR-057](DECISIONS.md#adr-057)).
 - ⏸️ Goldfish (sandbox de testeo) — fuera de alcance; la spec del handoff lo cubre si se quiere.
-- ⏸️ Grupos de usuario (carpetas de mazos) y subgrupos dentro del mazo — no portados.
+- ⏸️ Grupos de usuario (carpetas de mazos) — no portados. `deck_card_groups` (un grupo excluyente por
+  carta) queda descartado: las etiquetas cubren el caso con un modelo mejor.
+- ⬜ Etiquetar **varias cartas a la vez** (selección múltiple en el centro del editor). Hoy es carta
+  por carta; clasificar un mazo ya armado de 50 pide esto.
+- ⬜ Etiquetas globales, compartidas entre mazos (hoy son de cada mazo, que es lo que se decidió en
+  [ADR-057](DECISIONS.md#adr-057)). Solo si aparece la necesidad real de reusar la clasificación.
 - ✅ Export PDF: grilla 3×3 a tamaño real para imprimir proxies, con copias ajustables por carta
   ([ADR-049](DECISIONS.md#adr-049)).
 - ⬜ Buscador embebido en el editor (hoy el flujo es "Buscador `+`/`−` sobre el mazo activo").
@@ -188,3 +200,5 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 | v0.3.0 | 2026-07-11 | Mazos (deckbuilder) + V4 del Buscador + fixes de rendimiento. |
 | v0.6.0 | 2026-07-28 | **Conjuntos de cartas**: listas editables con el mismo editor que los mazos, como `.txt` en `Lists` ([ADR-045](DECISIONS.md#adr-045)); identidad del estado del usuario **por nombre de carta** y no por id, con migración de `usercards.json` ([ADR-044](DECISIONS.md#adr-044)); **recorte** de cartas ([ADR-046](DECISIONS.md#adr-046)); panel de abrir conjuntos con orden, clan y **estado de armado** ([ADR-047](DECISIONS.md#adr-047)); chip de holdings iniciales, resumen de filtros activos, zoom de grilla en 4 tamaños, previsualización con **Alt**, copiar imagen con click derecho, listado de atajos (`?`), ventanas **lado a lado** y adaptación a ventanas angostas; el pack de imágenes propio dejó de duplicarse ([ADR-048](DECISIONS.md#adr-048)) y el acceso a Cartas y mazos quedó junto a JUGAR. |
 | v0.4.0 | 2026-07-26 | Pasada de UX: taxonomía de controles (rieles de colapso, pestañas adosadas, segmentados, menús), ventanas acotadas al área de trabajo, arte de carta redondeado y sin marco, listas manejadas desde la barra, diálogos propios (fuera los `MessageBox`), confirmación al cerrar, `Ctrl+click` para agregar al mazo, copiar imagen al portapapeles y **un solo mazo activo** con la ventana de Mazos como fuente de verdad. |
+| v0.7.0 | 2026-07-31 | **Exportar el mazo a PDF** para imprimir proxies, 3×3 a tamaño real y escrito a mano sin librería ([ADR-049](DECISIONS.md#adr-049)); Buscador y Mazos abren juntos como un **espacio de trabajo** y las ventanas que abren otra la corren en diagonal ([ADR-052](DECISIONS.md#adr-052)); paneles **agrupados por objeto** y ajustables con el mouse ([ADR-051](DECISIONS.md#adr-051)); pasada sobre las botoneras ([ADR-050](DECISIONS.md#adr-050)); miniaturas con **cola propia de decodificación** en vez de `IsAsync` ([ADR-053](DECISIONS.md#adr-053)); el launcher **avisa si hay novedades** o dice "Todo al día", con los packs de imágenes como una sola familia ([ADR-054](DECISIONS.md#adr-054), [ADR-055](DECISIONS.md#adr-055), [ADR-056](DECISIONS.md#adr-056)). |
+| v0.8.0 | 2026-08-03 | **Etiquetas de las cartas del mazo**: clasificarlas y verlas agrupadas en pilas, con la carta compartida en todas las suyas, color elegible y filtro por unión o cruce ([ADR-057](DECISIONS.md#adr-057)); **los filtros del Buscador adentro del editor**, con el panel extraído a un control compartido y los prefijos `tx.`/`k.`/`c.`/`t.` en la caja de texto ([ADR-058](DECISIONS.md#adr-058)). |

@@ -3,7 +3,7 @@
 Qué hace el launcher hoy y cómo está construido, en prosa y de corrido. Es el documento para leer
 entero: para consulta rápida están los índices ([../index/](../index/)), que son densos a propósito.
 
-**Versión descrita:** v0.7.0 · **Última pasada contra el código:** 2026-07-30.
+**Versión descrita:** v0.8.0 · **Última pasada contra el código:** 2026-08-03.
 Se actualiza en cada **cierre de fase o release**, sección por sección, contra el código real (o
 contra `docs/index/`, que debería estar al día). No en cada commit.
 
@@ -38,6 +38,8 @@ Este documento está organizado por **capa**, no por feature. Si venís a entend
 | Buscador de cartas | [7](#7-el-catálogo-de-cartas), [8](#8-el-motor-de-búsqueda), [10](#10-presentación-ventanas-tema-e-idioma) |
 | Favoritas, ocultas, listas y presets | [6](#6-configuración-y-estado-local), [8](#8-el-motor-de-búsqueda) |
 | Editor de Mazos | [9](#9-mazos-repositorio-y-persistencia), [10](#10-presentación-ventanas-tema-e-idioma) |
+| Etiquetas de las cartas del mazo | [9](#9-mazos-repositorio-y-persistencia), [6](#6-configuración-y-estado-local) |
+| Filtrar las cartas del mazo | [8](#8-el-motor-de-búsqueda), [9](#9-mazos-repositorio-y-persistencia), [10](#10-presentación-ventanas-tema-e-idioma) |
 | Exportar el mazo a PDF para imprimir | [9](#9-mazos-repositorio-y-persistencia) |
 | Que el mazo armado se juegue directo | [9](#9-mazos-repositorio-y-persistencia), [6](#6-configuración-y-estado-local) |
 | Noticias (sin implementar) | [13](#13-límites-conocidos) |
@@ -259,6 +261,19 @@ la deja en el mazo pero fuera de juego, para poder probar una versión sin perde
 archivo del juego no tiene forma de expresar eso, y escribirle una marca propia sería arriesgar que
 el juego no la entienda, así que la marca vive en el sidecar y el `.txt` sale limpio.
 
+Las **etiquetas** siguen exactamente el mismo camino y son el otro extra del launcher sobre el
+deckbuilder de la app. Cada mazo tiene su propio vocabulario —un nombre y un color de una paleta
+cerrada— y cada carta lleva las que se le pongan: son el gesto de armar en la mesa, apilar las cartas
+por lo que hacen. Al agrupar el centro por etiqueta, **una carta aparece en todas sus pilas**: la que
+quita honor y además pide magistrados está en las dos, porque la pregunta al armar es "cuánto
+deshonor tengo" y una pila que se saltea las compartidas contesta de menos. La consecuencia buscada
+es que los conteos por sección **no** suman el mazo —son conjuntos que se solapan, no cajas—, y por
+eso cada cabecera dice cuántas de sus cartas están también en otra. Una primera versión repartía las
+cartas en secciones por combinación exacta, con el cruce como sección aparte: cerraba las cuentas y
+contestaba la pregunta equivocada (ADR-057). Se guardan en el sidecar, por nombre de carta, y se
+persisten **sin reescribir el `.txt`**: reescribir un archivo ajeno por un dato que al juego no le
+significa nada es riesgo sin beneficio.
+
 De ahí sale una regla que gobierna todo el estado del usuario: **una carta se referencia por nombre,
 nunca por su id de catálogo**. El id lo asigna quien genera la base de la comunidad y puede
 reasignarse entre versiones; el nombre es lo único que el juego y el launcher acuerdan. Los mazos ya
@@ -278,6 +293,16 @@ omitido—, así que el parser de `.txt` usa una resolución tolerante (`GetCard
 `ImportCards` **no** usa: ese mantiene el match exacto de la app, porque de él dependen los goldens.
 Al reescribir un archivo, cada entrada conserva el nombre con el que vino y las líneas que no se
 reconocieron se copian verbatim: el launcher nunca le rompe el mazo al juego.
+
+Las cartas del mazo se filtran además con **los mismos filtros que el Buscador** —keywords, texto de
+carta, tipo, clan, designador, stats, edición y rareza—, porque el panel se extrajo a un control
+compartido (`CardFilterPanel`) en vez de copiarse: copiado, el primer filtro nuevo habría entrado en
+una sola ventana. El control no busca nada; llena un `CardSearchCriteria` y avisa que cambió. El
+editor corre el **mismo motor** contra el catálogo entero y se queda con los ids que además están en
+el mazo, así que la semántica de filtros es literalmente la misma —la que protegen los 53 goldens— y
+no hay una segunda implementación que se despegue. Adentro del mazo se fuerzan dos criterios: las
+baneadas y las ocultas **siempre entran**, porque son filtros para navegar el catálogo y sobre un mazo
+lo único que podrían hacer es esconder cartas que el mazo tiene de verdad (ADR-058).
 
 No hay motor de validación, igual que en la app: solo los rechazos de `AddCard` y los indicadores
 blandos (Dynasty/Fate en rojo si bajan de 40, "Falta: {slot}"). Dos strongholds siguen siendo
@@ -351,22 +376,24 @@ versión inicial no lo es, salvo que sea un pack **nuevo**, que aparece después
 este launcher vio el pool (ADR-054, ADR-056). La estética —pergamino cálido, rojo lacado
 para la acción, oro decorativo, tipografía de marca L5RTitles— vive en `Themes/Theme.xaml`, que
 además tematiza hasta las scrollbars; los estilos que comparten el Buscador y el editor están en
-`Views/CardUiStyles.xaml`, y el panel de detalle de carta es un control compartido por las dos
-ventanas.
+`Views/CardUiStyles.xaml`, y el panel de detalle de carta y el de filtros son controles
+compartidos por las dos ventanas.
 
 El texto de las cartas viene en un HTML acotado que se renderiza a `Inline`s de WPF con
 `CardTextRenderer`. No hay navegador embebido en ninguna parte, y no lo va a haber: sería convertir
 contenido descargado en superficie de ejecución.
 
-Todos los textos de UI —384 claves— viven en `Strings.resx`, usados con `{loc:Loc Clave}` en XAML y
+Todos los textos de UI —455 claves— viven en `Strings.resx`, usados con `{loc:Loc Clave}` en XAML y
 `Strings.Get/Format` en C#. No hay literales de UI en el código. Con eso, agregar un idioma es crear
 `Strings.<cultura>.resx` y setear `CurrentUICulture`, sin tocar una línea. Hasta los nombres de los
 packs de imágenes salen de claves `Pack_<id>` con fallback al id crudo, así un pack nuevo publicado
 en el manifest aparece en la UI sin necesidad de recompilar.
 
-Una nota para quien venga a modificar la UI: no hay MVVM. `SearchWindow.xaml.cs` (~1540 líneas) y
-`DeckWindow.xaml.cs` (~1010) concentran estado y presentación en code-behind, mientras los servicios
-de dominio no saben nada de la UI. Es la convención vigente, no una decisión registrada.
+Una nota para quien venga a modificar la UI: no hay MVVM. `SearchWindow.xaml.cs` (~1920 líneas) y
+`DeckWindow.xaml.cs` (~2210) concentran estado y presentación en code-behind, mientras los servicios
+de dominio no saben nada de la UI. Es la convención vigente, no una decisión registrada. La excepción
+son los dos controles compartidos —el detalle de carta y el panel de filtros (~590 líneas)—, que sí
+tienen una interfaz explícita con su dueño porque los usan dos ventanas.
 
 ## 11. Seguridad como propiedad transversal
 
@@ -416,8 +443,11 @@ Las **noticias y torneos** existen como sección placeholder en la UI y como mod
 `NewsService`, pero no están implementadas: falta definir el formato de los `.md` y la sección `news`
 del manifest. Cuando se hagan, se renderizan con Markdig a `FlowDocument`; nunca en un WebView.
 
-El **Goldfish** (sandbox de testeo de mazos), los grupos de usuario y los subgrupos dentro del mazo
-están en el handoff del deckbuilder pero no se portaron. En el Buscador falta el
+El **Goldfish** (sandbox de testeo de mazos) y los grupos de usuario están en el handoff del
+deckbuilder pero no se portaron; los subgrupos dentro del mazo (`deck_card_groups`, un grupo
+excluyente por carta) quedaron descartados: las etiquetas cubren el caso con un modelo mejor. Falta
+poder etiquetar varias cartas de una: hoy es carta por carta, porque el centro del editor no tiene
+modelo de selección múltiple. En el Buscador falta el
 contador de cartas en el selector de conjunto y poder renombrar una lista sin ir a la ventana de
 Mazos; favoritas y ocultas se filtran y se copian a una lista, pero no se editan dentro del editor.
 

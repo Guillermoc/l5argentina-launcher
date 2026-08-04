@@ -1708,3 +1708,123 @@ distinguen: **"Pack nuevo · falta descargar"** contra **"Novedad · falta desca
 
 **Costo.** Un campo más en `config.json` que solo crece, con ids de packs. Se paga con la única cosa
 que el aviso tiene que acertar sí o sí.
+
+---
+
+## ADR-057 — Las etiquetas del mazo son pilas, y el cruce es una pila más
+
+**Fecha:** 2026-08-01 · **Estado:** vigente.
+
+**El pedido.** Armar un mazo en la mesa es apilar: las que quitan honor de un lado, las que piden
+magistrados del otro, y en el medio las que hacen las dos cosas. El editor mostraba el mazo con el
+único eje que trae el juego —Starter/Dynasty/Fate → tipo—, que sirve para contar y para validar, pero
+no dice nada sobre para qué está cada carta en **ese** mazo.
+
+**Qué se guarda y dónde.** Un vocabulario de etiquetas por mazo (nombre + color) y la asignación
+carta → etiquetas. Va al sidecar `decksmeta.json`, al lado de las recortadas, y **por nombre de
+carta** ([ADR-044](#adr-044)). Nunca al `.txt`: ese archivo lo lee el juego y las etiquetas no
+significan nada para él ([ADR-022](#adr-022), [ADR-024](#adr-024)). Por eso también se guardan sin
+reescribir el `.txt` (`DeckLibrary.SaveMeta`): tocar un archivo ajeno para algo que no le importa es
+riesgo sin beneficio.
+
+**Por mazo, no por carta.** La etiqueta describe el **rol de la carta en este mazo**: la misma carta
+puede ser "deshonor" acá y "defensa" allá. Global —un store propio, como las favoritas— hubiera
+permitido reusar la clasificación en el mazo siguiente y filtrar por etiqueta en el Buscador, pero
+obliga a que una carta signifique lo mismo en todos lados, y toca `CardSearchCriteria`, que está
+cubierto por golden. Duplicar el mazo se lleva las etiquetas, que cubre buena parte del caso de reuso.
+
+**La decisión de fondo: la carta está en todas sus pilas.** Al agrupar por etiqueta hay una sección
+por etiqueta —en el orden en que se crearon, con `Sin etiquetar` al final— y **una carta aparece en
+todas las suyas**: la que quita honor y pide magistrados está en las dos. Los conteos por sección, en
+consecuencia, **no** suman el mazo: son conjuntos que se solapan, no cajas. La cabecera agrega
+`· N también en otra` para que el solapamiento sea un dato visible y no una sorpresa aritmética.
+
+**El primer intento fue una partición y estaba mal.** La primera versión ponía cada carta en **una
+sola** sección, la de su combinación exacta (`Deshonor`, `Magistrados`, `Deshonor + Magistrados`,
+`Sin etiquetar`). El argumento era que así los conteos cierran con el mazo y el cruce queda como un
+conjunto con nombre propio. Los dos son ciertos y los dos son irrelevantes: **la pregunta que se hace
+armando no es "¿en qué caja va esta carta?" sino "¿cuánto deshonor tengo?"**, y con una partición la
+pila `Deshonor` **miente por defecto** — se saltea justamente las cartas que hacen las dos cosas, que
+suelen ser las mejores del paquete. Para contestar había que sumar secciones a mano, que es
+exactamente el trabajo que la vista tenía que ahorrar. El cruce como sección separada resuelve un
+problema de contabilidad que nadie tenía.
+
+Se conserva el dato que la partición daba gratis —cuántas cartas de la pila están además en otra— como
+un número en la cabecera, y los puntitos de color dicen en cuáles. Eso cubre "quiero ver el cruce" sin
+romper "quiero ver el paquete completo".
+
+**Costo aceptado: la carta se dibuja más de una vez.** Con tres etiquetas sobre la misma carta, la
+carta se ve tres veces. Es correcto: pertenece a los tres conjuntos. Comparten `GridCell`, así que no
+se paga decodificación de más.
+
+**Los puntitos de color son parte de la decisión.** Cada carta lleva los puntos de sus etiquetas
+también en la vista por tipo. Sin eso, el solapamiento solo se ve cambiando de agrupación; con eso, se
+ve siempre y no hay que elegir entre "ver el mazo como se juega" y "ver cómo lo pensé".
+
+**El color: uno por defecto, elegible después.** Crear una etiqueta no pregunta el color —se asigna
+por orden de la paleta— porque en el medio de armar un mazo, elegir un color es una decisión que no
+viene al caso. Pero el color **es** cómo se reconoce la etiqueta de un vistazo en los puntitos, así
+que se cambia desde su menú, con las diez muestras a la vista. La paleta es **cerrada**: son los
+colores que se leen sobre el fondo oscuro y como punto de 8 px encima del arte de una carta; un
+selector libre habilita el gris sobre gris. `DeckTags.SetColor` rechaza cualquier valor de afuera.
+
+**El click derecho cambió de significado.** Antes copiaba el arte directo; ahora abre un menú con las
+etiquetas de la carta y, al pie, "Copiar imagen". Etiquetar tiene que estar donde está la carta —es el
+gesto de la mesa y se hace muchas veces seguidas— y copiar el arte es ocasional; el costo es un click
+más en la acción menos frecuente.
+
+**Lo que no cambia.** Nada de esto toca `DeckRepository`, `AddCard`, el export, el `.txt` ni el PDF:
+las etiquetas son una capa de lectura sobre el mismo mazo. No hay golden que las cubra —la app no las
+tiene— así que se verifican con checks propios (§5.1): persistencia por nombre, que no asomen en el
+`.txt`, renombrar/borrar, que la etiqueta acompañe a la carta hasta que se la saca del mazo, y que la
+carta compartida aparezca **en las dos pilas** con su conteo de solapamiento.
+
+**Sobre `deck_card_groups`.** La app Android tenía una tabla de subgrupos dentro del mazo, en desuso y
+sin portar. Esto **no** es ese modelo: aquel era un grupo excluyente por carta (una carta, un grupo);
+acá una carta está en las pilas que haga falta, que es la mitad del pedido.
+
+---
+
+## ADR-058 — El panel de filtros es un control compartido, no dos paneles parecidos
+
+**Fecha:** 2026-08-02 · **Estado:** vigente.
+
+**El pedido.** Filtrar las cartas **del mazo abierto** con los filtros del Buscador: tipo, clan,
+keywords, stats. Adentro del editor, sin salir a otra ventana, porque lo que se está haciendo es
+mirar el mazo (con sus cantidades y sus pilas), no navegar el catálogo.
+
+**La alternativa obvia era copiar.** El panel del Buscador son ~190 líneas de XAML más los
+constructores de chips, sets y filas de stats. Copiarlo a `DeckWindow` habría sido más rápido y
+habría garantizado que las dos copias se separen: el primer filtro nuevo entra en una sola, y a los
+seis meses "los filtros" significan dos cosas distintas según la ventana. Se extrajo a
+`Views/CardFilterPanel.xaml(.cs)`, que usan las dos.
+
+**El seam.** El control **no busca nada**: llena un `CardSearchCriteria` (`Fill`) y avisa que algo
+cambió. Quién lo aplica es del dueño — el Buscador, sobre el catálogo; el editor, sobre las cartas
+del mazo. Lo que solo existe en el Buscador (la barra con sus modos, los toggles rápidos, el conjunto
+activo, el orden) lo agrega `SearchWindow` después de `Fill`. Los **presets** se quedaron afuera por
+lo mismo: guardan conjunto activo, favoritas y orden, que en un mazo no significan nada.
+
+**Cómo filtra el editor.** Corre el **mismo motor** contra el catálogo entero y se queda con los ids
+que además están en el mazo. Suena redundante —6.400 cartas para filtrar 80— pero cuesta
+milisegundos y evita lo caro: una segunda implementación de la semántica de filtros que se despegue
+de la portada, que es justo lo que los golden protegen. El resultado entra como un `.Where()` más en
+el pipeline que ya existía, así que agrupar (por tipo o por etiqueta), ordenar, las recortadas y los
+chips Starter/Dynasty/Fate siguen funcionando igual.
+
+**Dos filtros se fuerzan adentro del mazo: baneadas y ocultas siempre entran.** Son filtros para
+**navegar el catálogo**; sobre un mazo lo único que pueden hacer es esconder cartas que el mazo tiene
+de verdad. Una baneada que quedó en el `.txt` tiene que verse justamente para poder sacarla. Por eso
+el editor esconde la sección "Otros" y fija `IncludeBanned`/`IncludeHidden` en true: un control
+visible que solo puede mentir es peor que no tenerlo.
+
+**Los prefijos también.** `tx.` (texto de carta) y `k.`/`c.`/`t.` + Enter (keyword, clan, tipo)
+funcionan en la caja del editor igual que en la barra del Buscador. `ParseBar` pasó a ser público y
+estático en el control: es el único pedazo de todo esto que se puede verificar de a un caso, y ahora
+tiene dos llamadores. Se le sumaron checks al selftest, incluido el que importa — **`tx.` se evalúa
+antes que `t.`**, o "tx.algo" se leería como el tipo "x.algo".
+
+**Costo asumido.** Una mudanza grande sobre una ventana que acababa de tener una pasada de UX
+([ADR-050](#adr-050), [ADR-051](#adr-051)), y el selftest no cubre UI. Se verificó a mano: el panel
+del Buscador quedó idéntico y el del editor filtra (chip Tipo=Holding sobre un mazo Crab deja
+`Dynasty (18) [11] → Holding (18) [11]`).

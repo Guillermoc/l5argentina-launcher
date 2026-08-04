@@ -12,7 +12,7 @@ agrega estado nuevo, se decide acá primero.
 | Config del usuario | `%APPDATA%\L5Argentina Launcher\config.json` | JSON (`UserConfig`) | `ConfigService` |
 | Favoritas / ocultas | `%APPDATA%\...\usercards.json` | JSON v2, **por nombre de carta** | `UserCardDataStore` |
 | Presets de filtros | `%APPDATA%\...\presets.json` | JSON (nombres compatibles con los golden) | `FilterPresetStore` |
-| Metadata de mazos y listas | `%APPDATA%\...\decksmeta.json` | JSON, indexado por **nombre de archivo** (listas prefijadas `list:`); incluye las **recortadas**, por nombre de carta | `DeckLibrary` |
+| Metadata de mazos y listas | `%APPDATA%\...\decksmeta.json` | JSON, indexado por **nombre de archivo** (listas prefijadas `list:`); incluye las **recortadas** y las **etiquetas** (vocabulario + asignaciones), por nombre de carta | `DeckLibrary` |
 | **Los mazos** | `<SunAndMoon>\Decks\<Nombre>.txt` | formato del juego | `DeckLibrary` + `SunAndMoonDeckFile` |
 | **Las listas** | `<SunAndMoon>\Lists\<Nombre>.txt` | mismo formato, 1 copia por carta | `DeckLibrary` + `SunAndMoonDeckFile` |
 | Descargas verificadas | `%LOCALAPPDATA%\...\cache\` (`catalog\`, `packs\`) | archivos tal cual | `DownloadService` |
@@ -74,6 +74,12 @@ y lista vacía significan cosas distintas y el default **no** se inicializa.
 ([ADR-022](../DECISIONS.md#adr-022)) y el `decksmeta.json` es un **sidecar**: si se pierde o se
 corrompe, se regenera y no se pierde ningún mazo. Por eso se indexa por nombre de archivo y no por
 un id interno.
+
+**5 bis. Lo que el juego no lee se guarda sin tocar su archivo.** Las etiquetas
+([ADR-057](../DECISIONS.md#adr-057)) van solo al sidecar, y `DeckLibrary.SaveMeta()` existe para
+persistirlas **sin reescribir el `.txt`**: reescribir un archivo ajeno por un dato que no le significa
+nada es riesgo sin beneficio. Cada guardado poda además las asignaciones de cartas que ya no están en
+el mazo, así memoria y disco dicen lo mismo.
 
 **6. Nunca se destruye contenido ajeno.** El `database.xml` se respalda antes de cada sobrescritura;
 la Original se captura una sola vez y no se pisa nunca; las líneas de un `.txt` que no se entienden

@@ -205,12 +205,30 @@ píldora quedó reservada al único rol que le corresponde. Todos viven en `Card
 | Selector que convive con toggles | `ChipCombo` (mismo template del ComboBox, paleta oscura) | orden, conjunto activo, mazo activo |
 | Acción puntual de barra | `IconButton` (círculo de 26 con glifo) | nueva lista `＋`, borrar lista `🗑`, zoom `－`/`＋`, lado a lado `⫞`, ayuda `?` |
 | Acción sobre la carta del detalle | `DetailActionBtn` (píldora chata con glifo + etiqueta) | `+ Mazo`, `☆ Favorita`, `≡ A la lista`… |
-| Acción dentro de un popup | `MenuRow` (ancho completo, texto a la izquierda, hover rojo) | menú `⋯` del editor de Mazos |
+| Acción dentro de un popup | `MenuRow` (ancho completo, texto a la izquierda, hover rojo) | menú `⋯` del editor de Mazos, menú de carta y de etiqueta |
+| Elegir un color | `ColorSwatch` (círculo de 22; el elegido lleva borde dorado grueso, no un tilde) | paleta del menú de etiqueta |
 
-**Copiar con click derecho** — sobre cualquier celda de grilla (Buscador y editor).
-`CardImageClipboard` **re-decodifica el archivo a tamaño completo**: la miniatura de la grilla se
-decodifica a ~340 px para no reventar la memoria, y pegar eso en el Discord daría una imagen borrosa.
-Lo mismo usa la previsualización con Alt.
+**Click derecho: copiar en el Buscador, menú en el editor.** En el Buscador copia el arte directo. En
+el editor de Mazos abre el **menú de la carta** —sus etiquetas, `＋ Etiqueta nueva…` y, al pie,
+**Copiar imagen**— porque ahí etiquetar es el gesto repetido y copiar es ocasional
+([ADR-057](../DECISIONS.md#adr-057)). En las dos, `CardImageClipboard` **re-decodifica el archivo a
+tamaño completo**: la miniatura de la grilla se decodifica a ~340 px para no reventar la memoria, y
+pegar eso en el Discord daría una imagen borrosa. Lo mismo usa la previsualización con Alt.
+
+**Menús contextuales** (`CardMenuPopup`, `TagMenuPopup` del editor) — `Popup` con
+`Placement=MousePoint` y `StaysOpen=False`, con filas `MenuRow` armadas en código. No se usa
+`ContextMenu` de WPF: su template no sigue el tema y el resto de la aplicación ya resuelve los menús
+con popups (el `⋯` de la barra).
+
+**El panel de filtros es un control, no un pedazo de ventana.** `Views/CardFilterPanel.xaml(.cs)` lo
+usan el Buscador y el editor de Mazos ([ADR-058](../DECISIONS.md#adr-058)). Merge su propio
+`CardUiStyles.xaml`: los estilos no viven en `App.xaml`, así que un control que se instancia en dos
+ventanas tiene que traerlos. Expone `Changed` (toggles: acción discreta) y `TextTyped` (ráfaga de
+teclas) por separado, para que cada dueño decida su debounce.
+
+**Los chips con contenido compuesto necesitan `AutomationProperties.Name`.** Un chip de etiqueta es
+un punto de color + un `TextBlock`, o sea que su contenido no es texto y el control se queda sin
+nombre accesible. Mismo caso que el selector de mazo, que es un panel y no un string.
 
 **Previsualización con Alt** (`HoverPreview`, en **ambas** ventanas) — `Popup` posicionado a mano por
 `HoverPreviewPlacer` en `Placement=Absolute`. **No** se usa `Placement=Mouse`: WPF resuelve el desborde

@@ -5,7 +5,7 @@ Rings* en la app **Sun and Moon**. Resuelve el problema de mantener sincronizada
 nuestra base de cartas curada: en lugar de copiar archivos a mano, el launcher chequea si hay una base
 nueva en nuestro bucket, deja **elegir con qué base jugar**, la aplica de forma segura y lanza el juego.
 
-Versión actual: **0.7.0**.
+Versión actual: **0.8.0**.
 
 > **Documentación:** mapa completo en [docs/README.md](docs/README.md) · estado actual del código en
 > [docs/index/](docs/index/) (empezar por
@@ -46,6 +46,8 @@ Versión actual: **0.7.0**.
 | Buscador y Mazos abren juntos como un espacio de trabajo | ✅ | v0.7.0 | [DECISIONS ADR-052](docs/DECISIONS.md#adr-052) |
 | Paneles ajustables con el mouse y agrupados por objeto | ✅ | v0.7.0 | [DECISIONS ADR-051](docs/DECISIONS.md#adr-051) |
 | El launcher avisa si hay novedades pendientes (o dice `Todo al día`) | ✅ | v0.7.0 | [DECISIONS ADR-054](docs/DECISIONS.md#adr-054) |
+| Etiquetar las cartas del mazo y verlas agrupadas en pilas | ✅ | v0.8.0 | [DECISIONS ADR-057](docs/DECISIONS.md#adr-057) |
+| Los filtros del Buscador, también sobre las cartas del mazo | ✅ | v0.8.0 | [DECISIONS ADR-058](docs/DECISIONS.md#adr-058) |
 | Firma del ejecutable (SignPath) | ⏳ esperando aprobación OSS | — | [ROADMAP §1](docs/ROADMAP.md) |
 | Noticias y torneos | ⬜ placeholder en UI, sin implementar | — | [functional/noticias-v2-borrador.md](docs/functional/noticias-v2-borrador.md) |
 | Firma del `manifest.json` | ⏸️ diferido con criterio | — | [DECISIONS ADR-015](docs/DECISIONS.md#adr-015) |
@@ -93,7 +95,7 @@ Versión actual: **0.7.0**.
   Android (mismo orden de validaciones: baneada → slot → tope de copias). **Persiste como .txt en la
   carpeta `Decks` de Sun and Moon** — el mazo que armás acá se juega directo, sin exportar nada — con un
   sidecar (`decksmeta.json`) para lo que el formato del juego no representa (notas, orden, mazo y lista
-  activos, cartas recortadas).
+  activos, cartas recortadas, etiquetas).
   Ventana propia (crear/renombrar/duplicar/borrar mazos, importar/exportar por portapapeles, vista lista
   o grilla, agrupado Starter/Dynasty/Fate). **El mazo seleccionado ahí es el mazo activo** de todas las
   ventanas del Buscador, que muestran su nombre y sus conteos en la barra y agregan cartas con `+`,
@@ -103,6 +105,14 @@ Versión actual: **0.7.0**.
   la carpeta `Lists`—, bajar una carta a 0 la deja **recortada** en vez de borrarla, la lista de mazos
   se ordena y se filtra por clan y por **estado de armado**, y un botón acomoda el Buscador y el editor
   **lado a lado** para armar mirando las dos cosas.
+  El panel de la izquierda trae **los mismos filtros que el Buscador** —keywords, tipo, clan,
+  designador, stats, edición, rareza— aplicados a las cartas del mazo, con los prefijos `tx.`/`k.`/
+  `c.`/`t.` en la caja de texto.
+  Las cartas del mazo se pueden **etiquetar** (click derecho) y el editor las **agrupa en pilas** por
+  esas etiquetas, como armando en la mesa: las que quitan honor, las que piden magistrados. Una carta
+  que hace las dos cosas aparece **en las dos pilas** —cada pila muestra todo lo que hace esa cosa— y
+  la cabecera avisa cuántas comparte. Las etiquetas son de cada mazo, se filtran con chips (unión o
+  cruce) y se ven como puntitos de color sobre cada carta.
 - **Tu estado se guarda por nombre de carta, no por id** (desde 0.6.0). El id lo asigna quien genera la
   base de la comunidad y puede reasignarse entre versiones, así que guardarlo hacía que una favorita
   pudiera desaparecer —o pasar a ser otra carta— al actualizar. Al abrir el Buscador por primera vez
@@ -179,7 +189,7 @@ quedan al lado).
 
 Un harness de verificación monta un bucket+instalación falsos en `%TEMP%` y ejercita el pipeline real
 (hash, confinamiento de origen, zip-slip, backups, base zippeada, catálogo y packs del pool) sin tocar
-tu instalación — **282 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
+tu instalación — **319 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
 los **25 golden tests** del deckbuilder, ambos contra la lógica real de la app Android:
 
 ```sh

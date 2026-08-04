@@ -18,12 +18,14 @@ fuentes Kotlin), que además sigue siendo la referencia viva de paridad vía sus
 | Modelo | `Models/DeckModels.cs` | `Deck`/`DeckCardEntry` (espejo de `decks`/`deck_cards`), `AddCardResult`, `ImportResult`, `DeckGroups` (starter/dynasty/fate + orden de tipos). |
 | Motor | `Services/Deck/DeckRepository.cs` | **Port 1:1 de `DeckRepository.kt`**: `AddCard` (banned → slot → maxCopies, **en ese orden**), `RemoveCard`/`SetCardQuantity` (con `keepRowAtZero`), `ImportCards`/`ExportDeck` (formato de texto de la app), CRUD, y los espejos de UI de las specs (conteos Dynasty/Fate, slots sin cubrir, honor inicial del Goldfish, clan del primer stronghold). **Extra fuera del port:** `SetInList`/`ToggleInList` para las listas (ver abajo). |
 | Formato txt | `Services/Deck/SunAndMoonDeckFile.cs` | Lee/escribe el formato de la carpeta `Decks` del juego (`Legality: X`, starter sin prefijo, `Nx Nombre`). El parser tolera también el formato de export de la app (`N Nombre`, líneas `#`). Lo usan mazos **y** listas. |
-| Biblioteca | `Services/Deck/DeckLibrary.cs` | Un `.txt` por conjunto: mazos en `<SunAndMoon>\Decks\`, listas en `<SunAndMoon>\Lists\`, + sidecar `decksmeta.json`. Un solo `DeckRepository` para los dos (`Decks`/`Lists` son vistas filtradas por `Type`). Instancia compartida por proceso (`GetOrLoad`): Buscador y editor operan sobre los mismos archivos, el mismo mazo activo y la misma lista activa. |
+| Biblioteca | `Services/Deck/DeckLibrary.cs` | Un `.txt` por conjunto: mazos en `<SunAndMoon>\Decks\`, listas en `<SunAndMoon>\Lists\`, + sidecar `decksmeta.json`. Un solo `DeckRepository` para los dos (`Decks`/`Lists` son vistas filtradas por `Type`). Instancia compartida por proceso (`GetOrLoad`): Buscador y editor operan sobre los mismos archivos, el mismo mazo activo y la misma lista activa. `SaveMeta()` guarda **solo** el sidecar (etiquetas: el juego no las ve). |
+| Etiquetas | `Services/Deck/DeckTags.cs` | Vocabulario y asignaciones de un mazo, la paleta de colores, el filtro (unión / cruce) y `Sections<T>` — las pilas, con la carta compartida en todas las suyas y el conteo de solapamiento ([ADR-057](../DECISIONS.md#adr-057)). Todo por CardId; la traducción a nombre la hace `DeckLibrary`. |
+| Filtros de carta | `Views/CardFilterPanel.xaml(.cs)` | El **mismo panel que el Buscador** ([ADR-058](../DECISIONS.md#adr-058)), aplicado a las cartas del mazo: llena un `CardSearchCriteria`, el editor lo corre con `CardSearchEngine` contra el catálogo y se queda con los ids que están en el mazo. |
 | Slots | `CatalogImporter` → `CardCatalog.InitialHoldingSlots` | `filters.json → formats[].initialHoldingSlots` (id/label/required) — alimenta el aviso "Falta: {slot}". |
 | UI Buscador | `Views/SearchWindow.xaml(.cs)` | Label del mazo activo + conteos en la barra; `+`/`−` por celda con feedback del `AddCardResult`. Doble click o **Ctrl+click** = agregar. No elige mazo ni muestra su contenido. El selector de **conjunto activo** (listas/mazos/favoritas) vive acá — ver [buscador.md](buscador.md). |
-| UI editor | `Views/DeckWindow.xaml(.cs)` | Ventana única. Paneles agrupados **por objeto** ([ADR-051](../DECISIONS.md#adr-051)): izquierda el **mazo abierto** (pestañas **Filtros \| Stats**), centro sus cartas agrupadas Starter/Dynasty/Fate → tipo (vistas Lista/Grilla), derecha la **carta seleccionada** (sin pestañas). El selector de mazo (segmentado Mazos \| Listas, buscador, orden/clan/estado) cuelga del **título**, no de un panel. Barra: nombre + **Buscador** + menú `⋯` ([ADR-043](../DECISIONS.md#adr-043)); vista/zoom/orden en la segunda fila ([ADR-050](../DECISIONS.md#adr-050)). Notas con debounce de 1 s. Confirmaciones y avisos por `Dialogs`, no por `MessageBox`. |
+| UI editor | `Views/DeckWindow.xaml(.cs)` | Ventana única. Paneles agrupados **por objeto** ([ADR-051](../DECISIONS.md#adr-051)): izquierda el **mazo abierto** (pestañas **Filtros \| Stats**, con los bloques de **Etiquetas** y **Filtros de carta**), centro sus cartas agrupadas por **tipo o por etiqueta** (vistas Lista/Grilla), derecha la **carta seleccionada** con sus etiquetas al pie. El selector de mazo (segmentado Mazos \| Listas, buscador, orden/clan/estado) cuelga del **título**, no de un panel. Barra: nombre + **Buscador** + menú `⋯` ([ADR-043](../DECISIONS.md#adr-043)); vista/zoom/orden en la segunda fila ([ADR-050](../DECISIONS.md#adr-050)). Notas con debounce de 1 s. Confirmaciones y avisos por `Dialogs`, no por `MessageBox`. |
 | Export PDF | `Services/Deck/PdfExporter.cs` + `Views/PdfExportWindow.xaml(.cs)` | Arma un PDF para imprimir proxies: grilla 3×3 a tamaño real (63×88 mm), A4 o Carta, margen opcional de 1 mm. La ventana previa lista las cartas del mazo con un contador de copias **independiente** del mazo. El PDF se escribe a mano y embebe los JPEG sin recomprimir ([ADR-049](../DECISIONS.md#adr-049)). Solo mazos: una lista no se imprime. |
-| Paridad | `SelfTest.RunGoldenDeckTests` + `RunDeckStoreTests` + `RunCardSetTests` + `RunTrimTests` + `RunDeckStateTests` + `RunPdfExportTests` | **25 golden tests** replicando la secuencia exacta del harness (mismos mazos "Golden N", string exacto del export) + checks propios de persistencia txt, listas, identidad por nombre, recorte, estado de armado y la geometría/estructura del PDF. |
+| Paridad | `SelfTest.RunGoldenDeckTests` + `RunDeckStoreTests` + `RunCardSetTests` + `RunTrimTests` + `RunDeckStateTests` + `RunDeckTagTests` + `RunPdfExportTests` | **25 golden tests** replicando la secuencia exacta del harness (mismos mazos "Golden N", string exacto del export) + checks propios de persistencia txt, listas, identidad por nombre, recorte, estado de armado, etiquetas y la geometría/estructura del PDF. |
 
 ---
 
@@ -63,8 +65,9 @@ id de catálogo — por eso los mazos sobreviven a un cambio de base, y por eso 
 acá desde `usercards.json`.
 
 Lo que el `.txt` no puede representar (notas, `sortMode`, fecha de creación, orden, mazo activo,
-lista activa) va al sidecar `%APPDATA%\...\decksmeta.json`, indexado por **nombre de archivo** — las
-listas con prefijo `list:` para que no colisionen con un mazo homónimo. El sidecar manda sobre lo
+lista activa, **las recortadas y las etiquetas**) va al sidecar `%APPDATA%\...\decksmeta.json`,
+indexado por **nombre de archivo** — las listas con prefijo `list:` para que no colisionen con un mazo
+homónimo. El sidecar manda sobre lo
 parseado del txt; si está corrupto, se regenera en el próximo guardado.
 
 Cada mutación guarda inmediatamente (`Repo.DeckChanged` → `SaveDeck`): renombrar el mazo renombra el
@@ -97,6 +100,71 @@ Al cargar, **el `.txt` manda**: si el nombre aparece ahí con cantidad, la marca
 
 Una recortada no suma en conteos, stats ni export, y tampoco cuenta como carta distinta en los
 `[N]` de las cabeceras. Las **listas no tienen recorte**: ahí la carta está o no está.
+
+---
+
+## Filtros de carta (el panel del Buscador, adentro del mazo)
+
+El panel `CardFilterPanel` es **el mismo control** que usa el Buscador ([ADR-058](../DECISIONS.md#adr-058)):
+keywords con autocomplete, texto de carta, tipo, clan, designador, stats, edición y rareza. Acá filtra
+las cartas del mazo abierto. Arranca **plegado** —comparte panel con los filtros del mazo y las
+etiquetas— y trae **Limpiar filtros**, que aparece solo cuando hay algo que limpiar.
+
+Cómo se aplica: el editor corre `CardSearchEngine` con ese criteria sobre el catálogo entero y se
+queda con los ids que además están en el mazo. Es un `.Where()` más en el mismo pipeline, así que
+agrupar (por tipo o por etiqueta), ordenar, las recortadas y los chips Starter/Dynasty/Fate siguen
+valiendo. Los `(N) [M]` de las cabeceras cuentan lo que quedó; los totales de la barra, el mazo entero.
+
+**Dos filtros se fuerzan: las baneadas y las ocultas siempre entran**, y la sección "Otros" no se
+muestra. Son filtros para navegar el catálogo: adentro de un mazo lo único que podrían hacer es
+esconder cartas que el mazo tiene de verdad (una baneada que quedó en el `.txt` hay que **verla** para
+poder sacarla).
+
+**La caja de texto acepta los prefijos** de la barra del Buscador: `tx.` busca en el texto de la
+carta en vivo, y `k.` / `c.` / `t.` + Enter agregan keyword o prenden el chip de clan/tipo del panel.
+En modo operador la caja **no** filtra por nombre, o `k.bushi` no matchearía ningún nombre.
+
+---
+
+## Etiquetas (las pilas de la mesa)
+
+Extra del launcher, no existe en la app ([ADR-057](../DECISIONS.md#adr-057)). Cada mazo —y cada
+lista— tiene su propio vocabulario de etiquetas (nombre + color de una paleta fija) y sus
+asignaciones. **Son del mazo**: la misma carta puede ser "deshonor" en uno y "defensa" en otro.
+
+**Agrupar por etiqueta arma una sección por etiqueta**, en el orden en que se crearon y con
+`Sin etiquetar` al final. **Una carta aparece en todas sus pilas**: la que quita honor y pide
+magistrados está en las dos, porque la pregunta al armar es "cuánto deshonor tengo" y una pila que se
+saltea las compartidas contesta de menos. Los `(N) [M]` de las cabeceras, entonces, **no** suman el
+mazo —son conjuntos que se solapan— y por eso la cabecera agrega `· N también en otra`.
+
+> Antes de esto la agrupación era una **partición** por combinación exacta (el cruce como sección
+> aparte, cada carta una sola vez). Contestaba bien "¿en qué caja va?" y mal la pregunta real de armar.
+> El razonamiento completo está en [ADR-057](../DECISIONS.md#adr-057).
+
+- **Crear/editar**: `＋` en el panel Filtros, o `＋ Etiqueta nueva…` desde la carta. Click derecho
+  sobre el chip de una etiqueta —en el panel de filtros o en el de la carta— abre su menú: **elegir
+  el color** entre las diez muestras de la paleta, renombrarla (arrastra las asignaciones) o
+  borrarla. El color se asigna solo al crearla, por orden de la paleta, para no frenar el armado con
+  una decisión de color; cambiarlo después se ve al toque en el chip y en los puntitos.
+- **Asignar**: click derecho sobre la carta (menú con sus etiquetas), o los chips del panel derecho.
+  El menú de la carta se lleva también **Copiar imagen**, que era lo que hacía el click derecho antes.
+- **Filtrar**: los chips del panel Filtros, con el conteo al lado. Con dos o más marcadas aparece
+  **Alguna \| Todas** (unión o cruce).
+- **Ver**: cada carta lleva los puntitos de sus etiquetas **también** en la vista por tipo — es lo que
+  hace visible el solapamiento sin cambiar de agrupación.
+
+Los chips Starter/Dynasty/Fate y el filtro de texto siguen valiendo en las dos agrupaciones: filtran,
+no son el eje. Sin ninguna etiqueta creada, el segmentado **Por etiqueta** queda deshabilitado.
+
+**La sección arranca plegada**, como las de Filtros de carta. Su cabecera lleva el estado, porque
+plegada es lo único que se ve: `Etiquetas` sin ninguna, `Etiquetas (N)` con vocabulario, y
+`Etiquetas · filtrando (N)` cuando hay chips marcados — filtrar sin señal a la vista es cómo se llega
+a "no entiendo por qué faltan cartas".
+
+**La etiqueta acompaña a la carta mientras esté en el mazo**: sacarla con `✕` se lleva su
+clasificación (`DeckTags.Prune` en cada guardado); recortarla no. Duplicar el mazo copia vocabulario y
+asignaciones.
 
 ---
 
@@ -135,15 +203,19 @@ el filtro y el `✓` del subtítulo. Una carta recortada no cubre slot ni suma a
   y al guardar: es "lo último que tocaste", no la fecha de creación. Se cierra al elegir. Sin ningún mazo se abre solo, porque el `＋` vive adentro y crear es lo único
   que se puede hacer ([ADR-052](../DECISIONS.md#adr-052)).
 - **Editor, panel izquierdo**: dos pestañas sobre **el mismo objeto**, el mazo abierto —
-  **Filtros** (texto sobre sus cartas, chips Starter/Dynasty/Fate, toggle **Recortadas (N)**) y
+  **Filtros** (texto con prefijos sobre sus cartas, chips Starter/Dynasty/Fate, toggle
+  **Recortadas (N)**, y dos secciones plegadas: **Etiquetas** y los **Filtros de carta** compartidos
+  con el Buscador: `＋`, segmentado Por tipo \| Por etiqueta, y los chips con su conteo) y
   **Stats**. Colapsarlo esconde una sola cosa; antes se llevaba el selector de mazo también.
-- **Editor, panel derecho**: la **carta seleccionada**, sin pestañas.
+- **Editor, panel derecho**: la **carta seleccionada**, sin pestañas, con sus **etiquetas** al pie
+  (fuera del scroll del detalle, que es un control compartido con el Buscador y no sabe de mazos).
 - **Lado a lado** (botón de los dos paneles en la barra; estuvo brevemente en el menú `⋯`, ver
   [ADR-052](../DECISIONS.md#adr-052)): acomoda Buscador y editor sobre el área de trabajo, 70 % / 30 %,
   con el editor en vista Lista y todo colapsado. Es el layout de armar — ver
   [ui.md](ui.md).
 - **Vista Grilla**: mismos cuatro tamaños de celda que el Buscador (`－`/`＋` o **Ctrl + rueda**) y la
-  misma previsualización con **Alt**. Click derecho copia el arte. Las miniaturas salen del mismo
+  misma previsualización con **Alt**. Click derecho abre el menú de la carta (etiquetas + copiar el
+  arte, [ADR-057](../DECISIONS.md#adr-057)). Las miniaturas salen del mismo
   `GridCell` que el Buscador, así que comparte su caché y su cola de decodificación
   ([ADR-053](../DECISIONS.md#adr-053)) — y compartía también su defecto. En el tamaño más chico los
   `−`/`+`/`✕` no entran y queda solo la cantidad, que es lo único que no se deduce mirando la carta;
@@ -164,10 +236,12 @@ el filtro y el `✓` del subtítulo. Una carta recortada no cubre slot ni suma a
 
 ## Verificación
 
-Del total de la batería, **78 checks** son del deckbuilder: los 25 golden + persistencia txt /
+Del total de la batería, **105 checks** son del deckbuilder: los 25 golden + persistencia txt /
 `DeckLibrary` + resolución tolerante de nombres + los 21 de `RunCardSetTests` (listas como `.txt`,
 `SetInList` vs `AddCard`, migración e identidad por nombre de `usercards.json`) + los 14 de
-`RunTrimTests` (recorte) + los 10 de `RunDeckStateTests` (mazo terminado vs pendiente). Si se toca
+`RunTrimTests` (recorte) + los 10 de `RunDeckStateTests` (mazo terminado vs pendiente) + los 27 de
+`RunDeckTagTests` (etiquetas: sidecar por nombre, pilas con la carta compartida en todas, filtro,
+renombrar/borrar). Si se toca
 `DeckRepository` o el importer, correr `--selftest`; si se *cambia* una semántica golden, regenerar
 los expected con el harness del handoff (`../../tests/fixtures/deckbuilder/generator/`) y anotarlo.
 
@@ -183,11 +257,15 @@ los expected con el harness del handoff (`../../tests/fixtures/deckbuilder/gener
 [ADR-026](../DECISIONS.md#adr-026) validación de la app + feedback ·
 [ADR-027](../DECISIONS.md#adr-027) `NoActiveDeck` conserva su nombre ·
 [ADR-028](../DECISIONS.md#adr-028) listas ≠ mazos ·
-[ADR-029](../DECISIONS.md#adr-029) duplicar mazo.
+[ADR-029](../DECISIONS.md#adr-029) duplicar mazo ·
+[ADR-057](../DECISIONS.md#adr-057) etiquetas: pilas que se solapan, en el sidecar.
 
 ## Puntos abiertos
 
 - Goldfish (sandbox de testeo) — fuera de alcance; la spec del handoff lo cubre si algún día se quiere.
-- Grupos de usuario (carpetas de mazos) y subgrupos dentro del mazo (`deck_card_groups`, en desuso en
-  la app) — no portados.
+- Grupos de usuario (carpetas de mazos) — no portados. `deck_card_groups` (subgrupos dentro del mazo,
+  en desuso en la app) tampoco: las **etiquetas** cubren el caso con otro modelo, una carta en varias
+  pilas en vez de un grupo excluyente ([ADR-057](../DECISIONS.md#adr-057)).
+- Etiquetar de a varias cartas (selección múltiple en el centro) — el centro no tiene modelo de
+  selección; hoy se etiqueta carta por carta.
 - Buscador embebido en el editor: hoy el flujo es "Buscador `+`/`−` sobre el mazo activo" (como la app).

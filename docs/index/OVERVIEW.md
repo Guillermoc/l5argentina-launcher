@@ -3,7 +3,7 @@
 Índice raíz del launcher. **Se lee al empezar cualquier sesión**, junto con
 [../ROADMAP.md](../ROADMAP.md). Regla: leer los índices antes que el código fuente.
 
-Última actualización: **v0.7.0** (2026-07-30).
+Última actualización: **v0.8.0** (2026-08-03).
 
 ---
 
@@ -16,7 +16,7 @@
 | **Empaquetado** | **Costura.Fody** embebe los DLLs → un único `.exe` (~7 MB). Se distribuye solo el exe. |
 | **Arquitectura en una línea** | UI (WPF, 5 ventanas) → `LauncherEngine` coordina → `Services/` (red, hash, archivos) + motores portados 1:1 de la app Android (`Services/Search`, `Services/Deck`). |
 | **Datos** | Bucket Cloudflare R2 (dos manifests: el del launcher y el del pool/CDN de la app). El launcher **solo descarga datos, nunca código**. |
-| **Versión** | `AppConstants.LauncherVersion` = `0.7.0` (y `<Version>` del csproj — se bumpean juntos). |
+| **Versión** | `AppConstants.LauncherVersion` = `0.8.0` (y `<Version>` del csproj — se bumpean juntos). |
 | **Verificación** | `--selftest`: la batería completa en verde (pipeline + 53 golden del Buscador + 25 del deckbuilder). Conteo al día en [build-verificacion.md](build-verificacion.md). |
 | **Idioma de UI** | Español, 100 % en `src/Resources/Strings.resx` (i18n listo, sin segundo idioma hoy). |
 
@@ -71,6 +71,7 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 | `MainWindow.xaml(.cs)` | Ventana principal: selección de base, banner de update, sincronización, JUGAR, overlays de Configuración y Packs de imágenes. |
 | `Views/FirstRunWindow.xaml(.cs)` | Primer arranque: elegir `Sun and Moon.exe`, validar la instalación, capturar la base **Original**. |
 | `Views/SearchWindow.xaml(.cs)` | Buscador: filtros en vivo, tabla/grilla virtualizada, panel derecho Carta \| Mazo, selector de conjunto activo y presets. Al final del archivo viven `GridCell`, `ThumbnailCache` (LRU de dos niveles) y `ThumbnailLoader` (cola de decodificación), que comparte el editor de Mazos. |
+| `Views/CardFilterPanel.xaml(.cs)` | Panel de filtros compartido por el Buscador y el editor de Mazos ([ADR-058](../DECISIONS.md#adr-058)): llena un `CardSearchCriteria`, no busca. |
 | `Views/DeckWindow.xaml(.cs)` | Editor de Mazos **y listas** (solapa Mazos \| Listas): grupos Starter/Dynasty/Fate, cartas recortadas, importar/exportar, notas. |
 | `Views/PdfExportWindow.xaml(.cs)` | Pantalla previa del PDF de impresión: copias por carta, A4/Carta, margen de 1 mm. |
 | `Views/CardDetailPanel.xaml(.cs)` | Detalle de carta compartido entre Buscador y editor (+ `CardImageResolver`). |
@@ -116,6 +117,7 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 | `DeckRepository.cs` | Port 1:1 de `DeckRepository.kt`: `AddCard`, quantities, import/export, CRUD, espejos de UI. |
 | `SunAndMoonDeckFile.cs` | Parse/write del formato `.txt` de la carpeta `Decks` del juego (tolerante a nombres). |
 | `DeckLibrary.cs` | Un `.txt` por conjunto: mazos en `Decks`, listas en `Lists` + sidecar `decksmeta.json`; mazo y lista activos compartidos por proceso. |
+| `DeckTags.cs` | Etiquetas del mazo: vocabulario, asignaciones, filtro y las pilas —la carta compartida está en todas las suyas ([ADR-057](../DECISIONS.md#adr-057)). |
 | `PdfExporter.cs` | Emite el PDF de impresión a mano (sin librería): grilla 3×3 a tamaño real, JPEG embebidos sin recomprimir ([ADR-049](../DECISIONS.md#adr-049)). |
 
 ### Modelos y recursos
@@ -126,7 +128,7 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 | `Models/PoolManifest.cs` | Manifest del CDN de la app: lista plana de `packages` con URL absoluta + SHA-256. |
 | `Models/UserConfig.cs` | `config.json`: instalación, URL de manifest, base aplicada/seleccionada, hashes cacheados, packs aplicados y packs **ya vistos** ([ADR-056](../DECISIONS.md#adr-056)). |
 | `Models/CardCatalog.cs` | `Card` (espejo de la tabla `cards` de la app) + catálogo + slots de holding inicial. |
-| `Models/DeckModels.cs` | `Deck`/`DeckCardEntry`, `AddCardResult`, `ImportResult`, `DeckGroups`. |
+| `Models/DeckModels.cs` | `Deck`/`DeckCardEntry`, `DeckTag`, `AddCardResult`, `ImportResult`, `DeckGroups`. |
 | `Resources/Strings.resx` | **Todos** los textos de UI. `Strings.cs` (accesor) + `LocExtension.cs` (`{loc:Loc Clave}`). |
 | `Assets/` | Fondos, logos, íconos y fuentes (`l5rtitles.ttf`, `playfair_display.ttf`) embebidos como recursos WPF. |
 
