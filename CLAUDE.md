@@ -4,6 +4,16 @@ Launcher WPF (.NET Framework 4.8, SDK-style) para la comunidad L5Argentina. Lanz
 **Sun and Moon**, sincroniza la base de cartas/imágenes desde un bucket Cloudflare R2 e incluye
 un Buscador de cartas y un editor de Mazos portados de la app Android.
 
+**Protocolo:** [`metodo/protocolo.md`](../Proyectos/metodo/protocolo.md) **v1.2** · Bloques
+**A** (git), **B** (verificación), **C** (usuarios reales), **D** (red), **E** (archivos ajenos).
+Excepciones: ninguna. **F y G no aplican** (nada commitea solo; no ejecuta comandos del sistema ni
+expone un endpoint). **Pushear NO publica**: `build.yml` solo corre el selftest, y el release sale
+por tag + GitHub Releases (revisado en los bumps a v1.1 y v1.2, 2026-08-11).
+
+Las reglas generales de conducta —autorización, honestidad del reporte, cómo se responde— viven en
+el `CLAUDE.md` global y en `protocolo.md`. **Este archivo no las repite**: de §4 a §6 va solo cómo
+se instancian acá, y de §7 en adelante, lo propio de esta plataforma.
+
 ---
 
 ## 1. Arranque de sesión
@@ -58,28 +68,11 @@ src/bin/Debug/net48/L5ArgentinaLauncher.exe --mazos             # abre el editor
   `%LOCALAPPDATA%\Microsoft\dotnet\dotnet.exe`; cualquiera compila. CI usa `8.0.x`.
 - `nuget.config` (raíz) fija nuget.org explícitamente porque el config global estaba vacío.
 
-## 4. Reglas de código y arquitectura (no negociables)
+---
 
-1. **Solo datos, nunca código.** Sin auto-update del exe, sin plugins, sin WebView.
-2. **SHA-256** de todo lo descargado, verificado antes de usar (`DownloadService`).
-3. **HTTPS siempre.** `file://`/`localhost` solo bajo `#if DEBUG` (`ManifestService.EnsureAllowedScheme`).
-4. **Confinamiento al origen del manifest**: nunca seguir URLs de terceros ni escapar del directorio
-   del manifest. Dos variantes: `ResolveFileUri` para los `file` relativos del manifest del launcher
-   (mismo esquema+host+puerto **y** bajo su directorio) y `ResolveSameOriginUrl` para las URLs
-   absolutas del pool (mismo esquema+host+puerto, sin exigir directorio: el pool publica el manifest
-   en `/production/` y los archivos en `/pool/`).
-5. **Zip-slip** obligatorio al extraer (`ImagePackService`).
-6. **Link de update hardcodeado** (`AppConstants.ReleasesPageUrl`), nunca del manifest.
-7. **Paridad con la app Android**: la semántica portada (`CardSearchEngine`, `CatalogImporter`,
-   `DeckRepository`) no se "arregla". Los bugs conocidos se portan; la UI compensa.
-8. **Textos de UI solo en `Strings.resx`** (`{loc:Loc Clave}` / `Strings.Get`). Cero literales.
-9. **Rutas de estado solo desde `AppConstants`** (respetan `L5A_DATA_ROOT`).
-10. **Una carta se referencia por NOMBRE, nunca por id, en todo lo que se escriba a disco**
-    ([ADR-044](docs/DECISIONS.md#adr-044)). El `id` sale del `cards_db.json` y lo reasigna quien
-    genera la base: guardarlo hace que, al entrar una base nueva, una favorita desaparezca o —peor,
-    y en silencio— pase a ser otra carta. En memoria se usa el id; la traducción va en el borde.
+# Protocolo — cómo se aplica acá
 
-## 5. Cuándo correr la batería de verificación
+## 4. Verificación — bloque B
 
 Medido en esta máquina: `dotnet build -c Debug` incremental ≈ **1 s**, `--selftest` ≈ **3 s**. El
 costo no es el reloj: es el ida y vuelta (compilar → lanzar el exe → leer un reporte de ~180 líneas)
@@ -97,20 +90,14 @@ espolvorea.
   `CatalogImporter`, `DeckRepository`, `SelfTest.cs`, `AppConstants`, o mover `docs/functional/*`—:
   **una sola corrida al terminar ese cambio**, no una por edición.
 
-**El orden es: selftest → commit → push.** Primero se verifica, después se pide permiso para
-commitear. Si el cambio ameritaba selftest y no se corrió, **no lo corras por tu cuenta ni lo
-omitas**: avisale al usuario antes de commitear. Si él pide "commiteemos" y falta la corrida, la
-respuesta correcta es *"antes corro el selftest, ¿dale?"*, no commitear callado ni recordárselo
-después. Si no está claro si el cambio amerita la corrida, se decide **entre los dos**: proponé y
-esperá.
+Si el cambio ameritaba selftest y no se corrió, **no lo corras por tu cuenta ni lo omitas**: avisale
+al usuario antes de commitear. Si él pide "commiteemos" y falta la corrida, la respuesta correcta es
+*"antes corro el selftest, ¿dale?"*. Si no está claro si amerita, se decide **entre los dos**.
 
 **Nunca hace falta** para cambios que no tocan código compilado: documentación, README, comentarios,
 workflows. Para textos del `.resx` alcanza con compilar. **Esta exención gana sobre la regla de
 arriba**: un commit de solo documentación no dispara el selftest por el hecho de ser un commit. Si el
 cambio incluye aunque sea un `.cs`, aunque solo cambie un comentario, corré una vez y listo.
-
-**Si no se corrió, se dice.** Nunca reportar "listo" o "verificado" sin haberlo corrido. La frase
-correcta es: *"compilé; no corrí el selftest, corresponde al cerrar"*.
 
 **Al correrlo, reportar poco:** la línea `RESULTADO: N PASS, M FAIL` y, si hay rojos, solo las líneas
 `FAIL`. No volcar el reporte entero. Un resultado válido es **0 FAIL y ningún SKIP** (un SKIP
@@ -121,7 +108,7 @@ constante**: sube a medida que la batería crece. El número al día vive en
 **Red de seguridad:** `.github/workflows/build.yml` corre el selftest en cada push y PR a `main`, así
 que saltear una corrida local nunca llega a producción sin ser detectado.
 
-### 5.1 Qué se agrega a la batería (y qué no)
+### 4.1 Qué se agrega a la batería (y qué no)
 
 Son dos mitades con reglas opuestas:
 
@@ -143,72 +130,29 @@ de leer y de mantener sin agregar señal.
 
 **Nunca agregues golden a mano.** Una feature que la app Android no tiene (duplicar mazo, orden por
 cabecera, presets) se cubre con checks propios. Los golden solo se regeneran cuando cambia la app o
-cuando se decide cambiar una semántica portada — y eso requiere confirmación (§7).
+cuando se decide cambiar una semántica portada — y eso requiere confirmación (§6).
 
-### 5.2 Cuándo se toca o se da de baja un check
+### 4.2 Golden en rojo
 
-- **Cambió el comportamiento a propósito** → actualizá el check al comportamiento nuevo, en el mismo
-  cambio. Dejarlo rojo "por ahora" no es una opción.
-- **Desapareció la funcionalidad** → borrá el check y decilo explícitamente en el reporte (el total
-  baja, y eso está bien).
-- **El check quedó desnaturalizado** (sigue verde pero ya no prueba lo que decía: cambió el flujo,
-  quedó tautológico) → reescribilo o borralo, no lo dejes ahí dando falsa confianza. Vale decirlo
-  como hallazgo aunque no sea parte del pedido.
-- **Un golden en rojo** → nunca editar el `expected` a mano. O el cambio no era intencional (se
-  arregla el código), o sí lo era y hay que regenerar con el harness y anotarlo en `DECISIONS.md` y
-  en la doc de paridad.
-- **Nunca** borrar, aflojar ni comentar un check para llegar al verde. Si un check molesta, la
-  conversación es sobre el check, no un `//`.
+Las reglas generales de cuándo se actualiza, se borra o se reescribe un check están en el bloque B de
+`protocolo.md`. Lo propio de acá: **un golden en rojo nunca se arregla editando el `expected` a
+mano.** O el cambio no era intencional (se arregla el código), o sí lo era y hay que regenerar con el
+harness y anotarlo en `DECISIONS.md` y en la doc de paridad.
 
 Si cambió la cantidad de checks, actualizá los números en los docs que la citan (§8).
 
-## 6. Cómo responder
-
-- **Español**, directo, sin relleno ni resúmenes de lo que ya se dijo.
-- Cambios de código: qué cambió y por qué, en pocas líneas. Nada de pegar el diff entero.
-- Si algo no se verificó, **decirlo explícito** (ver §5).
-- Referenciar archivos como `ruta:línea`, no describir dónde queda algo.
-- No inventar estado del proyecto: si no está en los índices ni en el código, se busca o se pregunta.
-
-## 7. Confirmación obligatoria antes de actuar
-
-Parar y esperar un sí explícito para:
-
-- **Implementar una feature no trivial sin spec funcional**: resumir el enfoque propuesto (qué
-  archivos, qué estructura, qué riesgos) y **esperar confirmación** antes de escribir código.
-- **Cambiar una semántica cubierta por goldens** (Buscador o deckbuilder): implica regenerar
-  expected con el harness. Nunca "ajustar" el golden para que pase. *Agregar* un criterio nuevo sin
-  tocar los existentes **no** cuenta como cambio de semántica y no necesita confirmación — salvo que
-  toque los nombres JSON de `CardSearchCriteria`, de los que depende la deserialización de los
-  golden.
-- **Borrar checks del selftest** o bajar la cobertura de un área crítica (§5.2).
-- **Tocar cualquiera de las reglas de §4**, incluido relajar validaciones de origen, hash o zip-slip.
-- **Commitear. Siempre.** No hay commit sin un sí explícito, por chico que sea el cambio.
-- **Pushear. Siempre** — y antes de pushear, el chequeo de Dependabot de §7.1.
-- **Taggear o publicar un release.**
-- **Bumpear la versión** (`AppConstants.LauncherVersion` + `<Version>` del csproj).
-- **Borrar o mover archivos del usuario** en pruebas manuales. Para el estado propio del launcher
-  alcanza con `L5A_DATA_ROOT`; **para los mazos NO alcanza**: viven en `<instalación>\Decks` y esa
-  variable no los redirige (ver §10). Antes de probar mazos a mano, apuntá `sunAndMoonPath` a una
-  copia del juego o dejalo vacío (así caen en `%APPDATA%\...\Decks`).
-- **Reestructurar carpetas de `docs/`**, o mover/renombrar `tests/fixtures/*` (rompe las rutas que
-  `SelfTest.cs` resuelve para los golden tests).
-
-### 7.1 Git: a `main` directo, sin PRs — pero preguntando siempre
+## 5. Git — bloque A
 
 **El mecanismo** ([ADR-034](docs/DECISIONS.md#adr-034)): commits directos a `main`, sin ramas ni pull
 requests. El repo lo mantiene una sola persona y los PR están deshabilitados en GitHub; un PR sin
-revisor es ceremonia sin beneficio.
-
-**Eso no es autorización.** Commitear y pushear **siempre** requieren un sí explícito del usuario
-(§7). "Directo a `main`" describe adónde va el commit, no que se haga solo.
+revisor es ceremonia sin beneficio. Eso describe **adónde va el commit, no que se haga solo**: la
+autorización explícita del bloque A sigue valiendo entera.
 
 Secuencia al cerrar un trabajo:
 
-1. Selftest si corresponde (§5). Reportar el resultado.
+1. Selftest si corresponde (§4). Reportar el resultado.
 2. **Proponer el commit** —qué entra y con qué mensaje— y esperar el sí.
 3. Commit. Si son varios cambios independientes, **commits separados** para que el diff se lea.
-   Mensaje que explique **por qué**, no solo qué.
 4. **Antes de pushear, chequear Dependabot** (no necesita `gh`):
    ```sh
    git ls-remote origin 'refs/heads/dependabot/*'
@@ -219,9 +163,52 @@ Secuencia al cerrar un trabajo:
    requieren autenticación y no se ven desde acá.)
 5. Push, con el sí del usuario.
 
-La branch protection de `main` sigue activa **contra force-push y borrado**. Nunca reescribir
-historia publicada (`--force`, `reset --hard` sobre lo pusheado, `commit --amend` de algo ya remoto):
-eso requiere confirmación aparte y explícita, aunque ya haya un sí para pushear.
+La branch protection de `main` sigue activa **contra force-push y borrado**.
+
+## 6. Confirmaciones propias de este repo
+
+Además de las del `CLAUDE.md` global (commit, push, outward-facing, borrar archivos, datos en vivo),
+parar y esperar un sí explícito para:
+
+- **Cambiar una semántica cubierta por goldens** (Buscador o deckbuilder): implica regenerar
+  expected con el harness. Nunca "ajustar" el golden para que pase. *Agregar* un criterio nuevo sin
+  tocar los existentes **no** cuenta como cambio de semántica y no necesita confirmación — salvo que
+  toque los nombres JSON de `CardSearchCriteria`, de los que depende la deserialización de los
+  golden.
+- **Borrar checks del selftest** o bajar la cobertura de un área crítica (§4.2).
+- **Tocar cualquiera de las reglas de §7**, incluido relajar validaciones de origen, hash o zip-slip.
+- **Bumpear la versión** (`AppConstants.LauncherVersion` + `<Version>` del csproj).
+- **Borrar o mover archivos del usuario** en pruebas manuales. Para el estado propio del launcher
+  alcanza con `L5A_DATA_ROOT`; **para los mazos NO alcanza**: viven en `<instalación>\Decks` y esa
+  variable no los redirige (ver §10). Antes de probar mazos a mano, apuntá `sunAndMoonPath` a una
+  copia del juego o dejalo vacío (así caen en `%APPDATA%\...\Decks`).
+- **Reestructurar carpetas de `docs/`**, o mover/renombrar `tests/fixtures/*` (rompe las rutas que
+  `SelfTest.cs` resuelve para los golden tests).
+
+---
+
+# Reglas de esta plataforma
+
+## 7. Reglas de código y arquitectura (no negociables)
+
+1. **Solo datos, nunca código.** Sin auto-update del exe, sin plugins, sin WebView.
+2. **SHA-256** de todo lo descargado, verificado antes de usar (`DownloadService`).
+3. **HTTPS siempre.** `file://`/`localhost` solo bajo `#if DEBUG` (`ManifestService.EnsureAllowedScheme`).
+4. **Confinamiento al origen del manifest**: nunca seguir URLs de terceros ni escapar del directorio
+   del manifest. Dos variantes: `ResolveFileUri` para los `file` relativos del manifest del launcher
+   (mismo esquema+host+puerto **y** bajo su directorio) y `ResolveSameOriginUrl` para las URLs
+   absolutas del pool (mismo esquema+host+puerto, sin exigir directorio: el pool publica el manifest
+   en `/production/` y los archivos en `/pool/`).
+5. **Zip-slip** obligatorio al extraer (`ImagePackService`).
+6. **Link de update hardcodeado** (`AppConstants.ReleasesPageUrl`), nunca del manifest.
+7. **Paridad con la app Android**: la semántica portada (`CardSearchEngine`, `CatalogImporter`,
+   `DeckRepository`) no se "arregla". Los bugs conocidos se portan; la UI compensa.
+8. **Textos de UI solo en `Strings.resx`** (`{loc:Loc Clave}` / `Strings.Get`). Cero literales.
+9. **Rutas de estado solo desde `AppConstants`** (respetan `L5A_DATA_ROOT`).
+10. **Una carta se referencia por NOMBRE, nunca por id, en todo lo que se escriba a disco**
+    ([ADR-044](docs/DECISIONS.md#adr-044)). El `id` sale del `cards_db.json` y lo reasigna quien
+    genera la base: guardarlo hace que, al entrar una base nueva, una favorita desaparezca o —peor,
+    y en silencio— pase a ser otra carta. En memoria se usa el id; la traducción va en el borde.
 
 ## 8. Después de cambiar código — qué índice actualizar
 
@@ -240,6 +227,8 @@ Al terminar un cambio, actualizar el índice correspondiente **en el mismo traba
 | **Cantidad de checks del selftest** (agregaste o borraste checks) | solo dos lugares: `docs/index/build-verificacion.md` (dueño del dato) y `README.md`. El resto de los docs dice "la batería en verde" a propósito; las menciones en `DECISIONS.md` son fotos fechadas y **no** se actualizan |
 | Agregaste/moviste archivos fuente | `docs/index/OVERVIEW.md` (mapa de archivos) |
 | **Tomaste una decisión no obvia** (tradeoff, camino descartado) | **entrada nueva en `docs/DECISIONS.md`** |
+| **Cambiaste una regla de cómo trabajamos** (verificación, reporte, autorización, permisos) | **[`metodo/protocolo.md`](../Proyectos/metodo/protocolo.md) del hub**, no solo este archivo — con el caso que la originó y un bump de versión |
+| **Apareció _o se cerró_ una divergencia de capacidad con la app Android** | `metodo/paridad.md` del hub. Cerrar cuenta igual que abrir: si implementaste algo que allá ya estaba, la fila pasa a "Paridad" — si no, la matriz queda pidiendo trabajo ya hecho |
 
 Si un cambio no encaja en ninguna fila, probablemente igual toca `OVERVIEW.md`. Preguntar antes de
 cerrar: *"¿qué índice hay que actualizar?"*.
@@ -255,8 +244,11 @@ Todos los ítems pesan lo mismo; ninguno es opcional:
 5. **`README.md`: tabla de estado de features actualizada.**
 6. **`docs/technical/technical-specification.md`: pasada sección por sección contra el estado real**
    (o contra los índices, que ya deberían estar al día) + fecha de revisión.
-7. Versión bumpeada en `AppConstants.LauncherVersion` **y** `<Version>` del csproj (con confirmación).
-8. Si es release: tag `vX.Y.Z`, y publicar el **SHA-256 del exe** en el segundo canal.
+7. **Protocolo:** comparar la versión declarada en el encabezado contra
+   [`metodo/protocolo.md`](../Proyectos/metodo/protocolo.md). Si difiere, leer solo el changelog de
+   la diferencia y aplicar o declarar excepción.
+8. Versión bumpeada en `AppConstants.LauncherVersion` **y** `<Version>` del csproj (con confirmación).
+9. Si es release: tag `vX.Y.Z`, y publicar el **SHA-256 del exe** en el segundo canal.
 
 ## 10. Cosas puntuales que conviene saber
 
