@@ -20,6 +20,7 @@ fuentes Kotlin), que además sigue siendo la referencia viva de paridad vía sus
 | Formato txt | `Services/Deck/SunAndMoonDeckFile.cs` | Lee/escribe el formato de la carpeta `Decks` del juego (`Legality: X`, starter sin prefijo, `Nx Nombre`). El parser tolera también el formato de export de la app (`N Nombre`, líneas `#`). Lo usan mazos **y** listas. |
 | Biblioteca | `Services/Deck/DeckLibrary.cs` | Un `.txt` por conjunto: mazos en `<SunAndMoon>\Decks\`, listas en `<SunAndMoon>\Lists\`, + sidecar `decksmeta.json`. Un solo `DeckRepository` para los dos (`Decks`/`Lists` son vistas filtradas por `Type`). Instancia compartida por proceso (`GetOrLoad`): Buscador y editor operan sobre los mismos archivos, el mismo mazo activo y la misma lista activa. `SaveMeta()` guarda **solo** el sidecar (etiquetas: el juego no las ve). |
 | Etiquetas | `Services/Deck/DeckTags.cs` | Vocabulario y asignaciones de un mazo, la paleta de colores, el filtro (unión / cruce) y `Sections<T>` — las pilas, con la carta compartida en todas las suyas y el conteo de solapamiento ([ADR-057](../DECISIONS.md#adr-057)). Todo por CardId; la traducción a nombre la hace `DeckLibrary`. |
+| Ajuste de oro | `Services/Deck/DeckGold.cs` | El coste que se **paga** vs. el impreso ([ADR-059](../DECISIONS.md#adr-059)): la regla del clan del stronghold (−2 propio / +2 otro clan grande), los ajustes manuales de −3 a +3 y el coste efectivo. Regla **viva**: se calcula contra el stronghold del momento, al sidecar van solo los overrides. |
 | Filtros de carta | `Views/CardFilterPanel.xaml(.cs)` | El **mismo panel que el Buscador** ([ADR-058](../DECISIONS.md#adr-058)), aplicado a las cartas del mazo: llena un `CardSearchCriteria`, el editor lo corre con `CardSearchEngine` contra el catálogo y se queda con los ids que están en el mazo. |
 | Slots | `CatalogImporter` → `CardCatalog.InitialHoldingSlots` | `filters.json → formats[].initialHoldingSlots` (id/label/required) — alimenta el aviso "Falta: {slot}". |
 | UI Buscador | `Views/SearchWindow.xaml(.cs)` | Label del mazo activo + conteos en la barra; `+`/`−` por celda con feedback del `AddCardResult`. Doble click o **Ctrl+click** = agregar. No elige mazo ni muestra su contenido. El selector de **conjunto activo** (listas/mazos/favoritas) vive acá — ver [buscador.md](buscador.md). |
@@ -168,6 +169,35 @@ asignaciones.
 
 ---
 
+## Ajuste de oro (el coste que se paga)
+
+Extra del launcher, no existe en la app ([ADR-059](../DECISIONS.md#adr-059)). El chip **Ajuste de
+oro** del panel Filtros prende el modo **en ese mazo**: el orden por Coste, los mini-stats de la
+vista Lista y la curva de las stats pasan a usar el coste **efectivo** en vez del impreso.
+
+**La regla es viva, no un número escrito en cada carta.** Al prender el modo no se materializa nada:
+el ajuste se calcula contra el clan del stronghold del momento. Cambiar el stronghold re-ajusta el
+mazo entero solo y una carta agregada después ya entra ajustada. Al sidecar van **solo los ajustes
+manuales**.
+
+- **La regla:** personalidad del clan de tu stronghold → **−2**; personalidad de **otro de los nueve
+  clanes grandes** → **+2**; sin clan, o de una facción menor (shadowlands, ratling, naga, ronin,
+  hare, spirit, monk, ninja) → **0**. Sin stronghold no hay contra qué comparar y no ajusta nada.
+  El descuento sí es literal: si la carta lleva el clan del stronghold, sea cual sea, es tuya.
+- **A mano:** click derecho sobre la carta → tira **−3 … +3**. El encabezado del menú dice si el
+  número lo pone la regla o el usuario, y **Volver a la regla** aparece solo si es manual. Elegir a
+  mano el mismo número que la regla **sigue siendo** manual: es cómo se fija una carta.
+- **Volver a la regla (N)**, bajo el chip, borra los N ajustes manuales del mazo (con confirmación).
+- **Dónde se ve:** en la Grilla, una pastilla discreta contra el borde derecho y a media altura, solo
+  si el ajuste no es cero. En la Lista, al lado del coste impreso: `©8 +2` — el impreso no se
+  reemplaza, es lo que dice la carta.
+- **Piso en 0:** una personalidad de 2 con −2 sale gratis, no −1. El ajuste igual se muestra `−2`.
+
+El coste efectivo es **de la UI**: `DeckRepository`, el export y el PDF siguen viendo el coste del
+catálogo, así que nada de lo cubierto por los golden cambia de semántica.
+
+---
+
 ## Validación
 
 No hay motor de validación: paridad con la app. Solo existen los rechazos de `AddCard`
@@ -236,12 +266,14 @@ el filtro y el `✓` del subtítulo. Una carta recortada no cubre slot ni suma a
 
 ## Verificación
 
-Del total de la batería, **105 checks** son del deckbuilder: los 25 golden + persistencia txt /
+Del total de la batería, **127 checks** son del deckbuilder: los 25 golden + persistencia txt /
 `DeckLibrary` + resolución tolerante de nombres + los 21 de `RunCardSetTests` (listas como `.txt`,
 `SetInList` vs `AddCard`, migración e identidad por nombre de `usercards.json`) + los 14 de
 `RunTrimTests` (recorte) + los 10 de `RunDeckStateTests` (mazo terminado vs pendiente) + los 27 de
 `RunDeckTagTests` (etiquetas: sidecar por nombre, pilas con la carta compartida en todas, filtro,
-renombrar/borrar). Si se toca
+renombrar/borrar) + los 22 de `RunDeckGoldTests` (ajuste de oro: las tres ramas de la regla sobre
+el ejemplo 8/8/8 → 6/8/10, el override que gana y vuelve, los topes, el round-trip por el sidecar y
+que cambiar el stronghold re-ajuste el mazo solo). Si se toca
 `DeckRepository` o el importer, correr `--selftest`; si se *cambia* una semántica golden, regenerar
 los expected con el harness del handoff (`../../tests/fixtures/deckbuilder/generator/`) y anotarlo.
 
@@ -259,6 +291,7 @@ los expected con el harness del handoff (`../../tests/fixtures/deckbuilder/gener
 [ADR-028](../DECISIONS.md#adr-028) listas ≠ mazos ·
 [ADR-029](../DECISIONS.md#adr-029) duplicar mazo ·
 [ADR-057](../DECISIONS.md#adr-057) etiquetas: pilas que se solapan, en el sidecar.
+[ADR-059](../DECISIONS.md#adr-059) ajuste de oro: regla viva, overrides en el sidecar.
 
 ## Puntos abiertos
 

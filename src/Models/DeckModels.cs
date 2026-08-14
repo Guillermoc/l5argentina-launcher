@@ -57,6 +57,21 @@ namespace L5ArgentinaLauncher.Models
         /// </summary>
         public Dictionary<string, List<string>> CardTags { get; } =
             new Dictionary<string, List<string>>(StringComparer.Ordinal);
+
+        /// <summary>
+        /// Modo "ajuste de oro" de ESTE mazo (ADR-059): el coste que se ordena y se muestra es el
+        /// que se paga en la mesa, no el impreso. Apagado, nada de esto se aplica (los ajustes
+        /// puestos a mano se conservan igual).
+        /// </summary>
+        public bool GoldAdjustOn { get; set; }
+
+        /// <summary>
+        /// Ajustes de oro puestos A MANO, por CardId — no los que salen de la regla, que se
+        /// calculan al vuelo contra el clan del stronghold. Al disco van por NOMBRE de carta
+        /// (ADR-044). Se manipula desde <c>Services.Deck.DeckGold</c>, no a mano.
+        /// </summary>
+        public Dictionary<string, int> GoldAdjust { get; } =
+            new Dictionary<string, int>(StringComparer.Ordinal);
     }
 
     /// <summary>

@@ -56,6 +56,22 @@ namespace L5ArgentinaLauncher.Services.Deck
             [JsonPropertyName("cardTags")]
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
             public Dictionary<string, List<string>> CardTags { get; set; }
+
+            /// <summary>
+            /// Modo "ajuste de oro" del mazo (ADR-059). Nullable para no ensuciar el sidecar de
+            /// los mazos que no lo usan: ausente y false significan lo mismo.
+            /// </summary>
+            [JsonPropertyName("goldAdjust")]
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+            public bool? GoldAdjust { get; set; }
+
+            /// <summary>
+            /// Ajustes de oro puestos a mano, por NOMBRE de carta (ADR-044). Solo los overrides:
+            /// lo que sale de la regla se recalcula al abrir contra el stronghold del momento.
+            /// </summary>
+            [JsonPropertyName("cardGold")]
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+            public Dictionary<string, int> CardGold { get; set; }
         }
 
         private class TagMeta
@@ -188,6 +204,7 @@ namespace L5ArgentinaLauncher.Services.Deck
                             .ToUnixTimeMilliseconds();
                     if (type != ListType) RestoreTrimmed(deck, m);
                     RestoreTags(deck, m); // después del recorte: una recortada también se etiqueta
+                    RestoreGold(deck, m); // ídem: una recortada conserva su ajuste de oro
                     Repo.AttachLoadedDeck(deck);
                     _fileByDeckId[deck.Id] = baseName;
                     _updatedAt[deck.Id] = File.GetLastWriteTimeUtc(file);
@@ -249,6 +266,27 @@ namespace L5ArgentinaLauncher.Services.Deck
                     var tag = DeckTags.Add(deck, name); // ya existe → devuelve la que había
                     if (tag != null) DeckTags.Set(deck, card.Id, tag.Name, true);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Reconstruye el modo y los ajustes de oro puestos a mano. Los nombres se resuelven con
+        /// la misma tolerancia que el .txt y los de cartas que ya no están se descartan (el ajuste
+        /// acompaña a la carta). Lo que sale de la regla NO está acá: se recalcula al vuelo contra
+        /// el stronghold del momento, así que un mazo que cambió de stronghold entre sesiones
+        /// abre con los ajustes nuevos.
+        /// </summary>
+        private void RestoreGold(Models.Deck deck, DeckMeta meta)
+        {
+            if (meta == null) return;
+            deck.GoldAdjustOn = meta.GoldAdjust == true;
+            if (meta.CardGold == null) return;
+            foreach (var pair in meta.CardGold)
+            {
+                var card = Repo.GetCardByNameRelaxed(pair.Key);
+                if (card == null) continue;
+                if (!deck.Cards.Any(e => string.Equals(e.CardId, card.Id, StringComparison.Ordinal))) continue;
+                DeckGold.Set(deck, card.Id, pair.Value); // acota a ±3 (sidecar editado a mano)
             }
         }
 
@@ -377,9 +415,12 @@ namespace L5ArgentinaLauncher.Services.Deck
                     Repo.SetInList(copyId, entry.CardId, true);
             }
             else Repo.ImportCards(copyId, Repo.ExportDeck(id));
-            // Las etiquetas son del mazo, así que la copia se las lleva: duplicar un mazo para
-            // probar una variante y perder la clasificación sería empezar de cero.
-            DeckTags.CopyTo(deck, Repo.GetDeckById(copyId));
+            // Las etiquetas y los ajustes de oro son del mazo, así que la copia se los lleva:
+            // duplicar un mazo para probar una variante y perder la clasificación —o tener que
+            // volver a ajustar el oro carta por carta— sería empezar de cero.
+            var copy = Repo.GetDeckById(copyId);
+            DeckTags.CopyTo(deck, copy);
+            DeckGold.CopyTo(deck, copy);
             PersistMeta();
             return copyId;
         }
@@ -456,9 +497,10 @@ namespace L5ArgentinaLauncher.Services.Deck
                     .Select(e => Repo.GetCardById(e.CardId)?.Name)
                     .Where(n => n != null)
                     .ToList();
-                // Sacar una carta con ✕ se lleva su clasificación: acá se limpia lo que quedó
-                // colgando, así memoria y disco dicen lo mismo.
+                // Sacar una carta con ✕ se lleva su clasificación y su ajuste de oro: acá se
+                // limpia lo que quedó colgando, así memoria y disco dicen lo mismo.
                 DeckTags.Prune(deck);
+                DeckGold.Prune(deck);
                 dto.Decks[MetaKey(baseName, deck.Type)] = new DeckMeta
                 {
                     Notes = deck.Notes,
@@ -470,6 +512,8 @@ namespace L5ArgentinaLauncher.Services.Deck
                         .Select(t => new TagMeta { Name = t.Name, Color = t.Color })
                         .ToList(),
                     CardTags = CardTagsByName(deck),
+                    GoldAdjust = deck.GoldAdjustOn ? true : (bool?)null,
+                    CardGold = CardGoldByName(deck),
                 };
             }
             Directory.CreateDirectory(Path.GetDirectoryName(_metaPath));
@@ -491,6 +535,23 @@ namespace L5ArgentinaLauncher.Services.Deck
                 if (name == null) continue;
                 if (result == null) result = new Dictionary<string, List<string>>(StringComparer.Ordinal);
                 result[name] = pair.Value.ToList();
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Ajustes manuales traducidos de CardId a NOMBRE de carta (ADR-044). null si no hay
+        /// ninguno, para no ensuciar el sidecar de los mazos que no los usan.
+        /// </summary>
+        private Dictionary<string, int> CardGoldByName(Models.Deck deck)
+        {
+            Dictionary<string, int> result = null;
+            foreach (var pair in deck.GoldAdjust)
+            {
+                var name = Repo.GetCardById(pair.Key)?.Name;
+                if (name == null) continue;
+                if (result == null) result = new Dictionary<string, int>(StringComparer.Ordinal);
+                result[name] = pair.Value;
             }
             return result;
         }

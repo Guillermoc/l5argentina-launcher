@@ -9,6 +9,10 @@ Leyenda: ⏳ en curso/esperando · 🔜 próximo · ⬜ pendiente · ⏸️ dife
 extraído a un control compartido ([ADR-058](DECISIONS.md#adr-058)). Batería en verde.
 **Foco actual:** SEC-6 (firma del exe con SignPath, esperando aprobación OSS).
 
+> ⚠️ **Sin revisar desde antes del 2026-08-03** (triage del hub, 2026-08-12): confirmar que "Estado
+> hoy" y "Foco actual" siguen vigentes antes de asignar IDs a los 19 ítems abiertos de §2-4 —
+> `hub:MET-5` en [`backlog/tareas.md`](../../Proyectos/backlog/tareas.md) precede a esta tarea.
+
 ---
 
 ## 1. Seguridad
@@ -144,6 +148,9 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 - ⏸️ Goldfish (sandbox de testeo) — fuera de alcance; la spec del handoff lo cubre si se quiere.
 - ⏸️ Grupos de usuario (carpetas de mazos) — no portados. `deck_card_groups` (un grupo excluyente por
   carta) queda descartado: las etiquetas cubren el caso con un modelo mejor.
+- ✅ **Ajuste de oro**: el orden por coste usa el que se **paga** —regla del clan del stronghold
+  (−2 propio / +2 otro clan grande), ajustable a mano de −3 a +3 por carta— y la regla se recalcula
+  sola contra el stronghold del momento ([ADR-059](DECISIONS.md#adr-059)).
 - ⬜ Etiquetar **varias cartas a la vez** (selección múltiple en el centro del editor). Hoy es carta
   por carta; clasificar un mazo ya armado de 50 pide esto.
 - ⬜ Etiquetas globales, compartidas entre mazos (hoy son de cada mazo, que es lo que se decidió en

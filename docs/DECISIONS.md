@@ -1828,3 +1828,54 @@ antes que `t.`**, o "tx.algo" se leería como el tipo "x.algo".
 ([ADR-050](#adr-050), [ADR-051](#adr-051)), y el selftest no cubre UI. Se verificó a mano: el panel
 del Buscador quedó idéntico y el del editor filtra (chip Tipo=Holding sobre un mazo Crab deja
 `Dynasty (18) [11] → Holding (18) [11]`).
+
+---
+
+## ADR-059 — El ajuste de oro es una regla viva, no un número escrito en cada carta
+
+**Fecha:** 2026-08-13 · **Estado:** vigente.
+
+**El problema.** El coste que trae el catálogo es el **impreso**, y en la mesa casi nadie paga eso:
+las reglas del formato le dan 2 de descuento a las personalidades del clan de tu stronghold y le
+cobran 2 de más a las de otro clan. Un mazo escorpión con un escorpión de 8, un no alineado de 8 y un
+dragón de 8 los paga 6, 8 y 10 — y el orden por coste, que es el que se usa para leer la curva, los
+mostraba juntos. Ordenar por un número que no es el que se paga vuelve el orden decorativo.
+
+**Qué se agrega.** Un modo por mazo (chip **Ajuste de oro**, en el panel de Filtros) que hace que el
+orden por coste, los mini-stats de la vista Lista y la curva de las stats usen el coste **efectivo**.
+Cada carta se puede ajustar a mano entre −3 y +3 desde el menú del click derecho, y las que tienen
+ajuste distinto de cero lo muestran en la grilla como una pastilla discreta contra el borde derecho.
+
+**La decisión de fondo: la regla no se materializa.** La alternativa natural era, al prender el modo,
+recorrer el mazo y escribirle a cada personalidad su −2 o su +2. Se descartó: eso convierte una regla
+en 40 datos que envejecen. Cambiar el stronghold —probar el mismo mazo en otro clan es media razón por
+la que existe duplicar mazo— dejaría 40 ajustes mintiendo, y cada carta agregada después entraría en
+0 sin que nada lo avise. Acá el ajuste se **calcula** contra el clan del stronghold del momento, y al
+sidecar van **solo los overrides** que puso el usuario. Consecuencia buscada: cambiar el stronghold
+re-ajusta el mazo entero solo, y una personalidad agregada mañana ya entra ajustada.
+
+El precio es que "lo dice la regla" y "lo puse yo" son estados distintos y hay que poder distinguirlos:
+el menú lo dice en su encabezado y ofrece **Volver a la regla** cuando el valor es manual. Elegir a
+mano el mismo número que la regla **sigue siendo** un override — es lo que permite fijar una carta que
+no quiere seguir moviéndose.
+
+**Solo los nueve clanes grandes pagan el sobrecosto.** El campo `clan` del catálogo también trae
+shadowlands, ratling, naga, ronin, hare, spirit, monk y ninja (~100 personalidades) — que el filtro de
+clan del Buscador ni siquiera expone. Se tratan como una personalidad sin clan: ajuste 0. El
+**descuento**, en cambio, es literal —si la carta lleva el clan del stronghold, sea cual sea, es tuya—.
+Sin stronghold no hay contra qué comparar y la regla no ajusta nada.
+
+**Dónde vive.** `Services/Deck/DeckGold.cs`, con la misma forma que `DeckTags`: estático, sobre el
+`Deck` en memoria y por CardId, y `DeckLibrary` traduciendo a **nombre de carta** en el borde
+([ADR-044](#adr-044)). Al sidecar `decksmeta.json` van `goldAdjust` (el modo) y `cardGold` (los
+overrides); nunca al `.txt`, que lo lee el juego y no tiene forma de expresar esto
+([ADR-022](#adr-022), [ADR-024](#adr-024)). El coste efectivo es **de la UI**: `DeckRepository`,
+el export y el PDF no se enteran, así que nada de lo cubierto por los golden cambia de semántica.
+
+**Piso en 0.** Una personalidad de coste 2 con −2 sale gratis, no −1. El ajuste se sigue mostrando
+igual (`−2`): describe la regla, no el resultado.
+
+**De paso, el menú del click derecho se reordenó.** **Copiar imagen** pasó a ser el primer renglón y
+está siempre, también en la vista Lista, donde antes no aparecía. Es lo único del menú que no depende
+del mazo —las etiquetas cambian de mazo en mazo y el bloque de oro puede no estar—, así que dejarlo al
+final lo hacía moverse de lugar según el contexto.

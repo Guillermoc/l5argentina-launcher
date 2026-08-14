@@ -118,6 +118,7 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 | `SunAndMoonDeckFile.cs` | Parse/write del formato `.txt` de la carpeta `Decks` del juego (tolerante a nombres). |
 | `DeckLibrary.cs` | Un `.txt` por conjunto: mazos en `Decks`, listas en `Lists` + sidecar `decksmeta.json`; mazo y lista activos compartidos por proceso. |
 | `DeckTags.cs` | Etiquetas del mazo: vocabulario, asignaciones, filtro y las pilas —la carta compartida está en todas las suyas ([ADR-057](../DECISIONS.md#adr-057)). |
+| `DeckGold.cs` | Ajuste de oro por carta ([ADR-059](../DECISIONS.md#adr-059)): la regla del clan del stronghold (−2 propio / +2 otro clan grande), los ajustes manuales de ±3 y el coste efectivo. La regla se calcula, no se guarda. |
 | `PdfExporter.cs` | Emite el PDF de impresión a mano (sin librería): grilla 3×3 a tamaño real, JPEG embebidos sin recomprimir ([ADR-049](../DECISIONS.md#adr-049)). |
 
 ### Modelos y recursos

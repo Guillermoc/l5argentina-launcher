@@ -554,4 +554,17 @@ Los dos paneles  —  acomodar Buscador y editor lado a lado
   <data name="Deck_TagMatchAllTip" xml:space="preserve"><value>Mostrar solo las cartas que tengan todas las etiquetas marcadas (el cruce)</value></data>
   <data name="Fmt_TagExists" xml:space="preserve"><value>Ya existe una etiqueta "{0}" en este mazo</value></data>
   <data name="Fmt_TagDeleteConfirm" xml:space="preserve"><value>"{0}" está en {1} cartas. Se borra la etiqueta; las cartas se quedan en el mazo.</value></data>
+  <data name="Deck_GoldAdjust" xml:space="preserve"><value>Ajuste de oro</value></data>
+  <data name="Deck_GoldAdjustTip" xml:space="preserve"><value>El coste impreso no es el que se paga: las personalidades de tu clan salen 2 menos y las de otro clan grande, 2 más. Prendido, el orden por coste y las stats usan el coste real, y podés ajustar cada carta con el click derecho.</value></data>
+  <data name="Fmt_GoldRule" xml:space="preserve"><value>Regla: −2 a las personalidades {0} y +2 a las de otro clan grande. Click derecho sobre una carta para ajustarla a mano.</value></data>
+  <data name="Deck_GoldRuleNoStronghold" xml:space="preserve"><value>Sin stronghold no hay clan contra el cual comparar: la regla no ajusta nada. Podés ponerle el ajuste a cada carta con el click derecho.</value></data>
+  <data name="Fmt_GoldReset" xml:space="preserve"><value>Volver a la regla ({0})</value></data>
+  <data name="Deck_GoldResetTip" xml:space="preserve"><value>Borra los ajustes que pusiste a mano; las cartas vuelven a lo que dice la regla</value></data>
+  <data name="Deck_GoldResetTitle" xml:space="preserve"><value>Volver a la regla</value></data>
+  <data name="Fmt_GoldResetConfirm" xml:space="preserve"><value>Se van a borrar los {0} ajustes que pusiste a mano en este mazo. Las cartas vuelven a lo que dice la regla.</value></data>
+  <data name="Deck_GoldMenuAuto" xml:space="preserve"><value>Ajuste de oro · lo pone la regla</value></data>
+  <data name="Deck_GoldMenuManual" xml:space="preserve"><value>Ajuste de oro · lo pusiste vos</value></data>
+  <data name="Fmt_GoldAuto" xml:space="preserve"><value>Volver a la regla ({0})</value></data>
+  <data name="Fmt_GoldCellTip" xml:space="preserve"><value>Cuesta {0} impreso; con el ajuste se paga {1}</value></data>
+  <data name="Deck_Stats_Adjusted" xml:space="preserve"><value>  (ajustado)</value></data>
 </root>

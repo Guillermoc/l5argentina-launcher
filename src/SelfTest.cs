@@ -417,6 +417,9 @@ namespace L5ArgentinaLauncher
             // ---------- Etiquetas: persistencia por nombre y partición por combinación ----------
             RunDeckTagTests(tempRoot);
 
+            // ---------- Ajuste de oro por carta (el coste que se paga vs. el impreso) ----------
+            RunDeckGoldTests(tempRoot);
+
             // ---------- Prefijos de la barra de filtro (los usan el Buscador y Mazos) ----------
             RunBarPrefixTests();
 
@@ -1244,6 +1247,136 @@ namespace L5ArgentinaLauncher
                 .Repo.Decks.First(d => d.Name == "Deshonor");
             Assert(DeckTags.Has(shuffledDeck, "NEW-TDoW012", "Deshonor total"),
                 "Etiquetas: sobreviven a un cambio de ids del catálogo");
+        }
+
+        /// <summary>
+        /// Ajuste de oro por carta (ADR-059). Lo que se verifica es la regla —lo único con
+        /// semántica no obvia— y que el ajuste puesto a mano mande sobre ella y sobreviva al
+        /// disco. La regla es VIVA: no se materializa al prender el modo, así que cambiar el
+        /// stronghold tiene que re-ajustar el mazo entero sin que nadie toque una carta.
+        /// Extra del launcher: ningún golden lo cubre.
+        /// </summary>
+        private static void RunDeckGoldTests(string tempRoot)
+        {
+            var fixturesDir = FindRepoRelative(Path.Combine("tests", "fixtures", "deckbuilder"));
+            if (fixturesDir == null) return;
+
+            Line("");
+            Line("=== Ajuste de oro de las cartas del mazo ===");
+            var dataDir = Path.Combine(fixturesDir, "data");
+            var catalog = Services.Search.CatalogStore.Load(dataDir);
+            var root = Path.Combine(tempRoot, "goldinstall");
+            var decksDir = Path.Combine(root, "Decks");
+            var listsDir = Path.Combine(root, "Lists");
+            var metaPath = Path.Combine(tempRoot, "goldmeta.json");
+            Directory.CreateDirectory(decksDir);
+
+            // El ejemplo del pedido: mazo escorpión con tres personalidades de coste 8 impreso.
+            const string strongholdSc = "Samurai407";   // Kyuden Wasuremono    · scorpion
+            const string persScorpion = "TTT053";       // Shosuro Jimen        · scorpion    · 8
+            const string persUnaligned = "IG1013";      // Hitofu               · sin clan    · 8
+            const string persDragon = "Samurai091";     // Togashi Kazuki       · dragon      · 8
+            const string persShadow = "Celestial179";   // Shio no Oni          · shadowlands · 8
+            const string persCheap = "IG3018";          // Shosuro Nishu        · scorpion    · 2
+
+            var lib = new DeckLibrary(catalog, decksDir, metaPath, listsDir);
+            var deckId = lib.CreateDeck("Escorpion");
+            foreach (var id in new[] { strongholdSc, persScorpion, persUnaligned, persDragon,
+                                       persShadow, persCheap })
+                lib.Repo.SetCardQuantity(deckId, id, 1);
+            var deck = lib.Repo.GetDeckById(deckId);
+            var clan = lib.Repo.DeckClan(deckId);
+            Func<string, Card> get = id => lib.Repo.GetCardById(id);
+
+            Assert(clan == "scorpion", $"Ajuste de oro: el clan del mazo sale del stronghold (es '{clan}')");
+
+            // Apagado no ajusta nada, aunque la regla tenga algo que decir
+            Assert(DeckGold.Effective(deck, get(persDragon), clan) == 0 &&
+                   DeckGold.EffectiveCost(deck, get(persDragon), clan) == 8,
+                "Ajuste de oro: con el modo apagado el coste es el impreso");
+
+            deck.GoldAdjustOn = true;
+
+            // Las dos reglas del formato sobre el ejemplo: 8 impreso → 6 / 8 / 10 pagados
+            Assert(DeckGold.EffectiveCost(deck, get(persScorpion), clan) == 6,
+                "Ajuste de oro: una personalidad de tu clan cuesta 2 menos");
+            Assert(DeckGold.EffectiveCost(deck, get(persUnaligned), clan) == 8,
+                "Ajuste de oro: una personalidad sin clan paga lo impreso");
+            Assert(DeckGold.EffectiveCost(deck, get(persDragon), clan) == 10,
+                "Ajuste de oro: una personalidad de otro clan grande cuesta 2 más");
+            Assert(DeckGold.EffectiveCost(deck, get(persShadow), clan) == 8,
+                "Ajuste de oro: shadowlands y las facciones menores NO pagan el sobrecosto");
+            Assert(DeckGold.Effective(deck, get(strongholdSc), clan) == 0,
+                "Ajuste de oro: la regla es solo de personalities (el stronghold no se ajusta)");
+
+            // Es el orden lo que se buscaba arreglar: tres cartas de 8 impreso, tres lugares
+            var byCost = new[] { persDragon, persUnaligned, persScorpion }
+                .OrderBy(id => DeckGold.EffectiveCost(deck, get(id), clan) ?? int.MaxValue)
+                .ToList();
+            Assert(byCost.SequenceEqual(new[] { persScorpion, persUnaligned, persDragon }),
+                "Ajuste de oro: tres cartas de coste 8 impreso se ordenan 6 < 8 < 10");
+
+            // El ajuste manual manda sobre la regla, y volver a null devuelve el automático
+            DeckGold.Set(deck, persDragon, 1);
+            Assert(DeckGold.EffectiveCost(deck, get(persDragon), clan) == 9 &&
+                   DeckGold.HasOverride(deck, persDragon),
+                "Ajuste de oro: el ajuste puesto a mano gana sobre la regla");
+            DeckGold.Set(deck, persDragon, null);
+            Assert(!DeckGold.HasOverride(deck, persDragon) &&
+                   DeckGold.EffectiveCost(deck, get(persDragon), clan) == 10,
+                "Ajuste de oro: volver a la regla devuelve el ajuste automático");
+
+            // Topes: ±3 al fijarlo, y el coste nunca queda negativo
+            DeckGold.Set(deck, persDragon, 7);
+            Assert(DeckGold.OverrideOf(deck, persDragon) == DeckGold.MaxAdjust,
+                "Ajuste de oro: el ajuste manual se acota a ±3");
+            DeckGold.Set(deck, persCheap, -3);
+            Assert(DeckGold.EffectiveCost(deck, get(persCheap), clan) == 0,
+                "Ajuste de oro: el coste ajustado tiene piso en 0, no se paga negativo");
+            DeckGold.Set(deck, persDragon, 1);
+            lib.SaveMeta();
+
+            // El .txt es del juego: esto no puede asomar ahí de ninguna forma
+            var txt = File.ReadAllText(Path.Combine(decksDir, "Escorpion.txt"));
+            Assert(!txt.Contains("cardGold") && !txt.Contains("+1"),
+                "Ajuste de oro: NO se escribe en el .txt del juego");
+            var meta = File.ReadAllText(metaPath);
+            Assert(meta.Contains("cardGold") && meta.Contains("Togashi Kazuki") &&
+                   !meta.Contains(persDragon),
+                "Ajuste de oro: va al sidecar por NOMBRE de carta, nunca por id (ADR-044)");
+            Assert(!meta.Contains("Shosuro Jimen"),
+                "Ajuste de oro: lo que sale de la regla no se materializa en el sidecar");
+
+            // Round-trip por disco
+            var lib2 = new DeckLibrary(catalog, decksDir, metaPath, listsDir);
+            var deck2 = lib2.Repo.Decks.First(d => d.Name == "Escorpion");
+            Assert(deck2.GoldAdjustOn, "Ajuste de oro: el modo prendido vuelve del sidecar");
+            Assert(DeckGold.OverrideOf(deck2, persDragon) == 1 && DeckGold.OverrideCount(deck2) == 2,
+                "Ajuste de oro: los ajustes manuales vuelven del sidecar");
+            Assert(DeckGold.EffectiveCost(deck2, get(persScorpion), clan) == 6,
+                "Ajuste de oro: la regla se recalcula al abrir, no se guarda");
+
+            // La regla es VIVA: cambiar el stronghold re-ajusta el mazo entero solo
+            lib2.Repo.DeleteCardEntry(deck2.Id, strongholdSc);
+            lib2.Repo.SetCardQuantity(deck2.Id, "Samurai400", 1); // stronghold de otro clan
+            var newClan = lib2.Repo.DeckClan(deck2.Id);
+            Assert(newClan != null && newClan != "scorpion" &&
+                   DeckGold.EffectiveCost(deck2, get(persScorpion), newClan) == 10,
+                "Ajuste de oro: cambiar el stronghold re-ajusta el mazo sin tocar carta por carta");
+
+            // Sin stronghold no hay contra qué comparar
+            Assert(DeckGold.RuleFor(get(persScorpion), null) == 0,
+                "Ajuste de oro: sin stronghold la regla no ajusta nada");
+
+            // Sacar la carta se lleva su ajuste (acompaña a la carta, como la etiqueta)
+            lib2.Repo.DeleteCardEntry(deck2.Id, persDragon);
+            Assert(!File.ReadAllText(metaPath).Contains("Togashi Kazuki"),
+                "Ajuste de oro: sacar la carta del mazo limpia su ajuste del sidecar");
+
+            // Duplicar se lleva el modo y los ajustes
+            var copy = lib2.Repo.GetDeckById(lib2.DuplicateDeck(deck2.Id));
+            Assert(copy.GoldAdjustOn && DeckGold.OverrideOf(copy, persCheap) == -3,
+                "Ajuste de oro: duplicar el mazo copia el modo y los ajustes manuales");
         }
 
         /// <summary>

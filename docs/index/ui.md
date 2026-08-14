@@ -207,11 +207,14 @@ píldora quedó reservada al único rol que le corresponde. Todos viven en `Card
 | Acción sobre la carta del detalle | `DetailActionBtn` (píldora chata con glifo + etiqueta) | `+ Mazo`, `☆ Favorita`, `≡ A la lista`… |
 | Acción dentro de un popup | `MenuRow` (ancho completo, texto a la izquierda, hover rojo) | menú `⋯` del editor de Mazos, menú de carta y de etiqueta |
 | Elegir un color | `ColorSwatch` (círculo de 22; el elegido lleva borde dorado grueso, no un tilde) | paleta del menú de etiqueta |
+| Elegir un valor de una escala corta | tira de `FilterChip` angostos, el vigente tildado | ajuste de oro (−3 … +3) del menú de carta |
 
 **Click derecho: copiar en el Buscador, menú en el editor.** En el Buscador copia el arte directo. En
-el editor de Mazos abre el **menú de la carta** —sus etiquetas, `＋ Etiqueta nueva…` y, al pie,
-**Copiar imagen**— porque ahí etiquetar es el gesto repetido y copiar es ocasional
-([ADR-057](../DECISIONS.md#adr-057)). En las dos, `CardImageClipboard` **re-decodifica el archivo a
+el editor de Mazos abre el **menú de la carta**: **Copiar imagen** primero y siempre —también en la
+vista Lista—, después el **ajuste de oro** si ese modo está prendido ([ADR-059](../DECISIONS.md#adr-059))
+y al pie sus **etiquetas** con `＋ Etiqueta nueva…` ([ADR-057](../DECISIONS.md#adr-057)). Copiar
+encabeza por ser lo único del menú que no depende del mazo: al final se movía de lugar según cuántas
+etiquetas hubiera. En las dos, `CardImageClipboard` **re-decodifica el archivo a
 tamaño completo**: la miniatura de la grilla se decodifica a ~340 px para no reventar la memoria, y
 pegar eso en el Discord daría una imagen borrosa. Lo mismo usa la previsualización con Alt.
 

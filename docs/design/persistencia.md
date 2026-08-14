@@ -12,7 +12,7 @@ agrega estado nuevo, se decide acá primero.
 | Config del usuario | `%APPDATA%\L5Argentina Launcher\config.json` | JSON (`UserConfig`) | `ConfigService` |
 | Favoritas / ocultas | `%APPDATA%\...\usercards.json` | JSON v2, **por nombre de carta** | `UserCardDataStore` |
 | Presets de filtros | `%APPDATA%\...\presets.json` | JSON (nombres compatibles con los golden) | `FilterPresetStore` |
-| Metadata de mazos y listas | `%APPDATA%\...\decksmeta.json` | JSON, indexado por **nombre de archivo** (listas prefijadas `list:`); incluye las **recortadas** y las **etiquetas** (vocabulario + asignaciones), por nombre de carta | `DeckLibrary` |
+| Metadata de mazos y listas | `%APPDATA%\...\decksmeta.json` | JSON, indexado por **nombre de archivo** (listas prefijadas `list:`); incluye las **recortadas**, las **etiquetas** (vocabulario + asignaciones) y el **ajuste de oro** (el modo + los ajustes manuales), por nombre de carta | `DeckLibrary` |
 | **Los mazos** | `<SunAndMoon>\Decks\<Nombre>.txt` | formato del juego | `DeckLibrary` + `SunAndMoonDeckFile` |
 | **Las listas** | `<SunAndMoon>\Lists\<Nombre>.txt` | mismo formato, 1 copia por carta | `DeckLibrary` + `SunAndMoonDeckFile` |
 | Descargas verificadas | `%LOCALAPPDATA%\...\cache\` (`catalog\`, `packs\`) | archivos tal cual | `DownloadService` |
@@ -76,10 +76,16 @@ corrompe, se regenera y no se pierde ningún mazo. Por eso se indexa por nombre 
 un id interno.
 
 **5 bis. Lo que el juego no lee se guarda sin tocar su archivo.** Las etiquetas
-([ADR-057](../DECISIONS.md#adr-057)) van solo al sidecar, y `DeckLibrary.SaveMeta()` existe para
-persistirlas **sin reescribir el `.txt`**: reescribir un archivo ajeno por un dato que no le significa
-nada es riesgo sin beneficio. Cada guardado poda además las asignaciones de cartas que ya no están en
-el mazo, así memoria y disco dicen lo mismo.
+([ADR-057](../DECISIONS.md#adr-057)) y el ajuste de oro ([ADR-059](../DECISIONS.md#adr-059)) van solo
+al sidecar, y `DeckLibrary.SaveMeta()` existe para persistirlos **sin reescribir el `.txt`**: reescribir un archivo ajeno por un dato que no le significa
+nada es riesgo sin beneficio. Cada guardado poda además las asignaciones y los ajustes de cartas que ya
+no están en el mazo, así memoria y disco dicen lo mismo.
+
+**5 ter. Una regla no se guarda: se recalcula.** Del ajuste de oro va al sidecar el modo y **solo los
+ajustes que puso el usuario a mano**; lo que sale de la regla se calcula al abrir, contra el clan del
+stronghold del momento ([ADR-059](../DECISIONS.md#adr-059)). Materializarla convertiría una regla en
+40 datos que envejecen: cambiar el stronghold dejaría todos mintiendo. Vale para cualquier estado
+nuevo que sea *derivable* — se guarda la excepción, no el resultado.
 
 **6. Nunca se destruye contenido ajeno.** El `database.xml` se respalda antes de cada sobrescritura;
 la Original se captura una sola vez y no se pisa nunca; las líneas de un `.txt` que no se entienden

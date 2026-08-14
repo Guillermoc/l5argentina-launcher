@@ -463,6 +463,26 @@
                                               ToolTip="{loc:Loc Deck_ShowTrimmedTip}"
                                               Checked="ShowTrimmed_Click" Unchecked="ShowTrimmed_Click" />
 
+                                <!-- ══ Ajuste de oro (ADR-059) ══
+                                     El coste impreso no es el que se paga: las personalidades del
+                                     clan del stronghold cuestan 2 menos y las de otro clan grande,
+                                     2 más. Prendido, el orden por coste y las stats usan el coste
+                                     real y cada carta se puede ajustar a mano con el click derecho.
+                                     La regla se recalcula sola contra el stronghold del momento. -->
+                                <ToggleButton x:Name="GoldAdjustBtn" Style="{StaticResource FilterChip}"
+                                              Margin="0,8,0,0"
+                                              Content="{loc:Loc Deck_GoldAdjust}"
+                                              ToolTip="{loc:Loc Deck_GoldAdjustTip}"
+                                              Checked="GoldAdjust_Click" Unchecked="GoldAdjust_Click" />
+                                <StackPanel x:Name="GoldAdjustRow" Visibility="Collapsed" Margin="2,4,0,0">
+                                    <TextBlock x:Name="GoldAdjustHint" Style="{StaticResource BodySmall}"
+                                               FontSize="11" TextWrapping="Wrap" />
+                                    <Button x:Name="GoldResetBtn" HorizontalAlignment="Left"
+                                            Style="{StaticResource GhostButton}" Height="24" FontSize="12"
+                                            Padding="9,0" Margin="0,5,0,0" Visibility="Collapsed"
+                                            ToolTip="{loc:Loc Deck_GoldResetTip}" Click="GoldReset_Click" />
+                                </StackPanel>
+
                                 <!-- ══ Etiquetas: las pilas de la mesa (ADR-057) ══
                                      Agrupar por etiqueta cambia el eje del centro; los chips filtran.
                                      Todo junto en un solo bloque porque es una sola idea, y plegado

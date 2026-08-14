@@ -87,6 +87,10 @@ namespace L5ArgentinaLauncher.Views
         // cambiar de mazo (_tagFilterDeckId es quien lo detecta).
         private readonly HashSet<string> _tagFilter = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private string _tagFilterDeckId;
+        // Clan del stronghold del mazo abierto: toda la regla de ajuste de oro es relativa a él
+        // (ADR-059). Se cachea por rebuild — resolverlo recorre las cartas del mazo y el cuerpo lo
+        // necesita una vez por carta.
+        private string _deckClan;
 
         /// <summary>Opacidad de una carta recortada (está en el mazo, no se juega).</summary>
         private const double TrimmedOpacity = 0.42;
@@ -697,6 +701,7 @@ namespace L5ArgentinaLauncher.Views
 
             RefreshCounts(deck);
             RefreshTags(); // antes del cuerpo: puede limpiar el filtro al cambiar de mazo
+            RefreshGold(); // ídem: el modo es del mazo, no de la ventana
             RebuildDeckBody(deck);
             RebuildStats(deck);
 
@@ -857,6 +862,8 @@ namespace L5ArgentinaLauncher.Views
                 return;
             }
 
+            _deckClan = Repo.DeckClan(deck.Id);
+
             // La caja acepta los prefijos del Buscador: en modo operador (tx./k./c./t.) no filtra
             // por nombre, o "k.bushi" no matchearía ningún nombre y el mazo se vería vacío.
             var barMode = CardFilterPanel.ParseBar(FilterBox.Text, out var barValue);
@@ -918,7 +925,7 @@ namespace L5ArgentinaLauncher.Views
                 {
                     DeckBody.Children.Add(TypeHeader(
                         $"{Capitalize(typeGroup.Key)} — ({typeGroup.Sum(x => x.Entry.Quantity)}) [{typeGroup.Count(x => x.Entry.Quantity > 0)}]"));
-                    AddCards(deck, SortEntries(typeGroup, sort, asc), gridView);
+                    AddCards(deck, SortEntries(deck, typeGroup, sort, asc), gridView);
                 }
 
                 // Aviso blando de slots de holding inicial sin cubrir (bajo Starter)
@@ -939,7 +946,7 @@ namespace L5ArgentinaLauncher.Views
         private void BuildTagSections(Models.Deck deck, List<(DeckCardEntry Entry, Card Card)> entries,
                                       DeckCardSort sort, bool asc, bool gridView)
         {
-            var visible = SortEntries(entries.Where(x => GroupVisible(x.Card.DeckGroup)), sort, asc);
+            var visible = SortEntries(deck, entries.Where(x => GroupVisible(x.Card.DeckGroup)), sort, asc);
             foreach (var section in DeckTags.Sections(deck, visible, x => x.Card.Id))
             {
                 var title = section.Tag ?? Strings.Get("Deck_TagUntagged");
@@ -977,10 +984,12 @@ namespace L5ArgentinaLauncher.Views
 
         /// <summary>
         /// Orden dentro de una sección: solo el campo se invierte (port de sortComparator), y el
-        /// desempate siempre es por nombre.
+        /// desempate siempre es por nombre. Por coste ordena por el que se PAGA cuando el ajuste
+        /// de oro está prendido (ADR-059); apagado, `Effective` da 0 y la clave es la de siempre.
         /// </summary>
-        private static IEnumerable<(DeckCardEntry Entry, Card Card)> SortEntries(
-            IEnumerable<(DeckCardEntry Entry, Card Card)> source, DeckCardSort sort, bool asc)
+        private IEnumerable<(DeckCardEntry Entry, Card Card)> SortEntries(
+            Models.Deck deck, IEnumerable<(DeckCardEntry Entry, Card Card)> source,
+            DeckCardSort sort, bool asc)
         {
             switch (sort)
             {
@@ -989,7 +998,8 @@ namespace L5ArgentinaLauncher.Views
                 case DeckCardSort.FORCE:
                     return Order(source, x => x.Card.Force ?? int.MinValue, asc, Comparer<int>.Default).ThenByName();
                 default: // GOLD_COST
-                    return Order(source, x => x.Card.Cost ?? int.MaxValue, asc, Comparer<int>.Default).ThenByName();
+                    return Order(source, x => DeckGold.EffectiveCost(deck, x.Card, _deckClan) ?? int.MaxValue,
+                                 asc, Comparer<int>.Default).ThenByName();
             }
         }
 
@@ -1116,7 +1126,7 @@ namespace L5ArgentinaLauncher.Views
             if (trimmed)
                 name.Inlines.Add(new System.Windows.Documents.Run("  " + Strings.Get("Deck_TrimmedTag"))
                 { Foreground = (Brush)FindResource("TextFaint"), FontSize = 10 });
-            var mini = MiniStats(card);
+            var mini = MiniStats(card, DeckGold.Effective(deck, card, _deckClan));
             if (mini.Length > 0)
                 name.Inlines.Add(new System.Windows.Documents.Run("   " + mini)
                 { Foreground = (Brush)FindResource("TextDim"), FontSize = 11 });
@@ -1219,6 +1229,33 @@ namespace L5ArgentinaLauncher.Views
                     Margin = new Thickness(5),
                     Child = marks,
                 });
+
+            // Ajuste de oro (ADR-059): pastilla discreta contra el borde derecho y a media altura.
+            // Va sobre el arte y no en la barra de acciones porque es un dato de la carta, no una
+            // acción — y ahí abajo competiría con la cantidad, que es lo que se toca.
+            var gold = DeckGold.Effective(deck, card, _deckClan);
+            if (gold != 0)
+            {
+                var effective = DeckGold.EffectiveCost(deck, card, _deckClan);
+                imgHost.Children.Add(new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(0xCC, 0x14, 0x0A, 0x05)),
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(5, 1, 5, 2),
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 4, 0),
+                    ToolTip = effective == null ? null
+                        : Strings.Format("Fmt_GoldCellTip", card.DisplayCost, effective.Value),
+                    Child = new TextBlock
+                    {
+                        Text = DeckGold.Format(gold),
+                        FontFamily = (FontFamily)FindResource("BodyFont"),
+                        FontSize = IsTinyZoom ? 10 : 12,
+                        Foreground = (Brush)FindResource("GoldSoft"),
+                    },
+                });
+            }
             layout.Children.Add(imgHost);
 
             ApplyCellFrame(cell, art, card.Id == _selectedCardId);
@@ -1579,13 +1616,34 @@ namespace L5ArgentinaLauncher.Views
         }
 
         /// <summary>
-        /// Menú de una carta del mazo: sus etiquetas para tildar, crear una nueva, y copiar el arte.
-        /// El click derecho copiaba el arte directo; ahora abre esto, con la copia adentro. Etiquetar
-        /// donde está la carta es el gesto de la mesa, y copiar es una acción ocasional.
+        /// Menú de una carta del mazo: **copiar el arte arriba de todo y siempre**, después el
+        /// ajuste de oro si el modo está prendido, y al pie sus etiquetas.
+        ///
+        /// Copiar va fijo en el primer renglón porque es lo único del menú que no depende del
+        /// mazo: las etiquetas cambian de mazo en mazo y el bloque de oro puede no estar, así que
+        /// si copiar quedara al final se movería de lugar y habría que buscarlo con la vista.
+        /// También está en la vista Lista, que no tiene celda: las rutas candidatas se resuelven
+        /// igual que para la previsualización con Alt.
         /// </summary>
         private void ShowCardMenu(Models.Deck deck, Card card, GridCell cell)
         {
             CardMenuItems.Children.Clear();
+            var candidates = cell?.CandidatePaths ??
+                             _resolver.ResolveCandidates(card, null, fallbackChain: true);
+            CardMenuItems.Children.Add(MenuRow(Strings.Get("Detail_CopyImage"), () =>
+            {
+                var ok = CardImageClipboard.TryCopy(candidates);
+                ShowStatus(ok ? Strings.Format("Fmt_CopiedImage", card.Name)
+                              : Strings.Get("Detail_CopyImageFail"));
+            }));
+            CardMenuItems.Children.Add(MenuSeparator());
+
+            if (deck.GoldAdjustOn)
+            {
+                CardMenuItems.Children.Add(GoldMenuBlock(deck, card));
+                CardMenuItems.Children.Add(MenuSeparator());
+            }
+
             foreach (var tag in deck.Tags)
             {
                 var on = DeckTags.Has(deck, card.Id, tag.Name);
@@ -1596,23 +1654,15 @@ namespace L5ArgentinaLauncher.Views
                 }, dot: tag));
             }
             CardMenuItems.Children.Add(MenuRow(Strings.Get("Deck_NewTagChip"), () => CreateTagFor(card.Id)));
-            if (cell != null)
-            {
-                CardMenuItems.Children.Add(new Rectangle
-                {
-                    Height = 1,
-                    Margin = new Thickness(10, 5, 10, 5),
-                    Fill = (Brush)FindResource("OutlineSoft"),
-                });
-                CardMenuItems.Children.Add(MenuRow(Strings.Get("Detail_CopyImage"), () =>
-                {
-                    var ok = CardImageClipboard.TryCopy(cell.CandidatePaths);
-                    ShowStatus(ok ? Strings.Format("Fmt_CopiedImage", card.Name)
-                                  : Strings.Get("Detail_CopyImageFail"));
-                }));
-            }
             CardMenuPopup.IsOpen = true;
         }
+
+        private Rectangle MenuSeparator() => new Rectangle
+        {
+            Height = 1,
+            Margin = new Thickness(10, 5, 10, 5),
+            Fill = (Brush)FindResource("OutlineSoft"),
+        };
 
         /// <summary>
         /// Las diez muestras de la paleta, con la actual marcada. Elegir una la aplica y cierra el
@@ -1664,6 +1714,131 @@ namespace L5ArgentinaLauncher.Views
                 action();
             };
             return row;
+        }
+
+        // ------------------------------------------------------------------ ajuste de oro (ADR-059)
+
+        /// <summary>
+        /// El chip prende el modo en ESTE mazo (queda guardado en el sidecar). Escucha
+        /// `Checked`/`Unchecked` y no `Click` para que también valga cuando el estado lo cambia
+        /// otra cosa —un lector de pantalla, automatización— y no solo el mouse; los refrescos
+        /// programáticos se filtran con `_syncing`, como el resto de la ventana.
+        /// </summary>
+        private void GoldAdjust_Click(object sender, RoutedEventArgs e)
+        {
+            if (_syncing) return;
+            var deck = CurrentDeck;
+            if (deck == null) return;
+            deck.GoldAdjustOn = GoldAdjustBtn.IsChecked == true;
+            AfterGoldChanged();
+        }
+
+        /// <summary>
+        /// Borra los ajustes puestos a mano: el mazo entero vuelve a lo que dice la regla. Se
+        /// confirma porque es trabajo del usuario que no se puede deshacer.
+        /// </summary>
+        private void GoldReset_Click(object sender, RoutedEventArgs e)
+        {
+            var deck = CurrentDeck;
+            var manual = DeckGold.OverrideCount(deck);
+            if (manual == 0) return;
+            if (!Dialogs.Confirm(this, Strings.Get("Deck_GoldResetTitle"),
+                    Strings.Format("Fmt_GoldResetConfirm", manual),
+                    Strings.Get("Btn_YesContinue"))) return;
+            DeckGold.ClearOverrides(deck);
+            AfterGoldChanged();
+        }
+
+        /// <summary>
+        /// El ajuste de oro vive en el sidecar, como las etiquetas: se guarda sin reescribir el
+        /// .txt del juego (el juego no sabe de esto). Rearma también las stats, que con el modo
+        /// prendido miden coste ajustado.
+        /// </summary>
+        private void AfterGoldChanged()
+        {
+            _library.SaveMeta();
+            RefreshGold();
+            RebuildIfReady();
+            RebuildStats(CurrentDeck);
+        }
+
+        /// <summary>
+        /// Estado del bloque. El modo es del mazo, así que al cambiar de mazo el chip sigue lo que
+        /// ese mazo tenía guardado. La línea de abajo dice qué regla está corriendo —el número
+        /// sobre las cartas no explica de dónde sale— y el botón de volver a la regla aparece solo
+        /// si hay algo puesto a mano que borrar.
+        /// </summary>
+        private void RefreshGold()
+        {
+            var deck = CurrentDeck;
+            GoldAdjustBtn.IsEnabled = deck != null;
+            var wasSyncing = _syncing;
+            _syncing = true; // el chip lo estamos poniendo nosotros: no es el usuario prendiéndolo
+            GoldAdjustBtn.IsChecked = deck != null && deck.GoldAdjustOn;
+            _syncing = wasSyncing;
+
+            var on = deck != null && deck.GoldAdjustOn;
+            GoldAdjustRow.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            if (!on) return;
+
+            var clan = Repo.DeckClan(deck.Id);
+            GoldAdjustHint.Text = clan == null
+                ? Strings.Get("Deck_GoldRuleNoStronghold")
+                : Strings.Format("Fmt_GoldRule", ClanLabel(clan));
+            var manual = DeckGold.OverrideCount(deck);
+            GoldResetBtn.Visibility = manual > 0 ? Visibility.Visible : Visibility.Collapsed;
+            GoldResetBtn.Content = Strings.Format("Fmt_GoldReset", manual);
+        }
+
+        /// <summary>
+        /// Bloque de ajuste de oro del menú de la carta: la tira −3…+3 con el valor vigente
+        /// marcado y, si lo puso el usuario, la vuelta a la regla. El encabezado dice si el número
+        /// es automático o a mano, que es lo único que la tira no muestra: elegir el mismo valor
+        /// que la regla es un estado distinto de dejarla decidir, y solo el segundo se mueve si
+        /// cambia el stronghold.
+        /// </summary>
+        private UIElement GoldMenuBlock(Models.Deck deck, Card card)
+        {
+            var manual = DeckGold.OverrideOf(deck, card.Id);
+            var current = DeckGold.Effective(deck, card, _deckClan);
+            var panel = new StackPanel();
+            panel.Children.Add(new TextBlock
+            {
+                Text = Strings.Get(manual != null ? "Deck_GoldMenuManual" : "Deck_GoldMenuAuto"),
+                FontFamily = (FontFamily)FindResource("BodyFont"),
+                FontSize = 11,
+                Foreground = (Brush)FindResource("TextDim"),
+                Margin = new Thickness(14, 3, 14, 5),
+            });
+
+            var strip = new WrapPanel { Margin = new Thickness(14, 0, 8, 0), MaxWidth = 224 };
+            for (var value = -DeckGold.MaxAdjust; value <= DeckGold.MaxAdjust; value++)
+            {
+                var adjust = value;
+                var btn = new ToggleButton
+                {
+                    Style = (Style)FindResource("FilterChip"),
+                    Content = DeckGold.Format(adjust),
+                    IsChecked = adjust == current,
+                    Width = 26,
+                    Padding = new Thickness(0),
+                    Margin = new Thickness(0, 0, 4, 4),
+                };
+                btn.Click += (s, e) =>
+                {
+                    CardMenuPopup.IsOpen = false;
+                    DeckGold.Set(deck, card.Id, adjust);
+                    AfterGoldChanged();
+                };
+                strip.Children.Add(btn);
+            }
+            panel.Children.Add(strip);
+
+            if (manual != null)
+                panel.Children.Add(MenuRow(
+                    Strings.Format("Fmt_GoldAuto", DeckGold.Format(DeckGold.RuleFor(card, _deckClan))),
+                    () => { DeckGold.Set(deck, card.Id, null); AfterGoldChanged(); }));
+            return panel;
         }
 
         // ------------------------------------------------------------------ zoom y previsualización
@@ -1811,10 +1986,16 @@ namespace L5ArgentinaLauncher.Views
             });
         }
 
-        private static string MiniStats(Card card)
+        /// <summary>
+        /// Mini-stats de la fila. Con ajuste de oro el coste impreso NO se reemplaza: se le
+        /// agrega el ajuste al lado (©8 +2). El impreso es lo que dice la carta y lo que se busca
+        /// cuando se la tiene en la mano; el ajuste es una decisión del mazo.
+        /// </summary>
+        private static string MiniStats(Card card, int gold)
         {
             var parts = new List<string>();
-            if (card.DisplayCost.Length > 0) parts.Add("©" + card.DisplayCost);
+            if (card.DisplayCost.Length > 0)
+                parts.Add("©" + card.DisplayCost + (gold != 0 ? " " + DeckGold.Format(gold) : ""));
             if (card.DisplayForce.Length > 0 || card.DisplayChi.Length > 0)
                 parts.Add((card.DisplayForce.Length > 0 ? card.DisplayForce : "–") + "F/" +
                           (card.DisplayChi.Length > 0 ? card.DisplayChi : "–") + "C");
@@ -1929,14 +2110,21 @@ namespace L5ArgentinaLauncher.Views
                         $"    {Capitalize(typeGroup.Key)}: {typeGroup.Sum(x => x.Entry.Quantity)}", dim: true));
             }
 
-            // Curva de coste por tipo (personalities/holdings/followers/items/spells, como la app)
+            // Curva de coste por tipo (personalities/holdings/followers/items/spells, como la app).
+            // Con el ajuste de oro prendido la curva mide lo que se PAGA (ADR-059): medirla sobre
+            // el impreso mientras la lista se ordena por el ajustado sería contarse dos historias.
+            var deckClan = Repo.DeckClan(deck.Id);
+            Func<Card, int?> costOf = card => deck.GoldAdjustOn
+                ? DeckGold.EffectiveCost(deck, card, deckClan)
+                : card.Cost;
             foreach (var type in new[] { "personality", "holding", "follower", "item", "spell" })
             {
                 var ofType = entries.Where(x => x.Card.Type == type).ToList();
                 if (ofType.Count == 0) continue;
                 StatsBody.Children.Add(GroupHeader(
-                    Strings.Get("Deck_Stats_CostCurve") + " — " + Capitalize(type)));
-                var dist = ofType.GroupBy(x => x.Card.Cost)
+                    Strings.Get("Deck_Stats_CostCurve") + " — " + Capitalize(type) +
+                    (deck.GoldAdjustOn ? Strings.Get("Deck_Stats_Adjusted") : "")));
+                var dist = ofType.GroupBy(x => costOf(x.Card))
                     .Select(g => new { Cost = g.Key, Count = g.Sum(x => x.Entry.Quantity) })
                     .OrderBy(g => g.Cost ?? int.MaxValue) // null (coste variable ★) al final
                     .ToList();
@@ -1946,7 +2134,7 @@ namespace L5ArgentinaLauncher.Views
 
                 if (type == "personality")
                 {
-                    var median = MedianCost(ofType);
+                    var median = MedianCost(ofType, costOf);
                     if (median != null)
                         StatsBody.Children.Add(BodyText(
                             Strings.Get("Deck_Stats_Median") + ": " + median, dim: true));
@@ -1986,12 +2174,15 @@ namespace L5ArgentinaLauncher.Views
         }
 
         /// <summary>Mediana de coste de la app: expande por qty, descarta null, división ENTERA.</summary>
-        private static int? MedianCost(List<(DeckCardEntry Entry, Card Card)> ofType)
+        private static int? MedianCost(List<(DeckCardEntry Entry, Card Card)> ofType, Func<Card, int?> costOf)
         {
             var costs = new List<int>();
             foreach (var x in ofType)
-                if (x.Card.Cost != null)
-                    for (int i = 0; i < x.Entry.Quantity; i++) costs.Add(x.Card.Cost.Value);
+            {
+                var cost = costOf(x.Card);
+                if (cost != null)
+                    for (int i = 0; i < x.Entry.Quantity; i++) costs.Add(cost.Value);
+            }
             if (costs.Count == 0) return null;
             costs.Sort();
             return costs.Count % 2 == 1

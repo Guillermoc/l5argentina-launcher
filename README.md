@@ -113,6 +113,10 @@ Versión actual: **0.8.0**.
   que hace las dos cosas aparece **en las dos pilas** —cada pila muestra todo lo que hace esa cosa— y
   la cabecera avisa cuántas comparte. Las etiquetas son de cada mazo, se filtran con chips (unión o
   cruce) y se ven como puntitos de color sobre cada carta.
+  Y el chip **Ajuste de oro** ordena por el coste que **se paga**, no por el impreso: las
+  personalidades de tu clan valen 2 menos y las de otro clan grande, 2 más. La regla se aplica sola
+  contra tu stronghold —cambiarlo re-ajusta el mazo entero— y cada carta se puede ajustar a mano de
+  −3 a +3 con el click derecho.
 - **Tu estado se guarda por nombre de carta, no por id** (desde 0.6.0). El id lo asigna quien genera la
   base de la comunidad y puede reasignarse entre versiones, así que guardarlo hacía que una favorita
   pudiera desaparecer —o pasar a ser otra carta— al actualizar. Al abrir el Buscador por primera vez
@@ -189,7 +193,7 @@ quedan al lado).
 
 Un harness de verificación monta un bucket+instalación falsos en `%TEMP%` y ejercita el pipeline real
 (hash, confinamiento de origen, zip-slip, backups, base zippeada, catálogo y packs del pool) sin tocar
-tu instalación — **319 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
+tu instalación — **341 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
 los **25 golden tests** del deckbuilder, ambos contra la lógica real de la app Android:
 
 ```sh
