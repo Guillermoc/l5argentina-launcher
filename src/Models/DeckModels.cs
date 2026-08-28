@@ -101,6 +101,21 @@ namespace L5ArgentinaLauncher.Models
         /// null = la entrada nació en el launcher (se escribe el nombre del catálogo).
         /// </summary>
         public string SourceName { get; set; }
+
+        /// <summary>
+        /// Tipo del prefijo "Proxy &lt;tipo&gt;: " que traía la línea del .txt, sin el "Proxy " ni
+        /// los dos puntos ("Holding"). En Sun and Moon esa carta NO va al mazo: se apoya boca
+        /// arriba en la mesa. El launcher no hace nada con el dato — lo lee para entender la línea
+        /// y lo reescribe igual ([ADR-060](../../docs/DECISIONS.md#adr-060)). null = línea normal.
+        /// </summary>
+        public string ProxyType { get; set; }
+
+        /// <summary>
+        /// Edición entre paréntesis al final de la línea ("Productive Mine (GoC)"), sin los
+        /// paréntesis. El juego la usa para desempatar entre impresiones de la misma carta; el
+        /// launcher solo la conserva para reescribirla igual. null = la línea no traía ninguna.
+        /// </summary>
+        public string Edition { get; set; }
     }
 
     /// <summary>Línea cruda no resuelta contra el catálogo (nombre desconocido).</summary>

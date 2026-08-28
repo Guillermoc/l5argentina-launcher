@@ -567,4 +567,5 @@ Los dos paneles  —  acomodar Buscador y editor lado a lado
   <data name="Fmt_GoldAuto" xml:space="preserve"><value>Volver a la regla ({0})</value></data>
   <data name="Fmt_GoldCellTip" xml:space="preserve"><value>Cuesta {0} impreso; con el ajuste se paga {1}</value></data>
   <data name="Deck_Stats_Adjusted" xml:space="preserve"><value>  (ajustado)</value></data>
+  <data name="Fmt_DeckCostSection" xml:space="preserve"><value>Costo {0} — ({1}) [{2}]</value></data>
 </root>

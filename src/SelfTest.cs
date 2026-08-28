@@ -405,6 +405,9 @@ namespace L5ArgentinaLauncher
             // ---------- Deckbuilder: persistencia txt de Sun and Moon ----------
             RunDeckStoreTests(tempRoot);
 
+            // ---------- Proxies y ediciones del txt de Sun and Moon ----------
+            RunDeckProxyTests(tempRoot);
+
             // ---------- Conjuntos de cartas: listas como txt + identidad por nombre ----------
             RunCardSetTests(tempRoot);
 
@@ -832,6 +835,130 @@ namespace L5ArgentinaLauncher
             var copyId = lib3.DuplicateDeck(dupA);
             Assert(copyId != null && lib3.Repo.TotalCardCount(copyId) == lib3.Repo.TotalCardCount(dupA),
                 "DeckLibrary: duplicar copia la composición (export→import)");
+        }
+
+        /// <summary>
+        /// Prefijo "Proxy &lt;tipo&gt;: " y edición entre paréntesis del .txt de Sun and Moon
+        /// (ADR-060). El launcher los lee para entender la línea y los reescribe igual —no hace
+        /// nada más con el dato— y marca los starter holdings con "Proxy holding: " al escribir.
+        /// El formato está en docs/technical/contratos/formato-txt-sun-and-moon.md.
+        /// </summary>
+        private static void RunDeckProxyTests(string tempRoot)
+        {
+            var fixturesDir = FindRepoRelative(Path.Combine("tests", "fixtures", "deckbuilder"));
+            if (fixturesDir == null) return;
+
+            Line("");
+            Line("=== Proxies y ediciones del .txt de Sun and Moon ===");
+            var catalog = Services.Search.CatalogStore.Load(Path.Combine(fixturesDir, "data"));
+            var root = Path.Combine(tempRoot, "proxyinstall");
+            var decksDir = Path.Combine(root, "Decks");
+            var listsDir = Path.Combine(root, "Lists");
+            var metaPath = Path.Combine(tempRoot, "proxymeta.json");
+            Directory.CreateDirectory(decksDir);
+            Directory.CreateDirectory(listsDir);
+
+            File.WriteAllText(Path.Combine(decksDir, "Proxies.txt"),
+                "Legality: s_extended\r\n\r\n" +
+                // "- exp2" es lo que escriben los mazos reales del juego: el slot inicial acepta
+                // todas las versiones (filters.json → eligibleCards), no solo el nombre pelado
+                "The Seventh Tower\r\nBorder Keep - exp2\r\nBamboo Harvesters\r\n\r\n" +
+                "2x Jade Works\r\n" +
+                "Proxy Holding: Jade Works\r\n" +        // colisiona con la línea de arriba
+                "Proxy holding: Productive Mine\r\n" +   // la carta aparece SOLO como proxy
+                "1x Copper Mine (Ivory)\r\n" +           // edición entre paréntesis
+                "Proxy wind: Seat of Power\r\n");        // "wind" no es un tipo de proxy válido
+
+            var lib = new DeckLibrary(catalog, decksDir, metaPath, listsDir);
+            var deck = lib.Repo.Decks.First(d => d.Name == "Proxies");
+
+            Assert(lib.Repo.GetDeckCard(deck.Id, "CoM013")?.Quantity == 1
+                   && lib.Repo.GetDeckCard(deck.Id, "HaT001")?.Quantity == 1,
+                "Proxy: los starter holdings del txt cargan como cartas del mazo");
+            var proxyOnly = lib.Repo.GetDeckCard(deck.Id, "GoC012");
+            Assert(proxyOnly != null && proxyOnly.ProxyType == "holding",
+                "Proxy: 'Proxy holding: X' resuelve la carta y conserva el tipo");
+            var withEdition = lib.Repo.GetDeckCard(deck.Id, "Ivory014");
+            Assert(withEdition != null && withEdition.Edition == "Ivory",
+                "Proxy: la edición entre paréntesis se separa del nombre");
+            Assert(lib.Repo.GetDeckCard(deck.Id, "Ivory032")?.Quantity == 2
+                   && deck.Unknown.Any(u => u.Raw == "Proxy Holding: Jade Works"),
+                "Proxy: la misma carta con y sin prefijo NO se fusiona (la segunda queda cruda)");
+            Assert(lib.Repo.GetDeckCard(deck.Id, "Samurai039") == null
+                   && deck.Unknown.Any(u => u.Raw == "Proxy wind: Seat of Power"),
+                "Proxy: un tipo fuera de los doce no es prefijo, la línea queda cruda");
+
+            // Reescritura: los starter holdings salen marcados, el stronghold no
+            lib.Repo.AddCard(deck.Id, "TDoW012"); // Hida Akeno: fuerza el guardado
+            var txt = File.ReadAllText(Path.Combine(decksDir, "Proxies.txt"));
+            Assert(txt.Contains("Proxy holding: Border Keep - exp2\r\n")
+                   && txt.Contains("Proxy holding: Bamboo Harvesters\r\n"),
+                "Proxy: al escribir, los starter holdings llevan 'Proxy holding: '");
+            Assert(txt.Contains("The Seventh Tower\r\n") && !txt.Contains("Proxy holding: The Seventh Tower"),
+                "Proxy: el stronghold se escribe sin prefijo");
+            Assert(txt.Contains("Proxy holding: 1x Productive Mine"),
+                "Proxy: el prefijo que traía el archivo se reescribe igual");
+            Assert(txt.Contains("1x Copper Mine (Ivory)"),
+                "Proxy: la edición se reescribe entre paréntesis");
+            Assert(txt.Contains("2x Jade Works\r\n") && txt.Contains("Proxy Holding: Jade Works"),
+                "Proxy: la línea cruda que colisionaba sobrevive verbatim");
+
+            var lib2 = new DeckLibrary(catalog, decksDir, metaPath, listsDir);
+            var again = lib2.Repo.Decks.First(d => d.Name == "Proxies");
+            Assert(lib2.Repo.GetDeckCard(again.Id, "CoM013")?.ProxyType == "holding"
+                   && lib2.Repo.GetDeckCard(again.Id, "Ivory014")?.Edition == "Ivory",
+                "Proxy: round-trip por disco conserva prefijo y edición");
+
+            // Las listas no las lee el juego: ahí la marca no tiene sentido y no se escribe
+            var listId = lib2.CreateList("Material");
+            lib2.Repo.SetInList(listId, "CoM013", true);
+            var listTxt = File.ReadAllText(Path.Combine(listsDir, "Material.txt"));
+            Assert(listTxt.Contains("Border Keep") && !listTxt.Contains("Proxy holding:"),
+                "Proxy: una lista se escribe sin el prefijo (el juego no lee Lists)");
+
+            // Portapapeles: los marcadores son OPT-IN. Sin ellos, ExportDeck sigue siendo el
+            // string que fija el golden y la mitad de DuplicateDeck (ImportCards hace match
+            // exacto de nombre y un prefijo se le comería la carta).
+            var plain = lib2.Repo.ExportDeck(again.Id);
+            Assert(plain.Contains("Border Keep - exp2") && !plain.Contains("Proxy "),
+                "Proxy: el export sin marcadores queda igual (es el que usa duplicar mazo)");
+            var marked = lib2.Repo.ExportDeck(again.Id, withProxyMarkers: true);
+            Assert(marked.Contains("Proxy holding: Border Keep - exp2")
+                   && marked.Contains("Proxy holding: Bamboo Harvesters"),
+                "Proxy: el export al portapapeles marca los starter holdings");
+            Assert(marked.Contains("Proxy holding: Productive Mine"),
+                "Proxy: el portapapeles también lleva el prefijo que traía el archivo");
+
+            var pasted = lib2.CreateDeck("Pegado");
+            lib2.Repo.ImportCards(pasted, SunAndMoonDeckFile.NormalizeForImport(marked));
+            Assert(lib2.Repo.GetDeckCard(pasted, "CoM013") != null
+                   && lib2.Repo.GetDeckCard(pasted, "GoC012") != null,
+                "Proxy: pegar de vuelta entra limpio (el prefijo se saca en el borde)");
+
+            var dup = lib2.DuplicateDeck(again.Id);
+            Assert(dup != null && lib2.Repo.GetDeckCard(dup, "CoM013") != null,
+                "Proxy: duplicar un mazo con starter holdings no pierde cartas");
+
+            // Pegar un .txt del juego: el import de la app solo entiende "N Nombre", así que el
+            // borde traduce el "Nx". Sin esto rebotaban TODAS las líneas con cantidad.
+            var normalized = SunAndMoonDeckFile.NormalizeForImport(
+                "Legality: s_extended\r\n\r\nThe Seventh Tower\r\n" +
+                "Proxy holding: Bamboo Harvesters\r\n2x Jade Works\r\n" +
+                "# Dynasty - (2) [1]\r\n3 Hida Akeno\r\n");
+            Assert(normalized.Contains("\n2 Jade Works") && !normalized.Contains("2x"),
+                "Import: 'Nx Nombre' se traduce a 'N Nombre' en el borde");
+            Assert(normalized.Contains("\n3 Hida Akeno") && normalized.Contains("# Dynasty - (2) [1]"),
+                "Import: 'N Nombre' y las cabeceras '#' quedan intactas");
+
+            var fromGame = lib2.CreateDeck("Del juego");
+            var imported = lib2.Repo.ImportCards(fromGame, normalized);
+            Assert(lib2.Repo.GetDeckCard(fromGame, "Ivory032")?.Quantity == 2
+                   && lib2.Repo.GetDeckCard(fromGame, "TDoW012")?.Quantity == 3
+                   && lib2.Repo.GetDeckCard(fromGame, "HaT001") != null
+                   && lib2.Repo.GetDeckCard(fromGame, "Samurai395") != null,
+                "Import: un .txt del juego pegado entra completo (cantidades, starter y proxy)");
+            Assert(imported.NotFoundNames.Count == 1 && imported.NotFoundNames[0] == "Legality: s_extended",
+                "Import: del .txt del juego solo rebota el header Legality (no es una carta)");
         }
 
         /// <summary>
@@ -1377,6 +1504,30 @@ namespace L5ArgentinaLauncher
             var copy = lib2.Repo.GetDeckById(lib2.DuplicateDeck(deck2.Id));
             Assert(copy.GoldAdjustOn && DeckGold.OverrideOf(copy, persCheap) == -3,
                 "Ajuste de oro: duplicar el mazo copia el modo y los ajustes manuales");
+
+            // ---- Escalones de coste dentro de Personality (partición, no pilas) ----
+            var pers = new[] { persScorpion, persUnaligned, persDragon, persShadow, persCheap };
+            // En este punto persDragon lleva ajuste manual +1 (9) y persCheap −3 (piso en 0)
+            var sections = DeckGold.CostSections(deck, pers, id => get(id), clan, descending: false);
+            Assert(sections.Select(s => s.Cost).SequenceEqual(new int?[] { 0, 6, 8, 9 }),
+                "Escalones de coste: una sección por coste efectivo, de menor a mayor");
+            Assert(sections.Sum(s => s.Items.Count) == pers.Length &&
+                   sections.All(s => s.Items.Count == s.Items.Distinct().Count()),
+                "Escalones de coste: es una PARTICIÓN — cada carta cae en una sola sección");
+            Assert(sections.Single(s => s.Cost == 8).Items
+                       .OrderBy(x => x, StringComparer.Ordinal)
+                       .SequenceEqual(new[] { persUnaligned, persShadow }.OrderBy(x => x, StringComparer.Ordinal)),
+                "Escalones de coste: las que terminan costando lo mismo caen juntas");
+
+            var desc = DeckGold.CostSections(deck, pers, id => get(id), clan, descending: true);
+            Assert(desc.Select(s => s.Cost).SequenceEqual(new int?[] { 9, 8, 6, 0 }),
+                "Escalones de coste: con el orden por coste invertido, los escalones se dan vuelta");
+
+            // El coste variable (★) no tiene lugar en la escala: va al final en las dos direcciones
+            var withStar = pers.Concat(new[] { "Samurai406" }).ToArray(); // stronghold: coste null
+            Assert(DeckGold.CostSections(deck, withStar, id => get(id), clan, false).Last().Cost == null &&
+                   DeckGold.CostSections(deck, withStar, id => get(id), clan, true).Last().Cost == null,
+                "Escalones de coste: las de coste variable quedan al final en los dos sentidos");
         }
 
         /// <summary>

@@ -426,7 +426,14 @@ namespace L5ArgentinaLauncher.Services.Deck
         /// Formato de texto propio de la app (portapapeles). Las recortadas (quantity=0) y las
         /// líneas desconocidas no se exportan. Golden `export-roundtrip` verifica el string exacto.
         /// </summary>
-        public string ExportDeck(string deckId)
+        /// <param name="withProxyMarkers">
+        /// Agrega los prefijos "Proxy &lt;tipo&gt;: " del formato del juego ([ADR-060](../../../docs/DECISIONS.md#adr-060)):
+        /// forzado en los starter holdings, más el que traía cada línea. **Apagado por defecto**,
+        /// y tiene que seguir así: este mismo export es la mitad de `DuplicateDeck`, que lo
+        /// reimporta con `ImportCards` (match exacto de nombre), y es el string que fija el golden.
+        /// Solo lo prende el botón de copiar al portapapeles.
+        /// </param>
+        public string ExportDeck(string deckId, bool withProxyMarkers = false)
         {
             var deck = GetDeckById(deckId);
             if (deck == null) return "";
@@ -460,6 +467,11 @@ namespace L5ArgentinaLauncher.Services.Deck
                       .Append(typeGroup.Count()).Append("]\n");
                     foreach (var entry in typeGroup)
                     {
+                        if (withProxyMarkers)
+                        {
+                            var proxy = SunAndMoonDeckFile.ProxyMarkerFor(entry.Entry, entry.Card, true);
+                            if (proxy != null) sb.Append("Proxy ").Append(proxy).Append(": ");
+                        }
                         if (entry.Entry.Quantity == 1) sb.Append(entry.Card.Name).Append('\n');
                         else sb.Append(entry.Entry.Quantity).Append(' ').Append(entry.Card.Name).Append('\n');
                     }

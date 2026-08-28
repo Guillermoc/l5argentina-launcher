@@ -2,12 +2,14 @@
 
 El **formato de los datos** que el launcher consume: lo que no controla y tiene que respetar
 mientras exista. No son specs de feature (esas están en [../../functional/](../../functional/), y ahí
-viven también los paquetes de handoff de la app Android): son el contrato con el bucket y con el CDN.
+viven también los paquetes de handoff de la app Android): son el contrato con el bucket, con el CDN
+y con Sun and Moon.
 
 | Contrato | Qué es |
 |---|---|
 | [manifest.example.json](manifest.example.json) | Ejemplo real del `manifest.json` del bucket, con hashes de verdad. |
 | Manifest del pool | Documentado abajo; no tiene archivo de ejemplo propio (hay una copia en `../../../tests/fixtures/buscador/data/manifest-production-2026-07-06.json`). |
+| [formato-txt-sun-and-moon.md](formato-txt-sun-and-moon.md) | El `.txt` de la carpeta `Decks\` del juego: gramática de la línea, proxies, ediciones, cantidades y las trampas del parser (leído del `Assembly-CSharp.dll`), lo que escribe el launcher, y el **otro** formato de texto de un mazo — el del portapapeles, que es el de la app Android y no acepta lo mismo. |
 
 ---
 

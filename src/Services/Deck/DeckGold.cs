@@ -145,10 +145,52 @@ namespace L5ArgentinaLauncher.Services.Deck
             }
         }
 
+        // ------------------------------------------------------------------ agrupación
+
+        /// <summary>
+        /// Una sección por coste EFECTIVO, para partir el bloque de personalities cuando el modo
+        /// está prendido. Es lo que vuelve legible el ajuste: con la regla corriendo, "las de 6"
+        /// es un grupo real del mazo —lo que sale una compra— y no un tramo cualquiera de una
+        /// lista ordenada.
+        ///
+        /// A diferencia de las pilas de etiquetas (<c>DeckTags.Sections</c>), esto **sí es una
+        /// partición**: cada carta cae en exactamente una sección, porque coste efectivo hay uno
+        /// solo. Los conteos por sección, entonces, suman el bloque.
+        ///
+        /// Las de coste variable (★) van siempre al final, apunte donde apunte el orden: no tienen
+        /// lugar en la escala. Dentro de cada sección se preserva el orden de entrada, así que el
+        /// criterio de orden del editor sigue valiendo.
+        /// </summary>
+        public static List<CostSection<T>> CostSections<T>(
+            Models.Deck deck, IEnumerable<T> items, Func<T, Card> cardOf, string deckClan,
+            bool descending)
+        {
+            var sections = new List<CostSection<T>>();
+            if (items == null) return sections;
+            foreach (var item in items)
+            {
+                var cost = EffectiveCost(deck, cardOf(item), deckClan);
+                var section = sections.FirstOrDefault(s => s.Cost == cost);
+                if (section == null) sections.Add(section = new CostSection<T> { Cost = cost });
+                section.Items.Add(item);
+            }
+            return descending
+                ? sections.OrderBy(s => s.Cost == null).ThenByDescending(s => s.Cost ?? 0).ToList()
+                : sections.OrderBy(s => s.Cost == null).ThenBy(s => s.Cost ?? 0).ToList();
+        }
+
         // ------------------------------------------------------------------ presentación
 
         /// <summary>"+2" / "−2" con el mismo signo menos (U+2212) que usan los botones de la UI.</summary>
         public static string Format(int adjust) =>
             adjust > 0 ? "+" + adjust : adjust < 0 ? "−" + (-adjust) : "0";
+    }
+
+    /// <summary>Un escalón de la escala de coste efectivo. <c>Cost</c> null = coste variable (★).</summary>
+    public class CostSection<T>
+    {
+        public int? Cost { get; set; }
+
+        public List<T> Items { get; } = new List<T>();
     }
 }

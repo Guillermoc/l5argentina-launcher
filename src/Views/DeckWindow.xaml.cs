@@ -925,7 +925,15 @@ namespace L5ArgentinaLauncher.Views
                 {
                     DeckBody.Children.Add(TypeHeader(
                         $"{Capitalize(typeGroup.Key)} — ({typeGroup.Sum(x => x.Entry.Quantity)}) [{typeGroup.Count(x => x.Entry.Quantity > 0)}]"));
-                    AddCards(deck, SortEntries(deck, typeGroup, sort, asc), gridView);
+
+                    // Con el ajuste de oro prendido, las personalities se parten por coste
+                    // efectivo (ADR-059): con la regla corriendo, "las de 6" es un grupo real del
+                    // mazo —lo que sale una compra— y no un tramo de una lista ordenada.
+                    if (deck.GoldAdjustOn && string.Equals(typeGroup.Key, "personality",
+                                                           StringComparison.OrdinalIgnoreCase))
+                        AddCostSections(deck, typeGroup, sort, asc, gridView);
+                    else
+                        AddCards(deck, SortEntries(deck, typeGroup, sort, asc), gridView);
                 }
 
                 // Aviso blando de slots de holding inicial sin cubrir (bajo Starter)
@@ -962,6 +970,27 @@ namespace L5ArgentinaLauncher.Views
                 foreach (var slot in Repo.UncoveredRequiredSlots(deck.Id))
                     DeckBody.Children.Add(BodyText(
                         Strings.Format("Fmt_DeckMissingSlots", slot.Label ?? slot.SlotId), error: true));
+        }
+
+        /// <summary>
+        /// Un escalón por coste efectivo dentro del bloque de personalities (ADR-059). Es una
+        /// **partición**: cada carta cae en una sola sección y los conteos suman el bloque, al
+        /// revés que las pilas de etiquetas. Si el orden elegido es por coste, los escalones
+        /// siguen su dirección; con cualquier otro orden van de menor a mayor, que es como se lee
+        /// una curva. Las de coste variable (★) quedan al final en los dos casos.
+        /// </summary>
+        private void AddCostSections(Models.Deck deck, IEnumerable<(DeckCardEntry Entry, Card Card)> entries,
+                                     DeckCardSort sort, bool asc, bool gridView)
+        {
+            var descending = sort == DeckCardSort.GOLD_COST && !asc;
+            foreach (var section in DeckGold.CostSections(deck, entries, x => x.Card, _deckClan, descending))
+            {
+                DeckBody.Children.Add(CostHeader(Strings.Format("Fmt_DeckCostSection",
+                    section.Cost?.ToString() ?? "★",
+                    section.Items.Sum(x => x.Entry.Quantity),
+                    section.Items.Count(x => x.Entry.Quantity > 0))));
+                AddCards(deck, SortEntries(deck, section.Items, sort, asc), gridView);
+            }
         }
 
         /// <summary>Filas o celdas, según la vista. Las cartas ya vienen ordenadas.</summary>
@@ -1025,6 +1054,19 @@ namespace L5ArgentinaLauncher.Views
             FontSize = 13,
             Foreground = (Brush)FindResource("Gold"),
             Margin = new Thickness(8, 6, 0, 3),
+        };
+
+        /// <summary>
+        /// Tercer nivel de cabecera: los escalones de coste adentro de un tipo. Más chica y más
+        /// apagada que `TypeHeader`, y sangrada, para que la jerarquía se lea sin contar niveles.
+        /// </summary>
+        private TextBlock CostHeader(string text) => new TextBlock
+        {
+            Text = text,
+            FontFamily = (FontFamily)FindResource("BodyFont"),
+            FontSize = 12,
+            Foreground = (Brush)FindResource("GoldSoft"),
+            Margin = new Thickness(16, 5, 0, 2),
         };
 
         private TextBlock BodyText(string text, bool dim = false, bool error = false) => new TextBlock
@@ -2298,7 +2340,9 @@ namespace L5ArgentinaLauncher.Views
                 Dialogs.Info(this, Strings.Get("Deck_Import"), Strings.Get("Deck_ImportEmptyClipboard"));
                 return;
             }
-            var result = Repo.ImportCards(_selectedDeckId, text);
+            // el texto se adapta en el BORDE (prefijo de proxy fuera, "Nx" a "N"): ImportCards
+            // porta el match exacto de nombre de la app y no se toca (ADR-023 / ADR-060)
+            var result = Repo.ImportCards(_selectedDeckId, Services.Deck.SunAndMoonDeckFile.NormalizeForImport(text));
             var message = Strings.Format("Fmt_DeckImportResult", result.Imported, result.NotFound);
             if (result.NotFoundNames.Count > 0)
             {
@@ -2315,7 +2359,7 @@ namespace L5ArgentinaLauncher.Views
             if (_selectedDeckId == null) return;
             try
             {
-                Clipboard.SetText(Repo.ExportDeck(_selectedDeckId));
+                Clipboard.SetText(Repo.ExportDeck(_selectedDeckId, withProxyMarkers: true));
                 ShowStatus(Strings.Get("Deck_Exported"));
             }
             catch
