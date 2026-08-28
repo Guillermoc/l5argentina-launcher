@@ -5,7 +5,7 @@ Rings* en la app **Sun and Moon**. Resuelve el problema de mantener sincronizada
 nuestra base de cartas curada: en lugar de copiar archivos a mano, el launcher chequea si hay una base
 nueva en nuestro bucket, deja **elegir con qué base jugar**, la aplica de forma segura y lanza el juego.
 
-Versión actual: **0.8.0**.
+Versión actual: **0.9.0**.
 
 > **Documentación:** mapa completo en [docs/README.md](docs/README.md) · estado actual del código en
 > [docs/index/](docs/index/) (empezar por
@@ -42,12 +42,14 @@ Versión actual: **0.8.0**.
 | Resumen de filtros activos y copiar imagen con click derecho | ✅ | v0.6.0 | [index/buscador.md](docs/index/buscador.md) |
 | Zoom de grilla en 4 tamaños, previsualización con Alt y atajos (`?`) | ✅ | v0.6.0 | [index/ui.md](docs/index/ui.md) |
 | Ventanas lado a lado y adaptación a ventanas angostas | ✅ | v0.6.0 | [index/ui.md](docs/index/ui.md) |
-| Exportar el mazo a PDF para imprimir proxies (3×3, tamaño real) | ✅ | v0.7.0 | [DECISIONS ADR-049](docs/DECISIONS.md#adr-049) |
+| Exportar el mazo a PDF para imprimir proxies (3×3 en A4/Carta, tamaño real; A3 apaisado al doble) | ✅ | v0.7.0 | [DECISIONS ADR-049](docs/DECISIONS.md#adr-049) |
 | Buscador y Mazos abren juntos como un espacio de trabajo | ✅ | v0.7.0 | [DECISIONS ADR-052](docs/DECISIONS.md#adr-052) |
 | Paneles ajustables con el mouse y agrupados por objeto | ✅ | v0.7.0 | [DECISIONS ADR-051](docs/DECISIONS.md#adr-051) |
 | El launcher avisa si hay novedades pendientes (o dice `Todo al día`) | ✅ | v0.7.0 | [DECISIONS ADR-054](docs/DECISIONS.md#adr-054) |
 | Etiquetar las cartas del mazo y verlas agrupadas en pilas | ✅ | v0.8.0 | [DECISIONS ADR-057](docs/DECISIONS.md#adr-057) |
 | Los filtros del Buscador, también sobre las cartas del mazo | ✅ | v0.8.0 | [DECISIONS ADR-058](docs/DECISIONS.md#adr-058) |
+| Ajuste de oro por carta (coste que se paga, no el impreso) | ✅ | v0.9.0 | [DECISIONS ADR-059](docs/DECISIONS.md#adr-059) |
+| Proxies y ediciones del `.txt` se leen y se conservan | ✅ | v0.9.0 | [DECISIONS ADR-060](docs/DECISIONS.md#adr-060) |
 | Firma del ejecutable (SignPath) | ⏳ esperando aprobación OSS | — | [ROADMAP §1](docs/ROADMAP.md) |
 | Noticias y torneos | ⬜ placeholder en UI, sin implementar | — | [functional/noticias-v2-borrador.md](docs/functional/noticias-v2-borrador.md) |
 | Firma del `manifest.json` | ⏸️ diferido con criterio | — | [DECISIONS ADR-015](docs/DECISIONS.md#adr-015) |
@@ -116,7 +118,8 @@ Versión actual: **0.8.0**.
   Y el chip **Ajuste de oro** ordena por el coste que **se paga**, no por el impreso: las
   personalidades de tu clan valen 2 menos y las de otro clan grande, 2 más. La regla se aplica sola
   contra tu stronghold —cambiarlo re-ajusta el mazo entero— y cada carta se puede ajustar a mano de
-  −3 a +3 con el click derecho.
+  −3 a +3 con el click derecho. Con el ajuste prendido, las personalidades se agrupan por el coste
+  que terminan costando: las de 6 juntas, las de 8 juntas.
 - **Tu estado se guarda por nombre de carta, no por id** (desde 0.6.0). El id lo asigna quien genera la
   base de la comunidad y puede reasignarse entre versiones, así que guardarlo hacía que una favorita
   pudiera desaparecer —o pasar a ser otra carta— al actualizar. Al abrir el Buscador por primera vez
@@ -193,7 +196,7 @@ quedan al lado).
 
 Un harness de verificación monta un bucket+instalación falsos en `%TEMP%` y ejercita el pipeline real
 (hash, confinamiento de origen, zip-slip, backups, base zippeada, catálogo y packs del pool) sin tocar
-tu instalación — **341 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
+tu instalación — **382 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
 los **25 golden tests** del deckbuilder, ambos contra la lógica real de la app Android:
 
 ```sh
@@ -295,7 +298,7 @@ src/
       ├─ DeckRepository       port 1:1 de DeckRepository.kt (AddCard, import/export, CRUD, conteos)
       ├─ SunAndMoonDeckFile   lee/escribe el formato .txt de la carpeta Decks del juego
       ├─ DeckLibrary          un .txt por mazo en Decks y por lista en Lists + sidecar decksmeta.json
-      └─ PdfExporter          PDF de impresión escrito a mano (grilla 3×3, JPEG sin recomprimir)
+      └─ PdfExporter          PDF de impresión escrito a mano (grilla 3×3 o 6×3 en A3, JPEG sin recomprimir)
 ```
 
 Stack: **WPF sobre .NET Framework 4.8**, csproj SDK-style compilado con el **.NET SDK 8**, empaquetado en

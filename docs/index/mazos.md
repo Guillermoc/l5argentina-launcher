@@ -17,7 +17,7 @@ fuentes Kotlin), que además sigue siendo la referencia viva de paridad vía sus
 |---|---|---|
 | Modelo | `Models/DeckModels.cs` | `Deck`/`DeckCardEntry` (espejo de `decks`/`deck_cards`), `AddCardResult`, `ImportResult`, `DeckGroups` (starter/dynasty/fate + orden de tipos). |
 | Motor | `Services/Deck/DeckRepository.cs` | **Port 1:1 de `DeckRepository.kt`**: `AddCard` (banned → slot → maxCopies, **en ese orden**), `RemoveCard`/`SetCardQuantity` (con `keepRowAtZero`), `ImportCards`/`ExportDeck` (formato de texto de la app), CRUD, y los espejos de UI de las specs (conteos Dynasty/Fate, slots sin cubrir, honor inicial del Goldfish, clan del primer stronghold). **Extra fuera del port:** `SetInList`/`ToggleInList` para las listas (ver abajo). |
-| Formato txt | `Services/Deck/SunAndMoonDeckFile.cs` | Lee/escribe el formato de la carpeta `Decks` del juego (`Legality: X`, starter sin prefijo, `Nx Nombre`). El parser tolera también el formato de export de la app (`N Nombre`, líneas `#`). Lo usan mazos **y** listas. |
+| Formato txt | `Services/Deck/SunAndMoonDeckFile.cs` | Lee/escribe el formato de la carpeta `Decks` del juego (`Legality: X`, starter sin cantidad, `Nx Nombre`), **incluidos el prefijo `Proxy <tipo>: ` y la edición entre paréntesis**, que se leen y se devuelven iguales ([ADR-060](../DECISIONS.md#adr-060)). El parser tolera también el formato de export de la app (`N Nombre`, líneas `#`). Lo usan mazos **y** listas. El contrato entero, leído del `Assembly-CSharp.dll` del juego: [contratos/formato-txt-sun-and-moon.md](../technical/contratos/formato-txt-sun-and-moon.md). |
 | Biblioteca | `Services/Deck/DeckLibrary.cs` | Un `.txt` por conjunto: mazos en `<SunAndMoon>\Decks\`, listas en `<SunAndMoon>\Lists\`, + sidecar `decksmeta.json`. Un solo `DeckRepository` para los dos (`Decks`/`Lists` son vistas filtradas por `Type`). Instancia compartida por proceso (`GetOrLoad`): Buscador y editor operan sobre los mismos archivos, el mismo mazo activo y la misma lista activa. `SaveMeta()` guarda **solo** el sidecar (etiquetas: el juego no las ve). |
 | Etiquetas | `Services/Deck/DeckTags.cs` | Vocabulario y asignaciones de un mazo, la paleta de colores, el filtro (unión / cruce) y `Sections<T>` — las pilas, con la carta compartida en todas las suyas y el conteo de solapamiento ([ADR-057](../DECISIONS.md#adr-057)). Todo por CardId; la traducción a nombre la hace `DeckLibrary`. |
 | Ajuste de oro | `Services/Deck/DeckGold.cs` | El coste que se **paga** vs. el impreso ([ADR-059](../DECISIONS.md#adr-059)): la regla del clan del stronghold (−2 propio / +2 otro clan grande), los ajustes manuales de −3 a +3 y el coste efectivo. Regla **viva**: se calcula contra el stronghold del momento, al sidecar van solo los overrides. |
@@ -25,8 +25,8 @@ fuentes Kotlin), que además sigue siendo la referencia viva de paridad vía sus
 | Slots | `CatalogImporter` → `CardCatalog.InitialHoldingSlots` | `filters.json → formats[].initialHoldingSlots` (id/label/required) — alimenta el aviso "Falta: {slot}". |
 | UI Buscador | `Views/SearchWindow.xaml(.cs)` | Label del mazo activo + conteos en la barra; `+`/`−` por celda con feedback del `AddCardResult`. Doble click o **Ctrl+click** = agregar. No elige mazo ni muestra su contenido. El selector de **conjunto activo** (listas/mazos/favoritas) vive acá — ver [buscador.md](buscador.md). |
 | UI editor | `Views/DeckWindow.xaml(.cs)` | Ventana única. Paneles agrupados **por objeto** ([ADR-051](../DECISIONS.md#adr-051)): izquierda el **mazo abierto** (pestañas **Filtros \| Stats**, con los bloques de **Etiquetas** y **Filtros de carta**), centro sus cartas agrupadas por **tipo o por etiqueta** (vistas Lista/Grilla), derecha la **carta seleccionada** con sus etiquetas al pie. El selector de mazo (segmentado Mazos \| Listas, buscador, orden/clan/estado) cuelga del **título**, no de un panel. Barra: nombre + **Buscador** + menú `⋯` ([ADR-043](../DECISIONS.md#adr-043)); vista/zoom/orden en la segunda fila ([ADR-050](../DECISIONS.md#adr-050)). Notas con debounce de 1 s. Confirmaciones y avisos por `Dialogs`, no por `MessageBox`. |
-| Export PDF | `Services/Deck/PdfExporter.cs` + `Views/PdfExportWindow.xaml(.cs)` | Arma un PDF para imprimir proxies: grilla 3×3 a tamaño real (63×88 mm), A4 o Carta, margen opcional de 1 mm. La ventana previa lista las cartas del mazo con un contador de copias **independiente** del mazo. El PDF se escribe a mano y embebe los JPEG sin recomprimir ([ADR-049](../DECISIONS.md#adr-049)). Solo mazos: una lista no se imprime. |
-| Paridad | `SelfTest.RunGoldenDeckTests` + `RunDeckStoreTests` + `RunCardSetTests` + `RunTrimTests` + `RunDeckStateTests` + `RunDeckTagTests` + `RunPdfExportTests` | **25 golden tests** replicando la secuencia exacta del harness (mismos mazos "Golden N", string exacto del export) + checks propios de persistencia txt, listas, identidad por nombre, recorte, estado de armado, etiquetas y la geometría/estructura del PDF. |
+| Export PDF | `Services/Deck/PdfExporter.cs` + `Views/PdfExportWindow.xaml(.cs)` | Arma un PDF para imprimir proxies a tamaño real (63×88 mm), margen opcional de 1 mm: grilla 3×3 en A4 o Carta, **6×3 apaisada en A3** — el doble por hoja, capacidad propia del launcher que la app no tiene ([ADR-061](../DECISIONS.md#adr-061)). La ventana previa lista las cartas del mazo con un contador de copias **independiente** del mazo. El PDF se escribe a mano y embebe los JPEG sin recomprimir ([ADR-049](../DECISIONS.md#adr-049)). Solo mazos: una lista no se imprime. |
+| Paridad | `SelfTest.RunGoldenDeckTests` + `RunDeckStoreTests` + `RunDeckProxyTests` + `RunCardSetTests` + `RunTrimTests` + `RunDeckStateTests` + `RunDeckTagTests` + `RunDeckGoldTests` + `RunPdfExportTests` | **25 golden tests** replicando la secuencia exacta del harness (mismos mazos "Golden N", string exacto del export) + checks propios de persistencia txt (incluidos proxies y ediciones), listas, identidad por nombre, recorte, estado de armado, etiquetas, ajuste de oro y la geometría/estructura del PDF. |
 
 ---
 
@@ -75,6 +75,19 @@ Cada mutación guarda inmediatamente (`Repo.DeckChanged` → `SaveDeck`): renomb
 archivo, borrarlo lo borra, y los nombres duplicados se resuelven con `" (2)"`, `" (3)"`…
 Los caracteres inválidos de nombre de archivo se reemplazan por `_` (el nombre del mazo **es** el
 nombre del archivo).
+
+**Proxies y ediciones** ([ADR-060](../DECISIONS.md#adr-060)). El `.txt` admite dos cosas más que el
+launcher **lee y devuelve iguales, sin hacer nada con el dato**: el prefijo `Proxy <tipo>: ` (que en
+el juego apoya la carta en la **mesa** en vez de meterla en el mazo) y la edición entre paréntesis
+(`Productive Mine (GoC)`). Van a `DeckCardEntry.ProxyType` / `.Edition`; los conteos, la validación,
+el PDF y el export de la app siguen viendo una carta común. La misma carta con y sin prefijo **no se
+fusiona** —son dos destinos distintos en el juego—: la segunda línea se conserva cruda.
+Al escribir, los **starter holdings** de un mazo salen siempre con `Proxy holding: ` (en minúscula,
+que es lo único que el juego reconoce después); en las listas no, porque `Lists\` no lo lee.
+El **portapapeles** también los lleva, pero como opción: `ExportDeck` sin marcadores es el que fija
+el golden y el que usa `DuplicateDeck`, así que la marca la prende solo el botón de copiar y al
+pegar el texto se adapta en el borde (`NormalizeForImport`: saca el prefijo y traduce `Nx` a `N`,
+la única forma de cantidad que el import portado entiende).
 
 **Nombres del juego ≠ nombres del catálogo.** Sun and Moon escribe los strongholds sin el sufijo de
 versión (`The Impregnable Fortress of the Crab` vs `… (1)/(2)`), a veces con case distinto o sin
@@ -192,6 +205,12 @@ manuales**.
   si el ajuste no es cero. En la Lista, al lado del coste impreso: `©8 +2` — el impreso no se
   reemplaza, es lo que dice la carta.
 - **Piso en 0:** una personalidad de 2 con −2 sale gratis, no −1. El ajuste igual se muestra `−2`.
+- **Escalones de coste:** con el modo prendido, el bloque **Personality** se parte en una sección por
+  coste **efectivo** (`Costo 6 — (N) [M]`), que es lo que vuelve legible el ajuste: "las de 6" es lo
+  que sale una compra, no un tramo de una lista ordenada. Es una **partición** —cada carta cae en una
+  sola sección y los conteos suman el bloque—, al revés que las pilas de etiquetas. Si el orden
+  elegido es por Coste, los escalones siguen su dirección; con cualquier otro van de menor a mayor.
+  Las de coste variable (★) quedan al final siempre. Solo Personality: es donde la regla ajusta.
 
 El coste efectivo es **de la UI**: `DeckRepository`, el export y el PDF siguen viendo el coste del
 catálogo, así que nada de lo cubierto por los golden cambia de semántica.
@@ -266,14 +285,17 @@ el filtro y el `✓` del subtítulo. Una carta recortada no cubre slot ni suma a
 
 ## Verificación
 
-Del total de la batería, **127 checks** son del deckbuilder: los 25 golden + persistencia txt /
-`DeckLibrary` + resolución tolerante de nombres + los 21 de `RunCardSetTests` (listas como `.txt`,
+Del total de la batería, **153 checks** son del deckbuilder: los 25 golden + persistencia txt /
+`DeckLibrary` + resolución tolerante de nombres + los 21 de `RunDeckProxyTests` (prefijo de proxy y
+edición: se leen, se reescriben igual, un tipo fuera de los doce no es prefijo, la misma carta con y
+sin prefijo no se fusiona, los starter holdings salen marcados y las listas no, y el portapapeles los lleva sin romper duplicar mazo, más la traducción de `Nx` a `N` que hace entrar un `.txt` del juego pegado) + los 21 de
+`RunCardSetTests` (listas como `.txt`,
 `SetInList` vs `AddCard`, migración e identidad por nombre de `usercards.json`) + los 14 de
 `RunTrimTests` (recorte) + los 10 de `RunDeckStateTests` (mazo terminado vs pendiente) + los 27 de
 `RunDeckTagTests` (etiquetas: sidecar por nombre, pilas con la carta compartida en todas, filtro,
-renombrar/borrar) + los 22 de `RunDeckGoldTests` (ajuste de oro: las tres ramas de la regla sobre
+renombrar/borrar) + los 27 de `RunDeckGoldTests` (ajuste de oro: las tres ramas de la regla sobre
 el ejemplo 8/8/8 → 6/8/10, el override que gana y vuelve, los topes, el round-trip por el sidecar y
-que cambiar el stronghold re-ajuste el mazo solo). Si se toca
+que cambiar el stronghold re-ajuste el mazo solo, más los escalones de coste como partición). Si se toca
 `DeckRepository` o el importer, correr `--selftest`; si se *cambia* una semántica golden, regenerar
 los expected con el harness del handoff (`../../tests/fixtures/deckbuilder/generator/`) y anotarlo.
 
@@ -290,8 +312,10 @@ los expected con el harness del handoff (`../../tests/fixtures/deckbuilder/gener
 [ADR-027](../DECISIONS.md#adr-027) `NoActiveDeck` conserva su nombre ·
 [ADR-028](../DECISIONS.md#adr-028) listas ≠ mazos ·
 [ADR-029](../DECISIONS.md#adr-029) duplicar mazo ·
-[ADR-057](../DECISIONS.md#adr-057) etiquetas: pilas que se solapan, en el sidecar.
-[ADR-059](../DECISIONS.md#adr-059) ajuste de oro: regla viva, overrides en el sidecar.
+[ADR-057](../DECISIONS.md#adr-057) etiquetas: pilas que se solapan, en el sidecar ·
+[ADR-059](../DECISIONS.md#adr-059) ajuste de oro: regla viva, overrides en el sidecar ·
+[ADR-060](../DECISIONS.md#adr-060) proxies y ediciones del txt: se leen y se devuelven iguales; los
+starter holdings salen marcados.
 
 ## Puntos abiertos
 

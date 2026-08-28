@@ -93,6 +93,7 @@ mazo inexistente" ([ADR-027](../DECISIONS.md#adr-027)).
 | **El PDF se guarda con un diálogo de archivo; la app lo comparte por `Intent`** | Export PDF | Android no tiene "guardar en tal carpeta": la pantalla genera el PDF en `filesDir` y abre el share sheet. En escritorio el gesto equivalente es elegir dónde va el archivo, y después se ofrece abrirlo ([ADR-049](../DECISIONS.md#adr-049)) |
 | **Botón "Volver al mazo" en el export PDF** | Export PDF | Devuelve todos los contadores de copias a la cantidad del mazo. La app no lo tiene: allá los contadores se pierden al salir de la pantalla, así que no hay nada que revertir |
 | **El export PDF no se ofrece sobre una lista** | Export PDF | En la app toda entidad de mazo tiene el menú; acá una lista es una selección para filtrar, no algo que se imprima ([ADR-045](../DECISIONS.md#adr-045)) |
+| **Tamaño de hoja A3, apaisado, el doble de cartas por hoja** | Export PDF | Extra del launcher: la app solo tiene A4 y Carta. A3 sale 6×3 = 18 en vez de 3×3 = 9 ([ADR-061](../DECISIONS.md#adr-061)) |
 
 **Al agregar una divergencia nueva:** anotarla acá y en el índice del dominio, y verificar que no
 toque ninguna semántica cubierta por goldens.

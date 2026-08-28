@@ -4,9 +4,11 @@ Qué falta. **Se lee al empezar cualquier sesión**, junto con [index/OVERVIEW.m
 
 Leyenda: ⏳ en curso/esperando · 🔜 próximo · ⬜ pendiente · ⏸️ diferido · 🔁 recurrente · ✅ hecho.
 
-**Estado hoy:** v0.8.0 lista para publicar: **etiquetas de las cartas del mazo**
-([ADR-057](DECISIONS.md#adr-057)) y **los filtros del Buscador adentro del editor**, con el panel
-extraído a un control compartido ([ADR-058](DECISIONS.md#adr-058)). Batería en verde.
+**Estado hoy:** v0.9.0 lista para publicar: **ajuste de oro por carta** con escalones de coste
+efectivo ([ADR-059](DECISIONS.md#adr-059)); **proxies y ediciones del `.txt`** se leen y se
+conservan, con los starter holdings marcados ([ADR-060](DECISIONS.md#adr-060)); **A3 apaisado** en
+el export a PDF, el doble de cartas por hoja ([ADR-061](DECISIONS.md#adr-061)); y el desempate de
+orden por Set ya no asume `.jpg` ([ADR-062](DECISIONS.md#adr-062)). Batería en verde (382 checks).
 **Foco actual:** SEC-6 (firma del exe con SignPath, esperando aprobación OSS).
 
 > ⚠️ **Sin revisar desde antes del 2026-08-03** (triage del hub, 2026-08-12): confirmar que "Estado
@@ -150,13 +152,18 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
   carta) queda descartado: las etiquetas cubren el caso con un modelo mejor.
 - ✅ **Ajuste de oro**: el orden por coste usa el que se **paga** —regla del clan del stronghold
   (−2 propio / +2 otro clan grande), ajustable a mano de −3 a +3 por carta— y la regla se recalcula
-  sola contra el stronghold del momento ([ADR-059](DECISIONS.md#adr-059)).
+  sola contra el stronghold del momento, y las personalidades se agrupan por coste efectivo
+  ([ADR-059](DECISIONS.md#adr-059)).
 - ⬜ Etiquetar **varias cartas a la vez** (selección múltiple en el centro del editor). Hoy es carta
   por carta; clasificar un mazo ya armado de 50 pide esto.
 - ⬜ Etiquetas globales, compartidas entre mazos (hoy son de cada mazo, que es lo que se decidió en
   [ADR-057](DECISIONS.md#adr-057)). Solo si aparece la necesidad real de reusar la clasificación.
 - ✅ Export PDF: grilla 3×3 a tamaño real para imprimir proxies, con copias ajustables por carta
-  ([ADR-049](DECISIONS.md#adr-049)).
+  ([ADR-049](DECISIONS.md#adr-049)); A3 apaisado como tercera hoja, 6×3 = el doble por hoja
+  ([ADR-061](DECISIONS.md#adr-061)).
+- ✅ El `.txt` del juego admite proxies (`Proxy <tipo>: `) y ediciones entre paréntesis: se leen y
+  se conservan sin tocarlas, y los starter holdings salen siempre marcados como proxy
+  ([ADR-060](DECISIONS.md#adr-060)).
 - ⬜ Buscador embebido en el editor (hoy el flujo es "Buscador `+`/`−` sobre el mazo activo").
 - ⬜ Favoritas y ocultas **dentro** del editor. Hoy se filtran desde el Buscador y se copian a una
   lista con `⎘`; editarlas ahí adentro pediría una capa de indirección sobre todo `DeckWindow` para
@@ -209,3 +216,4 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 | v0.4.0 | 2026-07-26 | Pasada de UX: taxonomía de controles (rieles de colapso, pestañas adosadas, segmentados, menús), ventanas acotadas al área de trabajo, arte de carta redondeado y sin marco, listas manejadas desde la barra, diálogos propios (fuera los `MessageBox`), confirmación al cerrar, `Ctrl+click` para agregar al mazo, copiar imagen al portapapeles y **un solo mazo activo** con la ventana de Mazos como fuente de verdad. |
 | v0.7.0 | 2026-07-31 | **Exportar el mazo a PDF** para imprimir proxies, 3×3 a tamaño real y escrito a mano sin librería ([ADR-049](DECISIONS.md#adr-049)); Buscador y Mazos abren juntos como un **espacio de trabajo** y las ventanas que abren otra la corren en diagonal ([ADR-052](DECISIONS.md#adr-052)); paneles **agrupados por objeto** y ajustables con el mouse ([ADR-051](DECISIONS.md#adr-051)); pasada sobre las botoneras ([ADR-050](DECISIONS.md#adr-050)); miniaturas con **cola propia de decodificación** en vez de `IsAsync` ([ADR-053](DECISIONS.md#adr-053)); el launcher **avisa si hay novedades** o dice "Todo al día", con los packs de imágenes como una sola familia ([ADR-054](DECISIONS.md#adr-054), [ADR-055](DECISIONS.md#adr-055), [ADR-056](DECISIONS.md#adr-056)). |
 | v0.8.0 | 2026-08-03 | **Etiquetas de las cartas del mazo**: clasificarlas y verlas agrupadas en pilas, con la carta compartida en todas las suyas, color elegible y filtro por unión o cruce ([ADR-057](DECISIONS.md#adr-057)); **los filtros del Buscador adentro del editor**, con el panel extraído a un control compartido y los prefijos `tx.`/`k.`/`c.`/`t.` en la caja de texto ([ADR-058](DECISIONS.md#adr-058)). |
+| v0.9.0 | 2026-08-28 | **Ajuste de oro por carta**: el orden por coste usa el que se paga según el clan del stronghold, ajustable a mano, con las personalidades agrupadas en escalones de coste efectivo ([ADR-059](DECISIONS.md#adr-059)); **proxies y ediciones del `.txt`** de Sun and Moon se leen y se conservan, con los starter holdings marcados ([ADR-060](DECISIONS.md#adr-060)); **hoja A3 apaisada** en el export a PDF, el doble de cartas por hoja ([ADR-061](DECISIONS.md#adr-061)); el desempate de orden por Set ya no asume `.jpg` ([ADR-062](DECISIONS.md#adr-062)). |

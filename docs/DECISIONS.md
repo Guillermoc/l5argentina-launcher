@@ -1875,7 +1875,145 @@ el export y el PDF no se enteran, así que nada de lo cubierto por los golden ca
 **Piso en 0.** Una personalidad de coste 2 con −2 sale gratis, no −1. El ajuste se sigue mostrando
 igual (`−2`): describe la regla, no el resultado.
 
+**El bloque Personality se parte por coste efectivo.** Ajustar los números sin cambiar la forma dejaba
+el trabajo por la mitad: una lista ordenada por un coste que no está escrito en ninguna carta se lee
+peor que antes, porque el orden dejó de ser verificable de un vistazo. Con el modo prendido, entonces,
+Personality trae una sección por coste efectivo (`Costo 6 — (N) [M]`) — que además es la unidad en la
+que se piensa al armar: "las de 6" es lo que sale una compra.
+
+Es una **partición**, al revés de las pilas de etiquetas ([ADR-057](#adr-057)): coste efectivo hay uno
+solo por carta, así que cada carta cae en una sección y los conteos **sí** suman el bloque. Se
+resolvió con la misma forma —`DeckGold.CostSections<T>`, función pura en el servicio, la vista solo
+dibuja— para que la regla de orden (los escalones siguen la dirección del orden por Coste; el coste
+variable ★ queda último en los dos sentidos) tenga checks propios en vez de esconderse en el
+constructor del cuerpo. Solo Personality: es el único tipo donde la regla ajusta algo.
+
 **De paso, el menú del click derecho se reordenó.** **Copiar imagen** pasó a ser el primer renglón y
 está siempre, también en la vista Lista, donde antes no aparecía. Es lo único del menú que no depende
 del mazo —las etiquetas cambian de mazo en mazo y el bloque de oro puede no estar—, así que dejarlo al
 final lo hacía moverse de lugar según el contexto.
+
+
+---
+
+## ADR-060 — Los proxies y las ediciones del txt se leen y se conservan; los starter holdings salen marcados
+
+**Fecha:** 2026-08-27 · **Estado:** vigente.
+
+**El problema.** El `.txt` de la carpeta `Decks` del juego admite dos cosas que el launcher no
+entendía: el prefijo `Proxy <tipo>: `, que hace que Sun and Moon apoye la carta **en la mesa** en vez
+de meterla en el mazo, y la **edición entre paréntesis** (`Productive Mine (GoC)`). Ninguna de las dos
+rompía nada —caían en `Deck.Unknown` y se reescribían verbatim— pero eran invisibles: la carta no
+aparecía en el editor, no contaba para nada, y su línea se mudaba al final del archivo en cada
+guardado. El formato entero, leído del `Assembly-CSharp.dll`, quedó documentado en
+[contratos/formato-txt-sun-and-moon.md](technical/contratos/formato-txt-sun-and-moon.md).
+
+**La decisión: leerlas y devolverlas iguales, nada más.** `DeckCardEntry` suma `ProxyType` y
+`Edition`; el parser las separa de la línea y el writer las vuelve a poner en su lugar. El launcher
+**no hace nada más con el dato**: los conteos, la validación, el PDF y el export de la app siguen
+viendo una carta común. Interpretar el proxy de verdad —sacarla del mazo, no contarla en los 40—
+pediría un modelo de "carta en la mesa" que el deckbuilder no tiene y que la app Android tampoco
+tenía; leerlas alcanza para el objetivo real, que es poder editar un mazo con proxies sin perder ni
+mover nada.
+
+**La misma carta con y sin prefijo no se fusiona.** En el juego `2x Productive Mine` y
+`Proxy holding: Productive Mine` son dos destinos distintos: dos copias en el mazo y una en la mesa.
+El modelo tiene **una entrada por carta** (por CardId), así que fusionar las cantidades escribiría
+`Proxy holding: 3x Productive Mine` y le cambiaría el sentido al archivo. La segunda línea, entonces,
+se conserva **cruda** — el peor caso es exactamente el comportamiento anterior
+([ADR-024](#adr-024)). Lo mismo si difiere la edición.
+
+**La edición se prueba después del nombre entero**, igual que el juego: hay strongholds cuyo nombre
+de catálogo **lleva** un `(1)`, y probar el paréntesis primero los rompería.
+
+**Los starter holdings se escriben siempre con `Proxy holding: `.** Es el pedido que originó todo
+esto: tener Border Keep y Bamboo Harvesters a la vista sobre la mesa desde el arranque, en vez de
+depender de la opción `useStartingHoldings` del juego. En **minúscula**, porque el juego pisa
+`card.type` con ese texto y después lo compara de forma **ordinal** contra literales en minúscula —
+`Proxy Holding:` dejaría `type = "Holding"`, que no matchea nada.
+
+Tiene dos precios, aceptados a sabiendas:
+
+1. Marcadas como proxy, esas cartas **dejan de pasar** por la rama de `Table.SetTable` que las mete
+   en el fief y las endereza (`AddToFief` + `Unbow`): van a la grilla de proxies, boca arriba, al
+   costado. Es el cambio buscado, pero es un cambio.
+2. El juego tiene un bug propio: `isProxy` queda pegado al objeto `Card` compartido de la base
+   ([ver el contrato §6](technical/contratos/formato-txt-sun-and-moon.md#6-trampas-del-juego)), así
+   que después de cargar un mazo así, en la **misma sesión**, otros mazos también mandan esa carta a
+   la mesa. No es nuestro y se limpia reiniciando el juego.
+
+**Solo en los mazos.** Las listas viven en `Lists`, que el juego no lee: ahí la marca no significa
+nada y no se escribe.
+
+**El portapapeles también los lleva, pero como opción, nunca por default.**
+`DeckRepository.ExportDeck` es dos cosas a la vez: el botón de copiar y la mitad de `DuplicateDeck`,
+que reimporta ese mismo texto con `ImportCards` —match exacto de nombre, semántica portada de la app
+([ADR-023](#adr-023))— y además es el string exacto que fija el golden `export-roundtrip`. Marcar por
+default se comería los starter holdings al duplicar un mazo y obligaría a regenerar goldens para
+nada. Entonces: un parámetro `withProxyMarkers` que **solo prende el botón de copiar**, y la vuelta
+—pegar en el launcher— se adapta en el **borde** (`SunAndMoonDeckFile.NormalizeForImport`, en el
+handler de la ventana), sin tocar la función portada. La regla de qué se marca vive una sola vez, en
+`SunAndMoonDeckFile.ProxyMarkerFor`, compartida por el `.txt` y el portapapeles.
+
+**El mismo borde arregló algo que estaba roto desde antes.** Documentar el formato del portapapeles
+destapó que el import de la app solo entiende `N Nombre`: su regex pide un espacio después del
+número, así que pegar un `.txt` de la carpeta `Decks` rebotaba en **todas** las líneas con `2x`.
+`NormalizeForImport` traduce también eso. No se arregló adentro de `ImportCards` por lo de siempre:
+es el port, tiene goldens y su semántica no se toca ([ADR-023](#adr-023)). La edición entre
+paréntesis, en cambio, **no** se saca en el borde — elegir una impresión es una decisión, no una
+traducción.
+
+## ADR-061 — El PDF de impresión suma A3, apaisado, para el doble de cartas por hoja
+
+**Fecha:** 2026-08-27 · **Estado:** vigente.
+
+**El problema.** El export a PDF (`PdfExporter`, [ADR-049](#adr-049)) solo tenía A4 y Carta —los dos
+tamaños de `PdfExportViewModel.kt`— con una grilla fija de 3×3 (`Columns`/`Rows` eran constantes).
+Se pidió sumar A3, que la app Android no tiene: no hay a qué portar, es una capacidad nueva del
+launcher.
+
+**La decisión: A3 sale apaisado (1191×842 pt), 6×3 = 18 cartas por hoja, exactamente el doble de
+A4/Carta.** Es la lectura literal de qué es un A3: dos A4 verticales uno al lado del otro, sin rotar
+la carta. La alternativa —A3 vertical, 842×1191 pt— entra 4×4 = 16: aprovecha mejor el papel pero no
+llega a duplicar, y el pedido era explícitamente "el doble". Apaisado tiene un costo real: quien
+imprima tiene que cargar la hoja en horizontal, no es el uso por default de la mayoría de las
+impresoras hogareñas. Se aceptó a sabiendas porque cumple el objetivo (duplicar) sin inventar un
+tamaño de papel que no exista.
+
+**La grilla dejó de ser una constante.** `PdfLayout` suma `Columns`/`Rows`; `Layout()` los completa
+según el tamaño elegido (un `Grid(size, ...)` privado), y `PageContent`, `ChunkPages` y `PageCount`
+ya no asumen 3×3 sino que leen la grilla de la hoja. `PageCount` pasa a pedir el `PdfPageSize` como
+parámetro — la capacidad por hoja dejó de ser universal.
+
+**Divergencia con la app, anotada en el hub.** `metodo/paridad.md` y
+[paridad-app-android.md](design/paridad-app-android.md) suman la fila: A3 es solo launcher.
+
+## ADR-062 — `PrintingIdOf` recorta cualquier extensión, no busca el id real de la impresión
+
+**Fecha:** 2026-08-28 · **Estado:** vigente.
+
+**El problema.** `CardSearchEngine.PrintingIdOf` desempata el orden por Set (`SortField.SET`,
+golden del Buscador) sacando el "id de impresión" del nombre de archivo de `ImagePath`, pero lo
+hacía recortando literalmente `".jpg"` del final. Si una carta viene de un pack con otro formato de
+imagen, el id quedaba con la extensión pegada (`"Emperor028.png"` en vez de `"Emperor028"`) —
+inofensivo para la identidad de la carta, pero corría el desempate.
+
+**La alternativa evaluada y descartada: usar `printings[].id` en vez de derivarlo del path.** Es
+más "correcto" en espíritu —el id es un dato, no algo para reconstruir— pero se descartó por dos
+razones, verificadas contra la base real (`cards-2.2.0.json`, 7428 impresiones):
+
+1. **El campo ni siquiera llega hasta acá.** `CatalogImporter.ReadPrintings` descarta `id` al
+   parsear (nunca se guardó en el `Printing` interno); haría falta sumarlo ahí y hacerlo viajar
+   hasta `Card` y `CardPrintingView`, que hoy solo cargan paths.
+2. **No coincide siempre.** En **410 de 7428** impresiones —todas promos— el id no es el nombre de
+   archivo: `id="Promo230"` pero el archivo es `images/cards/P/P230.jpg`. Es el mismo caso que ya
+   conoce `CardImageResolver.WithSetFolderAliases` (la DB llama "Promo" a la carpeta que Sun and
+   Moon guarda como "P"). Cambiar la fuente del desempate a `id` habría corrido el orden de esas
+   410 impresiones en un sort cubierto por los 53 golden del Buscador — un cambio de semántica real,
+   no un refactor neutro.
+
+**La decisión: seguir derivando del path, pero con `Path.GetFileNameWithoutExtension` en vez de
+`EndsWith(".jpg")`.** Dato idéntico para `.jpg` (los 382 checks no se mueven, golden incluidos:
+`GetFileNameWithoutExtension("P230.jpg") == "P230"`, igual que antes), y ya no asume una extensión
+fija — cualquier formato de imagen queda bien recortado. Resuelve el problema real (no atarse a
+`.jpg`) sin la superficie de riesgo de tocar el modelo de datos ni el orden de los goldens.

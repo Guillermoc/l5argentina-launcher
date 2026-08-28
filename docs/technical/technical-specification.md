@@ -3,7 +3,7 @@
 Qué hace el launcher hoy y cómo está construido, en prosa y de corrido. Es el documento para leer
 entero: para consulta rápida están los índices ([../index/](../index/)), que son densos a propósito.
 
-**Versión descrita:** v0.8.0 · **Última pasada contra el código:** 2026-08-03.
+**Versión descrita:** v0.9.0 · **Última pasada contra el código:** 2026-08-28.
 Se actualiza en cada **cierre de fase o release**, sección por sección, contra el código real (o
 contra `docs/index/`, que debería estar al día). No en cada commit.
 
@@ -39,6 +39,7 @@ Este documento está organizado por **capa**, no por feature. Si venís a entend
 | Favoritas, ocultas, listas y presets | [6](#6-configuración-y-estado-local), [8](#8-el-motor-de-búsqueda) |
 | Editor de Mazos | [9](#9-mazos-repositorio-y-persistencia), [10](#10-presentación-ventanas-tema-e-idioma) |
 | Etiquetas de las cartas del mazo | [9](#9-mazos-repositorio-y-persistencia), [6](#6-configuración-y-estado-local) |
+| Ajuste de oro por carta | [9](#9-mazos-repositorio-y-persistencia) |
 | Filtrar las cartas del mazo | [8](#8-el-motor-de-búsqueda), [9](#9-mazos-repositorio-y-persistencia), [10](#10-presentación-ventanas-tema-e-idioma) |
 | Exportar el mazo a PDF para imprimir | [9](#9-mazos-repositorio-y-persistencia) |
 | Que el mazo armado se juegue directo | [9](#9-mazos-repositorio-y-persistencia), [6](#6-configuración-y-estado-local) |
@@ -274,6 +275,16 @@ contestaba la pregunta equivocada (ADR-057). Se guardan en el sidecar, por nombr
 persisten **sin reescribir el `.txt`**: reescribir un archivo ajeno por un dato que al juego no le
 significa nada es riesgo sin beneficio.
 
+El **ajuste de oro** es la otra pieza que solo tiene el launcher (ADR-059): la app ordena las
+personalities por el coste impreso, pero lo que se paga de verdad depende del clan del stronghold
+—dos menos si es el clan propio, dos más si es uno de los otros cuatro clanes grandes—, así que ese
+orden mentía con la regla apagada. La regla se recalcula contra el stronghold del momento en vez de
+materializarse por carta —cambiar de stronghold reordena el mazo entero sin tocar el sidecar— y
+admite un ajuste manual de −3 a +3 que la pisa. Con la regla prendida, el bloque de personalities se
+parte además en escalones por coste **efectivo** (`DeckGold.CostSections`): al revés que las pilas
+de etiquetas, esto sí es una partición —cada carta cae en un solo escalón y los conteos por sección
+suman el bloque— porque el coste efectivo de una carta es uno solo.
+
 De ahí sale una regla que gobierna todo el estado del usuario: **una carta se referencia por nombre,
 nunca por su id de catálogo**. El id lo asigna quien genera la base de la comunidad y puede
 reasignarse entre versiones; el nombre es lo único que el juego y el launcher acuerdan. Los mazos ya
@@ -293,6 +304,14 @@ omitido—, así que el parser de `.txt` usa una resolución tolerante (`GetCard
 `ImportCards` **no** usa: ese mantiene el match exacto de la app, porque de él dependen los goldens.
 Al reescribir un archivo, cada entrada conserva el nombre con el que vino y las líneas que no se
 reconocieron se copian verbatim: el launcher nunca le rompe el mazo al juego.
+
+El `.txt` admite además dos anotaciones del juego que el launcher no entendía: el prefijo
+`Proxy <tipo>: `, que hace que Sun and Moon apoye la carta en la mesa en vez de meterla en el mazo,
+y una edición entre paréntesis (`Productive Mine (GoC)`). `DeckCardEntry` las lee y las devuelve
+intactas, sin construir un modelo de "carta en la mesa" que el deckbuilder no tiene, y los starter
+holdings salen siempre marcados `Proxy holding: ` para tenerlos sobre la mesa desde el arranque sin
+depender de una opción del juego (ADR-060). El portapapeles las lleva como opción, nunca por
+default: duplicar mazo reutiliza el export limpio y copiar a mano para otro mazo sí las incluye.
 
 Las cartas del mazo se filtran además con **los mismos filtros que el Buscador** —keywords, texto de
 carta, tipo, clan, designador, stats, edición y rareza—, porque el panel se extrajo a un control
@@ -317,8 +336,10 @@ mutaciones no pasan por `AddCard` —una lista es material de armado, no un mazo
 ni la banlist ni la regla de slot inicial—.
 
 Del mazo sale además un **PDF para imprimir proxies**: nueve cartas por hoja en una grilla 3×3
-centrada, cada una a su tamaño físico real de 63×88 mm, en A4 o Carta y con un margen opcional de
-1 mm entre cartas. Una pantalla previa deja elegir cuántas copias imprimir de cada carta, arrancando
+centrada en A4 o Carta, cada una a su tamaño físico real de 63×88 mm, con un margen opcional de
+1 mm entre cartas. En A3 la hoja sale apaisada y la grilla pasa a 6×3 = 18, exactamente el doble
+—es la lectura literal de qué es un A3: dos A4 verticales uno al lado del otro, sin rotar la carta
+(ADR-061). Una pantalla previa deja elegir cuántas copias imprimir de cada carta, arrancando
 en la cantidad que tiene el mazo; las recortadas no participan. `PdfExporter` **emite el archivo a
 mano**, sin librería de PDF: el documento no tiene una sola letra, y como las imágenes del juego ya
 son JPEG, sus bytes pasan al PDF sin decodificar ni recomprimir vía el filtro `/DCTDecode`, así que
