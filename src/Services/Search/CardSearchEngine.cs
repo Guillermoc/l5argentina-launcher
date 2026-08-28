@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using L5ArgentinaLauncher.Models;
@@ -434,14 +435,16 @@ namespace L5ArgentinaLauncher.Services.Search
             return j < 0 ? null : imagePath.Substring(start, j - start);
         }
 
-        /// <summary>Nombre de archivo sin ".jpg" (id del printing).</summary>
+        /// <summary>
+        /// Nombre de archivo sin extensión (id del printing). No asume ".jpg": el pack de la
+        /// comunidad puede traer otros formatos de imagen.
+        /// </summary>
         public static string PrintingIdOf(string imagePath)
         {
             if (imagePath == null) return "";
             var slash = imagePath.LastIndexOf('/');
             var file = slash < 0 ? imagePath : imagePath.Substring(slash + 1);
-            return file.EndsWith(".jpg", StringComparison.Ordinal)
-                ? file.Substring(0, file.Length - 4) : file;
+            return Path.GetFileNameWithoutExtension(file);
         }
     }
 }

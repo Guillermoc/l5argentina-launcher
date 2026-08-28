@@ -426,6 +426,9 @@ namespace L5ArgentinaLauncher
             // ---------- Prefijos de la barra de filtro (los usan el Buscador y Mazos) ----------
             RunBarPrefixTests();
 
+            // ---------- Edición e id de impresión derivados del path de imagen ----------
+            RunPrintingIdTests();
+
             // ---------- Exportación a PDF: geometría de la hoja y estructura del archivo ----------
             RunPdfExportTests(tempRoot);
 
@@ -1562,6 +1565,33 @@ namespace L5ArgentinaLauncher
                    value == "", "Barra: null no explota");
             Assert(Views.CardFilterPanel.ParseBar("Kolat", out value) == Views.CardFilterPanel.BarMode.Name,
                 "Barra: un nombre que empieza con K no se confunde con k.");
+        }
+
+        /// <summary>
+        /// PrintingIdOf desempata el orden por Set (SortField.SET, golden del Buscador): antes
+        /// asumía ".jpg" a fuego, así que un pack con otro formato de imagen quedaba con la
+        /// extensión pegada al id. Recorta la extensión que sea, sin cambiar el resultado para
+        /// ".jpg" (los 53 golden no se mueven).
+        /// </summary>
+        private static void RunPrintingIdTests()
+        {
+            Line("");
+            Line("=== Edición e id de impresión (path de imagen) ===");
+
+            Assert(Services.Search.CardSearchEngine.PrintingIdOf("images/cards/WoH/WoH011.jpg") == "WoH011",
+                "PrintingId: recorta .jpg igual que antes");
+            Assert(Services.Search.CardSearchEngine.PrintingIdOf("images/cards/WoH/WoH011.png") == "WoH011",
+                "PrintingId: también recorta .png, no solo .jpg");
+            Assert(Services.Search.CardSearchEngine.PrintingIdOf("images/cards/P/P230.jpeg") == "P230",
+                "PrintingId: cualquier extensión, no una lista cerrada");
+            Assert(Services.Search.CardSearchEngine.PrintingIdOf("SinCarpeta.jpg") == "SinCarpeta",
+                "PrintingId: sin '/' en el path también funciona");
+            Assert(Services.Search.CardSearchEngine.PrintingIdOf(null) == "",
+                "PrintingId: null no explota");
+
+            Assert(Services.Search.CardSearchEngine.EditionOf("images/cards/WoH/WoH011.jpg") == "WoH",
+                "Edition: segmento entre 'images/cards/' y '/'");
+            Assert(Services.Search.CardSearchEngine.EditionOf(null) == null, "Edition: null no explota");
         }
 
         /// <summary>
