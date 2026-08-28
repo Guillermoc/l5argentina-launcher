@@ -1618,6 +1618,12 @@ namespace L5ArgentinaLauncher
             Assert(letter.CardWidth == a4.CardWidth && letter.CardHeight == a4.CardHeight,
                 "PDF: la carta mide lo mismo en las dos hojas (el tamaño real no depende del papel)");
 
+            var a3 = PdfExporter.Layout(PdfPageSize.A3, margin1mm: false);
+            Assert(a3.PageWidth == 1191 && a3.PageHeight == 842,
+                "PDF: A3 sale apaisado, 1191×842 pt (dos A4 uno al lado del otro)");
+            Assert(a3.Columns == 6 && a3.Rows == 3, "PDF: A3 entra 6×3 = 18, el doble que A4/Carta");
+            Assert(a3.OriginX == 58 && a3.OriginY == 47, "PDF: la grilla 6×3 queda centrada en A3");
+
             var spaced = PdfExporter.Layout(PdfPageSize.A4, margin1mm: true);
             Assert(spaced.Gap == 3, "PDF: el margen de 1 mm son 3 pt");
             Assert(spaced.OriginX == 26 && spaced.OriginY == 44,
@@ -1633,10 +1639,12 @@ namespace L5ArgentinaLauncher
                 "PDF: el nombre sugerido nunca trae separadores de ruta");
 
             // ---- hojas ----
-            Assert(PdfExporter.PageCount(0) == 0, "PDF: sin cartas no hay hojas");
-            Assert(PdfExporter.PageCount(9) == 1, "PDF: 9 cartas entran en una hoja");
-            Assert(PdfExporter.PageCount(10) == 2, "PDF: la carta 10 abre una hoja nueva");
-            Assert(PdfExporter.PageCount(40) == 5, "PDF: 40 cartas son 5 hojas");
+            Assert(PdfExporter.PageCount(0, PdfPageSize.A4) == 0, "PDF: sin cartas no hay hojas");
+            Assert(PdfExporter.PageCount(9, PdfPageSize.A4) == 1, "PDF: 9 cartas entran en una hoja");
+            Assert(PdfExporter.PageCount(10, PdfPageSize.A4) == 2, "PDF: la carta 10 abre una hoja nueva");
+            Assert(PdfExporter.PageCount(40, PdfPageSize.A4) == 5, "PDF: 40 cartas son 5 hojas");
+            Assert(PdfExporter.PageCount(18, PdfPageSize.A3) == 1, "PDF: 18 cartas entran en una hoja A3");
+            Assert(PdfExporter.PageCount(19, PdfPageSize.A3) == 2, "PDF: la carta 19 abre una hoja A3 nueva");
 
             // ---- secuencia de impresión ----
             var pdfDir = Path.Combine(tempRoot, "pdf");
@@ -1705,6 +1713,18 @@ namespace L5ArgentinaLauncher
             var multiText = Encoding.ASCII.GetString(File.ReadAllBytes(multiPath));
             Assert(CountOccurrences(multiText, "/Type /Page ") == 2, "PDF: emite los dos objetos de hoja");
             Assert(multiText.Contains("/MediaBox [0 0 612 792]"), "PDF: respeta el tamaño Carta");
+
+            // A3: 18 copias tienen que entrar en una sola hoja (el doble que A4/Carta).
+            var eighteen = new List<PdfExportItem>
+            {
+                new PdfExportItem { CardName = "A", CandidatePaths = new[] { jpegPath }, Copies = 18 },
+            };
+            var a3Path = Path.Combine(pdfDir, "a3.pdf");
+            Assert(PdfExporter.Write(a3Path, eighteen, PdfPageSize.A3, margin1mm: false) == 1,
+                "PDF: 18 copias en A3 entran en una sola hoja");
+            var a3Text = Encoding.ASCII.GetString(File.ReadAllBytes(a3Path));
+            Assert(a3Text.Contains("/MediaBox [0 0 1191 842]"), "PDF: respeta el tamaño A3 apaisado");
+            Assert(CountOccurrences(a3Text, " Do\n") == 18, "PDF: las 18 cartas se referencian en la hoja");
         }
 
         /// <summary>

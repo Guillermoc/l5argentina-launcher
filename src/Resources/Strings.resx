@@ -513,6 +513,7 @@ Los dos paneles  —  acomodar Buscador y editor lado a lado
   <data name="Pdf_Intro" xml:space="preserve"><value>Nueve cartas por hoja, a tamaño real (63 × 88 mm). Ajustá cuántas copias imprimir de cada una; el número gris es la cantidad que tiene el mazo. Las recortadas no se imprimen.</value></data>
   <data name="Pdf_PageSize" xml:space="preserve"><value>Hoja</value></data>
   <data name="Pdf_PageA4" xml:space="preserve"><value>A4</value></data>
+  <data name="Pdf_PageA3" xml:space="preserve"><value>A3</value></data>
   <data name="Pdf_PageLetter" xml:space="preserve"><value>Carta</value></data>
   <data name="Pdf_Margin1mm" xml:space="preserve"><value>Separar 1 mm</value></data>
   <data name="Pdf_Margin1mmTip" xml:space="preserve"><value>Deja 1 mm entre cartas. Sin esto quedan pegadas y se recorta de un solo corte por línea.</value></data>

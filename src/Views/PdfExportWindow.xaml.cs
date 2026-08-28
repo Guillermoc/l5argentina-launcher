@@ -175,8 +175,11 @@ namespace L5ArgentinaLauncher.Views
 
         private void PageSize_Click(object sender, RoutedEventArgs e)
         {
-            _pageSize = ReferenceEquals(sender, LetterBtn) ? PdfPageSize.Letter : PdfPageSize.A4;
+            _pageSize = ReferenceEquals(sender, LetterBtn) ? PdfPageSize.Letter
+                      : ReferenceEquals(sender, A3Btn) ? PdfPageSize.A3
+                      : PdfPageSize.A4;
             A4Btn.IsChecked = _pageSize == PdfPageSize.A4;
+            A3Btn.IsChecked = _pageSize == PdfPageSize.A3;
             LetterBtn.IsChecked = _pageSize == PdfPageSize.Letter;
             RefreshSummary();
         }
@@ -191,7 +194,7 @@ namespace L5ArgentinaLauncher.Views
         private void RefreshSummary()
         {
             var total = _rows.Sum(r => r.PrintQuantity);
-            var pages = PdfExporter.PageCount(total);
+            var pages = PdfExporter.PageCount(total, _pageSize);
             SummaryText.Text = Strings.Format("Fmt_PdfSummary", total, pages);
             GenerateBtn.IsEnabled = total > 0;
         }

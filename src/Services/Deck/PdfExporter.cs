@@ -9,11 +9,15 @@ using System.Windows.Media.Imaging;
 
 namespace L5ArgentinaLauncher.Services.Deck
 {
-    /// <summary>Tamaño de hoja del PDF de impresión (los dos de PdfExportViewModel.kt).</summary>
+    /// <summary>
+    /// Tamaño de hoja del PDF de impresión. A4 y Carta son los dos de <c>PdfExportViewModel.kt</c>;
+    /// A3 es propio del launcher, la app no lo tiene (ADR-061).
+    /// </summary>
     public enum PdfPageSize
     {
         A4,
         Letter,
+        A3,
     }
 
     /// <summary>Una carta a imprimir: sus rutas candidatas de imagen y cuántas copias.</summary>
@@ -32,6 +36,8 @@ namespace L5ArgentinaLauncher.Services.Deck
     {
         public int PageWidth;
         public int PageHeight;
+        public int Columns;
+        public int Rows;
         public int CardWidth;
         public int CardHeight;
         public int Gap;
@@ -40,10 +46,11 @@ namespace L5ArgentinaLauncher.Services.Deck
     }
 
     /// <summary>
-    /// Escribe el PDF de impresión de un mazo: grilla 3×3 de cartas a tamaño real (63×88 mm),
-    /// centrada en la hoja. Port de <c>PdfExportViewModel.buildPdf()</c> de la app Android, que allá
-    /// usa <c>android.graphics.pdf.PdfDocument</c>; en net48 no hay equivalente, así que se emite el
-    /// PDF a mano (ADR-049).
+    /// Escribe el PDF de impresión de un mazo: grilla de cartas a tamaño real (63×88 mm), centrada
+    /// en la hoja — 3×3 en A4/Carta, 6×3 apaisada en A3 (el doble, ADR-061). Port de
+    /// <c>PdfExportViewModel.buildPdf()</c> de la app Android, que allá usa
+    /// <c>android.graphics.pdf.PdfDocument</c>; en net48 no hay equivalente, así que se emite el PDF
+    /// a mano (ADR-049).
     ///
     /// Los JPEG de las cartas se embeben **tal cual** con el filtro <c>/DCTDecode</c>: el PDF es un
     /// contenedor de JPEG, así que no hay que decodificar ni recomprimir nada y la impresión sale con
@@ -65,19 +72,32 @@ namespace L5ArgentinaLauncher.Services.Deck
 
         private static int MmToPt(double mm) => (int)Math.Round(mm / 25.4 * 72.0, MidpointRounding.AwayFromZero);
 
+        /// <summary>
+        /// Grilla de la hoja. A3 sale apaisado (1191×842 pt = dos A4 uno al lado del otro) para que
+        /// entre exactamente el doble que A4/Carta, sin rotar la carta.
+        /// </summary>
+        private static void Grid(PdfPageSize size, out int columns, out int rows)
+        {
+            if (size == PdfPageSize.A3) { columns = 6; rows = 3; }
+            else { columns = Columns; rows = Rows; }
+        }
+
         /// <summary>Geometría de la hoja. Aislada del escritor para poder verificarla sola.</summary>
         public static PdfLayout Layout(PdfPageSize size, bool margin1mm)
         {
             var layout = new PdfLayout();
             if (size == PdfPageSize.Letter) { layout.PageWidth = 612; layout.PageHeight = 792; }
+            else if (size == PdfPageSize.A3) { layout.PageWidth = 1191; layout.PageHeight = 842; }
             else { layout.PageWidth = 595; layout.PageHeight = 842; }
+
+            Grid(size, out layout.Columns, out layout.Rows);
 
             layout.CardWidth = MmToPt(CardWidthMm);    // 179
             layout.CardHeight = MmToPt(CardHeightMm);  // 249
             layout.Gap = margin1mm ? MmToPt(1.0) : 0;  // 3
 
-            var gridW = Columns * layout.CardWidth + (Columns - 1) * layout.Gap;
-            var gridH = Rows * layout.CardHeight + (Rows - 1) * layout.Gap;
+            var gridW = layout.Columns * layout.CardWidth + (layout.Columns - 1) * layout.Gap;
+            var gridH = layout.Rows * layout.CardHeight + (layout.Rows - 1) * layout.Gap;
             layout.OriginX = (layout.PageWidth - gridW) / 2;
             layout.OriginY = (layout.PageHeight - gridH) / 2;
             return layout;
@@ -94,8 +114,14 @@ namespace L5ArgentinaLauncher.Services.Deck
         }
 
         /// <summary>Cuántas hojas salen para N cartas (la última va incompleta).</summary>
-        public static int PageCount(int totalCards) =>
-            totalCards <= 0 ? 0 : (totalCards + CardsPerPage - 1) / CardsPerPage;
+        public static int PageCount(int totalCards, PdfPageSize size)
+        {
+            if (totalCards <= 0) return 0;
+            int columns, rows;
+            Grid(size, out columns, out rows);
+            var perPage = columns * rows;
+            return (totalCards + perPage - 1) / perPage;
+        }
 
         /// <summary>
         /// Expande las copias en la secuencia de impresión: cada ítem aparece <c>Copies</c> veces
@@ -162,7 +188,7 @@ namespace L5ArgentinaLauncher.Services.Deck
                 try { if (File.Exists(temp)) File.Delete(temp); } catch { }
                 throw;
             }
-            return PageCount(sequence.Count);
+            return PageCount(sequence.Count, size);
         }
 
         // ------------------------------------------------------------------ emisión del PDF
@@ -171,7 +197,7 @@ namespace L5ArgentinaLauncher.Services.Deck
                                           Dictionary<string, PdfImage> images, PdfLayout layout)
         {
             var offsets = new Dictionary<int, long>();
-            var pages = ChunkPages(sequence);
+            var pages = ChunkPages(sequence, layout.Columns * layout.Rows);
 
             // Numeración: 1 catálogo, 2 árbol de páginas, después las imágenes y por último cada
             // hoja con su content stream.
@@ -235,12 +261,12 @@ namespace L5ArgentinaLauncher.Services.Deck
                           xref.ToString(CultureInfo.InvariantCulture) + "\n%%EOF\n");
         }
 
-        /// <summary>Reparte la secuencia en hojas de 9 (3×3), en orden.</summary>
-        internal static List<List<string>> ChunkPages(List<string> sequence)
+        /// <summary>Reparte la secuencia en hojas de <paramref name="cardsPerPage"/>, en orden.</summary>
+        internal static List<List<string>> ChunkPages(List<string> sequence, int cardsPerPage)
         {
             var pages = new List<List<string>>();
-            for (var i = 0; i < sequence.Count; i += CardsPerPage)
-                pages.Add(sequence.Skip(i).Take(CardsPerPage).ToList());
+            for (var i = 0; i < sequence.Count; i += cardsPerPage)
+                pages.Add(sequence.Skip(i).Take(cardsPerPage).ToList());
             return pages;
         }
 
@@ -254,8 +280,8 @@ namespace L5ArgentinaLauncher.Services.Deck
             var sb = new StringBuilder();
             for (var i = 0; i < cards.Count; i++)
             {
-                var col = i % Columns;
-                var row = i / Columns;
+                var col = i % layout.Columns;
+                var row = i / layout.Columns;
                 var x = layout.OriginX + col * (layout.CardWidth + layout.Gap);
                 var top = layout.OriginY + row * (layout.CardHeight + layout.Gap);
                 var y = layout.PageHeight - top - layout.CardHeight;

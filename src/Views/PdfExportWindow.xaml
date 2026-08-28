@@ -67,6 +67,8 @@
                                        Foreground="{StaticResource TextDim}" Margin="0,0,8,0" />
                             <ToggleButton x:Name="A4Btn" Style="{StaticResource SegmentLeft}"
                                           Content="{loc:Loc Pdf_PageA4}" Click="PageSize_Click" />
+                            <ToggleButton x:Name="A3Btn" Style="{StaticResource SegmentMid}"
+                                          Content="{loc:Loc Pdf_PageA3}" Click="PageSize_Click" />
                             <ToggleButton x:Name="LetterBtn" Style="{StaticResource SegmentRight}"
                                           Content="{loc:Loc Pdf_PageLetter}" Click="PageSize_Click" />
                         </StackPanel>
