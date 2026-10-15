@@ -228,7 +228,7 @@ Al terminar un cambio, actualizar el índice correspondiente **en el mismo traba
 | Agregaste/moviste archivos fuente | `docs/index/OVERVIEW.md` (mapa de archivos) |
 | **Tomaste una decisión no obvia** (tradeoff, camino descartado) | **entrada nueva en `docs/DECISIONS.md`** |
 | **Cambiaste una regla de cómo trabajamos** (verificación, reporte, autorización, permisos) | **[`metodo/protocolo.md`](../../Proyectos/metodo/protocolo.md) del hub**, no solo este archivo — con el caso que la originó y un bump de versión |
-| **Apareció _o se cerró_ una divergencia de capacidad con la app Android** | `metodo/paridad.md` del hub. Cerrar cuenta igual que abrir: si implementaste algo que allá ya estaba, la fila pasa a "Paridad" — si no, la matriz queda pidiendo trabajo ya hecho |
+| **Apareció _o se cerró_ una divergencia de capacidad con la app Android** | [`paridad.md`](../hub/paridad.md) de `L5Argentina\hub`. Cerrar cuenta igual que abrir: si implementaste algo que allá ya estaba, la fila pasa a "Paridad" — si no, la matriz queda pidiendo trabajo ya hecho |
 
 Si un cambio no encaja en ninguna fila, probablemente igual toca `OVERVIEW.md`. Preguntar antes de
 cerrar: *"¿qué índice hay que actualizar?"*.
