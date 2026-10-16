@@ -4,7 +4,7 @@ Launcher WPF (.NET Framework 4.8, SDK-style) para la comunidad L5Argentina. Lanz
 **Sun and Moon**, sincroniza la base de cartas/imágenes desde un bucket Cloudflare R2 e incluye
 un Buscador de cartas y un editor de Mazos portados de la app Android.
 
-**Protocolo:** [`metodo/protocolo.md`](../../Proyectos/metodo/protocolo.md) **v1.2** · Bloques
+**Protocolo:** [`metodo/protocolo.md`](../../recetas/metodo/protocolo.md) **v1.2** · Bloques
 **A** (git), **B** (verificación), **C** (usuarios reales), **D** (red), **E** (archivos ajenos).
 Excepciones: ninguna. **F y G no aplican** (nada commitea solo; no ejecuta comandos del sistema ni
 expone un endpoint). **Pushear NO publica**: `build.yml` solo corre el selftest, y el release sale
@@ -227,8 +227,8 @@ Al terminar un cambio, actualizar el índice correspondiente **en el mismo traba
 | **Cantidad de checks del selftest** (agregaste o borraste checks) | solo dos lugares: `docs/index/build-verificacion.md` (dueño del dato) y `README.md`. El resto de los docs dice "la batería en verde" a propósito; las menciones en `DECISIONS.md` son fotos fechadas y **no** se actualizan |
 | Agregaste/moviste archivos fuente | `docs/index/OVERVIEW.md` (mapa de archivos) |
 | **Tomaste una decisión no obvia** (tradeoff, camino descartado) | **entrada nueva en `docs/DECISIONS.md`** |
-| **Cambiaste una regla de cómo trabajamos** (verificación, reporte, autorización, permisos) | **[`metodo/protocolo.md`](../../Proyectos/metodo/protocolo.md) del hub**, no solo este archivo — con el caso que la originó y un bump de versión |
-| **Apareció _o se cerró_ una divergencia de capacidad con la app Android** | [`paridad.md`](../hub/paridad.md) de `L5Argentina\hub`. Cerrar cuenta igual que abrir: si implementaste algo que allá ya estaba, la fila pasa a "Paridad" — si no, la matriz queda pidiendo trabajo ya hecho |
+| **Cambiaste una regla de cómo trabajamos** (verificación, reporte, autorización, permisos) | **[`metodo/protocolo.md`](../../recetas/metodo/protocolo.md) del hub**, no solo este archivo — con el caso que la originó y un bump de versión |
+| **Apareció _o se cerró_ una divergencia de capacidad con la app Android** | [`paridad.md`](../gunso/paridad.md) de `L5Argentina\gunso`. Cerrar cuenta igual que abrir: si implementaste algo que allá ya estaba, la fila pasa a "Paridad" — si no, la matriz queda pidiendo trabajo ya hecho |
 
 Si un cambio no encaja en ninguna fila, probablemente igual toca `OVERVIEW.md`. Preguntar antes de
 cerrar: *"¿qué índice hay que actualizar?"*.
@@ -245,7 +245,7 @@ Todos los ítems pesan lo mismo; ninguno es opcional:
 6. **`docs/technical/technical-specification.md`: pasada sección por sección contra el estado real**
    (o contra los índices, que ya deberían estar al día) + fecha de revisión.
 7. **Protocolo:** comparar la versión declarada en el encabezado contra
-   [`metodo/protocolo.md`](../../Proyectos/metodo/protocolo.md). Si difiere, leer solo el changelog de
+   [`metodo/protocolo.md`](../../recetas/metodo/protocolo.md). Si difiere, leer solo el changelog de
    la diferencia y aplicar o declarar excepción.
 8. Versión bumpeada en `AppConstants.LauncherVersion` **y** `<Version>` del csproj (con confirmación).
 9. Si es release: tag `vX.Y.Z`, y publicar el **SHA-256 del exe** en el segundo canal.

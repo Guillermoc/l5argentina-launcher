@@ -82,7 +82,7 @@ cierre de un desarrollo en vez de correrse después de cada edición.
 
 > **Las reglas operativas** —cuándo correrlo, qué checks se agregan, cuándo se da de baja uno— viven
 > en **[`CLAUDE.md` §4](../../CLAUDE.md)** (las generales, en el bloque B de
-> [`metodo/protocolo.md`](../../../../Proyectos/metodo/protocolo.md)), con el razonamiento en
+> [`metodo/protocolo.md`](../../../../recetas/metodo/protocolo.md)), con el razonamiento en
 > [ADR-032](../DECISIONS.md#adr-032) y [ADR-033](../DECISIONS.md#adr-033). Acá va solo el estado del
 > harness: si las dos versiones divergen, manda `CLAUDE.md`.
 

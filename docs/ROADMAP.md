@@ -13,7 +13,7 @@ orden por Set ya no asume `.jpg` ([ADR-062](DECISIONS.md#adr-062)). Batería en 
 
 > ⚠️ **Sin revisar desde antes del 2026-08-03** (triage del hub, 2026-08-12): confirmar que "Estado
 > hoy" y "Foco actual" siguen vigentes antes de asignar IDs a los 19 ítems abiertos de §2-4 —
-> `l5hub:MET-5` en [`backlog/tareas.md`](../../hub/backlog/tareas.md) de `L5Argentina\hub` precede a esta tarea.
+> `gunso:MET-5` en [`backlog/tareas.md`](../../gunso/backlog/tareas.md) de `L5Argentina\gunso` precede a esta tarea.
 
 ---
 
