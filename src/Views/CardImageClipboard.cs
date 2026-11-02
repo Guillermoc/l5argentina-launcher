@@ -56,8 +56,9 @@ namespace L5ArgentinaLauncher.Views
                     bmp.UriSource = new Uri(path);
                     bmp.CacheOption = BitmapCacheOption.OnLoad; // libera el archivo enseguida
                     bmp.EndInit();
-                    bmp.Freeze();
-                    return bmp;
+                    var fixedBmp = CardImageDpiFix.Apply(bmp);
+                    fixedBmp.Freeze();
+                    return fixedBmp;
                 }
                 catch
                 {

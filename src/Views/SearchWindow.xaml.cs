@@ -1886,8 +1886,9 @@ namespace L5ArgentinaLauncher.Views
                 bmp.CacheOption = BitmapCacheOption.OnLoad;
                 bmp.DecodePixelWidth = DecodeWidth;
                 bmp.EndInit();
-                bmp.Freeze();
-                return bmp;
+                var fixedBmp = CardImageDpiFix.Apply(bmp);
+                fixedBmp.Freeze();
+                return fixedBmp;
             }
             catch
             {

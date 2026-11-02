@@ -2017,3 +2017,37 @@ razones, verificadas contra la base real (`cards-2.2.0.json`, 7428 impresiones):
 `GetFileNameWithoutExtension("P230.jpg") == "P230"`, igual que antes), y ya no asume una extensión
 fija — cualquier formato de imagen queda bien recortado. Resuelve el problema real (no atarse a
 `.jpg`) sin la superficie de riesgo de tocar el modelo de datos ni el orden de los goldens.
+
+## ADR-063 — El arte con DPI asimétrico se renormaliza al decodificar, no se toca el archivo
+
+**Fecha:** 2026-08-29 · **Estado:** vigente.
+
+**El síntoma.** Algunas cartas (`Star-Crossed Lovers`/TSE006, `Yotsu Ueda`/P391-Promo391, y todos
+los tokens de `Emperor` y `EoW`, 30 archivos en total) se veían como franjas horizontales de color
+en el panel de detalle y en la grilla, tanto en la máquina de dev como para otros usuarios. Copiar
+la imagen al portapapeles y pegarla afuera (WhatsApp, Discord) siempre mostraba la carta bien.
+
+**El diagnóstico.** Esos 30 `.jpg` traen `XResolution=1` en vez de 300 en su metadata EXIF/JFIF
+(`YResolution` sí está bien, en 300) — un defecto real del archivo, no algo que la app decodifique
+mal: `BitmapImage.DpiX`/`DpiY` lo confirman (1 y 300) contra 300/300 en cualquier carta sana.
+Reproducido fuera de la app (`RenderTargetBitmap` sobre un `Border`+`ImageBrush` idéntico al de
+`CardDetailPanel`): con esa densidad tan asimétrica, WPF calcula un tamaño "natural" del bitmap
+disparatado en el eje X y compone la imagen en bandas en vez de mostrarla entera — un bug de
+renderizado, no de datos. `Clipboard.SetImage`/`CopyPixels` no pasan por ese cálculo: leen los
+píxeles crudos directo, por eso el archivo copiado siempre se vio bien y llevó a sospechar primero
+de un glitch de GPU/driver, no del archivo.
+
+**Por qué no se toca el `.jpg`.** Vive en la instalación del juego (`images/cards/...`), no en este
+repo: es un archivo ajeno, y aunque se pudiera reexportar acá, cada usuario tiene su propia copia —
+arreglar el asset no arregla nada para nadie más. Y el símbolo de esta clase de bug (DPI asimétrico
+mal seteado por lo que sea que exportó esos 30 archivos en su momento) puede reaparecer con
+cualquier imagen nueva del pool.
+
+**La decisión: corregir la densidad al decodificar, no el archivo.** `Views/CardImageDpiFix.cs`
+detecta `DpiX != DpiY` y, solo en ese caso, reempaqueta el bitmap ya decodificado (mismos píxeles,
+vía `CopyPixels` + `BitmapSource.Create` a 96×96) y lo vuelve a envasar como `BitmapImage` con un
+round-trip PNG en memoria — así el resto del código (`CardDetailPanel`, `ThumbnailCache`,
+`CardImageClipboard`) sigue trabajando con `BitmapImage` sin cambiar ningún tipo ni firma. Se aplica
+en los tres lugares que decodifican desde archivo: el panel de detalle, la miniatura de grilla y la
+previsualización con Alt/portapapeles. El chequeo es barato y no dispara para el resto del catálogo
+(~8850 de 8883 archivos escaneados tienen DPI simétrico), así que no hay costo para el caso normal.

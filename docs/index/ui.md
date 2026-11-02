@@ -296,6 +296,13 @@ esquinas redondeadas, así que sin recortar asoman cuatro puntitas blancas. El m
 clan pasó a ser el *placeholder*: solo se dibuja cuando no hay imagen. Mismo criterio en las celdas
 de grilla de las dos ventanas, donde además el borde vuelve en hover y selección.
 
+**`Views/CardImageDpiFix.cs` corrige el arte con DPI horizontal/vertical asimétrico**
+([ADR-063](../DECISIONS.md#adr-063)): algunos `.jpg` del pool traen `XResolution=1` en vez de 300 en
+su metadata, y con esa asimetría WPF renderiza la imagen en franjas en vez de mostrarla entera (bug
+de composición, no de datos — los píxeles decodificados están bien). Se aplica al decodificar en los
+tres lugares que leen del archivo (`CardDetailPanel.LoadFromCandidates`, `ThumbnailCache.Decode`,
+`CardImageClipboard.LoadFull`); no toca el archivo, que es ajeno a este repo.
+
 `Views/Dialogs.cs` reúne los diálogos chicos de las dos ventanas grandes; vivía como un `Prompt`
 privado dentro de `DeckWindow` hasta que el Buscador necesitó lo mismo para crear listas.
 
