@@ -33,8 +33,8 @@ y confinadas al directorio del manifest. Secciones:
 
 - `launcher.latest_version` → banner de update (compara contra `AppConstants.LauncherVersion`).
 - `databases[]` → la entrada con `id == "community"` es la única que se descarga (la Original es local).
-- `images` → **el pack que se aplica solo al jugar**, no "el pack de la comunidad"
-  ([ADR-055](../DECISIONS.md#adr-055)). Está publicado también en el pool y se lo reconoce ahí por
+- `images` → **el pack recomendado**, no "el pack de la comunidad" ([ADR-055](../DECISIONS.md#adr-055)).
+  Hasta [ADR-064](../DECISIONS.md#adr-064) se aplicaba solo al jugar; hoy se baja a mano como los demás. Está publicado también en el pool y se lo reconoce ahí por
   hash ([ADR-048](../DECISIONS.md#adr-048)); qué packs existen lo dice el pool, no esta sección.
 - `catalog` (opcional) → `cards`/`rules`/`filters`; hoy es **fallback** del pool.
 - `news[]` → modelado, no usado (v2).
@@ -60,20 +60,37 @@ el manifest vive en `/production/` y los archivos en `/pool/`). De acá salen:
 4. `EnsureOriginalBackup` copia el `database.xml` actual a `backups\database.original.xml`.
    **Solo la primera vez**: si el archivo existe, no se pisa nunca.
 
-### Buscar actualizaciones (MainWindow)
+### Buscar novedades (MainWindow, en segundo plano)
 
-1. `LoadManifestAsync` (launcher) y `LoadPoolManifestAsync` (pool).
-2. `LauncherUpdateAvailable()` → banner con link a `ReleasesPageUrl` (hardcodeado). El aviso de
-   novedades del header (`GetPendingSummary`, ver packs más abajo) se recalcula **después** del sync
-   del catálogo: hasta ahí el pool no está cargado y no se sabe nada de los packs.
+**No bloquea la pantalla** ([ADR-064](../DECISIONS.md#adr-064)): `CheckAsync` corre sin `SetBusy`, así
+que JUGAR, el Buscador, Configuración y la elección de base siguen habilitados; solo se apaga
+"Buscar actualizaciones" mientras dura. Cada manifest tiene un tope de **15 s**
+(`ManifestService.FetchTimeout`, aparte de los 5 min del `HttpClient`, que son para los packs).
+
+**Regla:** la base Comunidad y el catálogo del Buscador se bajan solos; **todos los packs de imágenes
+son manuales** y la pantalla avisa cuando falta alguno. Pisar el `database.xml` sigue siendo de JUGAR
+(con el juego abierto no se toca).
+
+1. `LoadManifestAsync` (launcher) y `LoadPoolManifestAsync` (pool), **en paralelo**.
+2. Apenas está el del bucket (`PrepareBaseAsync`): `LauncherUpdateAvailable()` → banner con link a
+   `ReleasesPageUrl` (hardcodeado), y si `CommunityNeedsDownload()`, `DownloadCommunityAsync` baja la
+   base a la caché **sin aplicarla**. Un error acá no muestra diálogo: JUGAR la reintenta.
 3. `CommunityNeedsDownload()` / `ImagesNeedSync()` / `CatalogNeedsSyncFromPool()` comparan el hash del
    manifest contra el guardado en `config.json` (no contra el archivo: no se re-hashea la caché).
 4. `SyncCatalogFromPoolAsync` baja `cards_db-X.Y.Z.zip` / `rules-X.Y.Z.json` / `filters-X.Y.Z.json` a
    `cache/catalog/` con **nombre versionado** (la URL del pool no lleva versión) y borra las versiones
    viejas. Si el pool no responde, `SyncCatalogAsync` hace lo mismo desde la sección `catalog`.
+5. Al final, el aviso del header (`GetPendingSummary`) y el resumen de packs. Mientras dura la
+   búsqueda dicen "Verificando…" en vez de un "todo al día" prematuro.
+
+Quién espera qué: JUGAR espera `_baseTask` (manifest + base bajada), el listado de packs espera
+`_manifestsTask` (y ya no vuelve a pedir el pool si está cargado), el catálogo no lo espera nadie.
+Guardar Configuración cancela la búsqueda en curso y arranca otra. `ConfigService.Save` es con lock:
+las descargas de fondo guardan desde otro hilo.
 
 ### JUGAR
 
+0. Si la búsqueda de novedades sigue, espera a que la base esté (no al catálogo).
 1. `NeedsApply(baseId)` → true si falta el `database.xml`, si cambió la base elegida o si cambió la
    versión de Comunidad.
 2. Comunidad: `EnsureCommunityDownloadedAsync` (descarga + hash) y, si el archivo es `.zip`,
@@ -87,12 +104,13 @@ el manifest vive en `/production/` y los archivos en `/pool/`). De acá salen:
 
 Lista **todos** los `type == "images"` del pool ([ADR-055](../DECISIONS.md#adr-055)). No hay familias:
 un pack nuevo —de un arco o de la comunidad— aparece solo, sin tocar el launcher ni el manifest del
-bucket. La sección `images` del bucket ya no significa "el pack de la comunidad" sino **"este pack se
-aplica solo al apretar JUGAR"**: se lo reconoce por **sha256** (`IsBundledPack`, la parte que sigue
-vigente de [ADR-048](../DECISIONS.md#adr-048)) y en el listado sale marcado "Incluido · se aplica al
-jugar". Como se puede aplicar por los **dos** caminos, al aplicarlo se escriben los **dos** registros
-(`appliedImagePackVersion/Sha256` y `appliedImagePacks[id]`) y `PackIsCurrent` consulta los dos: sin
-eso, uno decía "al día" y el otro "actualización disponible" sobre el mismo archivo.
+bucket. La sección `images` del bucket ya no significa "el pack de la comunidad" sino **"este es el
+pack recomendado"**: se lo reconoce por **sha256** (`IsBundledPack`, la parte que sigue vigente de
+[ADR-048](../DECISIONS.md#adr-048)) y en el listado sale marcado "Recomendado". **JUGAR ya no lo
+aplica** ([ADR-064](../DECISIONS.md#adr-064)): se baja a mano como cualquier otro. Las versiones
+anteriores sí lo aplicaban al jugar y dejaban su propio registro (`appliedImagePackVersion/Sha256`),
+así que `PackIsCurrent` sigue consultando los dos y bajarlo desde el listado sigue escribiendo los
+dos; `SyncImagesAsync` queda en el motor, sin uso desde la UI.
 
 **Qué se considera pendiente** ([ADR-054](../DECISIONS.md#adr-054)). Un pack en su **versión inicial**
 (`LauncherEngine.IsInitialPackVersion`: `1`, `1.0` y `1.0.0` son la misma) **no** genera pendiente —es
@@ -100,7 +118,9 @@ catálogo opcional, no una novedad— y en el listado queda apagado en "No desca
 nuevo**: un pack que aparece después de la siembra de `knownImagePacks` avisa igual, porque una expa
 de la comunidad sale justamente en 1.0 (`PackIsNew`, [ADR-056](../DECISIONS.md#adr-056)); en el
 listado dice "Pack nuevo · falta descargar". Con cualquier otra versión también: sin descargar aparece
-como **"Novedad · falta descargar"** en oro. Los dos casos cuentan en
+como **"Novedad · falta descargar"** en oro. Y el **recomendado** avisa siempre que no esté al día,
+aunque esté en 1.0 —desde que JUGAR no lo aplica, el aviso es lo único que le dice a quien no lo tiene
+que le falta—, con "Falta descargar". Todos esos casos cuentan en
 `GetPendingSummary().ImagePacks`, que alimenta el aviso del header (base Comunidad + packs; el update
 del launcher va aparte, en su banner) y el resumen de la fila de imágenes (cuántos descargados sobre
 el total). Si el manifest del pool no cargó, los dos lo dicen en vez de afirmar que está todo al día

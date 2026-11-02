@@ -137,6 +137,8 @@ parecían una sola. Hay que poner `WindowStartupLocation.Manual` **antes** de to
 
 **Aviso de novedades** (`PendingStrip`, en el **header**, bajo los botones) — **siempre** dice algo:
 `Hay novedades: …` con punto dorado, o `Todo al día.` apagado ([ADR-054](../DECISIONS.md#adr-054)).
+Mientras corre la búsqueda en segundo plano dice `Verificando si hay novedades…`: la pantalla no se
+bloquea y los botones siguen vivos ([ADR-064](../DECISIONS.md#adr-064)).
 Es solo texto, y va ahí y no en una franja propia porque el lienzo tiene **alto fijo**: una fila nueva
 se la come el cuerpo, y la primera versión le recortaba el placeholder de Noticias.
 

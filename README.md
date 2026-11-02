@@ -90,9 +90,9 @@ Versión actual: **0.9.0**.
 - **Packs de imágenes opcionales** (desde 0.2.0): menú para descargar el arte oficial de cartas por arco
   (Lotus, Samurai, Celestial, Emperor, Ivory, Twenty Festivals, Promo) desde el CDN de la app; cada pack
   se verifica por SHA-256 y se instala sobre la carpeta `images` de Sun and Moon — sirve al juego y al
-  Buscador. El pack **Samurai Extended** no aparece ahí: es el nuestro, se aplica solo durante la
-  sincronización y se muestra en la barra de "Imágenes Samurai Extended". Antes salía en los dos lados
-  y se descargaba dos veces.
+  Buscador. Todos los packs se bajan a mano, también **Samurai Extended**, que sale marcado como
+  recomendado: la pantalla avisa cuando falta o hay una versión nueva. Lo único que se baja solo es la
+  base Comunidad y el catálogo del Buscador, en segundo plano y sin trabar la pantalla.
 - **Mazos / deckbuilder** (desde 0.3.0): editor de mazos, port 1:1 del `DeckRepository` de la app
   Android (mismo orden de validaciones: baneada → slot → tope de copias). **Persiste como .txt en la
   carpeta `Decks` de Sun and Moon** — el mazo que armás acá se juega directo, sin exportar nada — con un
@@ -196,7 +196,7 @@ quedan al lado).
 
 Un harness de verificación monta un bucket+instalación falsos en `%TEMP%` y ejercita el pipeline real
 (hash, confinamiento de origen, zip-slip, backups, base zippeada, catálogo y packs del pool) sin tocar
-tu instalación — **382 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
+tu instalación — **384 checks**, incluidos los **53 golden tests de paridad** del motor del Buscador y
 los **25 golden tests** del deckbuilder, ambos contra la lógica real de la app Android:
 
 ```sh

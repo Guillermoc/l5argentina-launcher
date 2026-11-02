@@ -71,7 +71,9 @@
   <data name="Original_Unavailable" xml:space="preserve"><value>No disponible (no se capturó backup)</value></data>
   <data name="Status_Preparing" xml:space="preserve"><value>Preparando…</value></data>
   <data name="Status_ApplyingBase" xml:space="preserve"><value>Aplicando base…</value></data>
-  <data name="Status_SyncingImages" xml:space="preserve"><value>Sincronizando imágenes propias…</value></data>
+  <data name="Status_DownloadingBase" xml:space="preserve"><value>Descargando la base Comunidad…</value></data>
+  <data name="Status_WaitingBase" xml:space="preserve"><value>Terminando de preparar la base…</value></data>
+  <data name="Fmt_BaseDownloadFailed" xml:space="preserve"><value>No se pudo descargar la base Comunidad; se reintenta al jugar. ({0})</value></data>
   <data name="Status_Launching" xml:space="preserve"><value>Iniciando Sun and Moon…</value></data>
   <data name="Status_Launched" xml:space="preserve"><value>Sun and Moon iniciado. ¡A jugar!</value></data>
   <data name="Status_AbortedSecurity" xml:space="preserve"><value>Operación abortada por seguridad.</value></data>
@@ -246,7 +248,8 @@
   <data name="Fmt_PacksSummary" xml:space="preserve"><value>{0} de {1} packs descargados</value></data>
   <data name="Fmt_PacksSummaryPendingOne" xml:space="preserve"><value>{0} de {1} packs descargados · 1 con novedad</value></data>
   <data name="Fmt_PacksSummaryPendingMany" xml:space="preserve"><value>{0} de {1} packs descargados · {2} con novedades</value></data>
-  <data name="Packs_Bundled" xml:space="preserve"><value>Incluido · se aplica al jugar</value></data>
+  <data name="Packs_Bundled" xml:space="preserve"><value>Recomendado</value></data>
+  <data name="Packs_RecommendedMissing" xml:space="preserve"><value>Falta descargar</value></data>
   <!-- ═══════ Estado de novedades del launcher ═══════ -->
   <data name="Pending_Checking" xml:space="preserve"><value>Verificando si hay novedades…</value></data>
   <data name="Pending_AllUpToDate" xml:space="preserve"><value>Todo al día.</value></data>

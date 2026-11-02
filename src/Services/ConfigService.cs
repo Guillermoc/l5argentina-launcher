@@ -42,17 +42,24 @@ namespace L5ArgentinaLauncher.Services
             return config;
         }
 
+        // Las descargas en segundo plano guardan desde otro hilo mientras la UI guarda desde el suyo
+        // (ADR-064): sin el lock, dos Save a la vez se pisan el mismo .tmp.
+        private static readonly object SaveLock = new object();
+
         public void Save(UserConfig config)
         {
-            Directory.CreateDirectory(AppConstants.AppDataDir);
-            var json = JsonSerializer.Serialize(config, JsonOpts);
-            // Escritura atómica: a temporal y luego replace, para no dejar config a medias.
-            var tmp = AppConstants.ConfigPath + ".tmp";
-            File.WriteAllText(tmp, json);
-            if (File.Exists(AppConstants.ConfigPath))
-                File.Replace(tmp, AppConstants.ConfigPath, null);
-            else
-                File.Move(tmp, AppConstants.ConfigPath);
+            lock (SaveLock)
+            {
+                Directory.CreateDirectory(AppConstants.AppDataDir);
+                var json = JsonSerializer.Serialize(config, JsonOpts);
+                // Escritura atómica: a temporal y luego replace, para no dejar config a medias.
+                var tmp = AppConstants.ConfigPath + ".tmp";
+                File.WriteAllText(tmp, json);
+                if (File.Exists(AppConstants.ConfigPath))
+                    File.Replace(tmp, AppConstants.ConfigPath, null);
+                else
+                    File.Move(tmp, AppConstants.ConfigPath);
+            }
         }
     }
 }

@@ -133,6 +133,14 @@ namespace L5ArgentinaLauncher
 
             Assert(InstallationService.IsValidInstall(install), "Install: detectada como válida");
 
+            // La pantalla baja la base sola al abrir (ADR-064); pisar el database.xml sigue siendo de JUGAR.
+            var preEngine = new LauncherEngine(new UserConfig { ManifestUrl = manifestUrl, SunAndMoonPath = install });
+            preEngine.LoadManifestAsync().GetAwaiter().GetResult();
+            preEngine.DownloadCommunityAsync(null).GetAwaiter().GetResult();
+            Assert(!preEngine.CommunityNeedsDownload() && preEngine.NeedsApply(LauncherEngine.CommunityId) &&
+                   File.ReadAllText(dbXml) == "ORIGINAL-BASE-CONTENT",
+                "Engine: la predescarga deja la base en caché sin tocar el database.xml");
+
             // ---------- ImagePackService: extracción normal ----------
             var ips = new ImagePackService();
             ips.ApplyImagePack(install, packZip);
@@ -293,6 +301,11 @@ namespace L5ArgentinaLauncher
             // Los dos caminos (JUGAR y el listado) escriben los dos registros: si no, el mismo
             // archivo quedaba "al día" por un lado y "actualización disponible" por el otro.
             Assert(!dupEngine.PackIsCurrent(bundledPack), "Pool: el incluido arranca sin aplicar");
+            // JUGAR ya no lo aplica (ADR-064): el aviso es lo único que dice que falta, así que el
+            // recomendado cuenta aunque esté en 1.0, y un 1.0 común sigue sin contar.
+            Assert(dupEngine.PackIsPending(bundledPack) &&
+                   !dupEngine.PackIsPending(dupEngine.ImagePacks.First(p => p.Id == "testpack")),
+                "Pendientes: el recomendado sin bajar avisa aunque esté en 1.0; un 1.0 común no");
             dupEngine.SyncImagesAsync(null).GetAwaiter().GetResult();
             Assert(dupEngine.PackIsCurrent(bundledPack),
                 "Pool: aplicado por JUGAR, el listado lo ve al día (no lo ofrece de nuevo)");

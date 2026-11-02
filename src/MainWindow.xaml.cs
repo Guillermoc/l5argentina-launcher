@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -24,6 +25,15 @@ namespace L5ArgentinaLauncher
         // true una vez que el usuario confirmó el cierre: evita re-preguntar cuando el Shutdown
         // vuelve a pasar por Closing.
         private bool _closeConfirmed;
+
+        // Búsqueda de novedades en segundo plano (ADR-064). No usa _busy: la pantalla sigue viva
+        // mientras corre. JUGAR espera solo a _baseTask (manifest + base bajada) y el listado de
+        // packs solo a _manifestsTask; el catálogo del Buscador no lo espera nadie.
+        private bool _checking;
+        private CancellationTokenSource _checkCts;
+        private Task _checkTask = Task.CompletedTask;
+        private Task _manifestsTask = Task.CompletedTask;
+        private Task _baseTask = Task.CompletedTask;
 
         private string _settingsPath;
         private TaskCompletionSource<bool> _dialogTcs;
@@ -70,7 +80,7 @@ namespace L5ArgentinaLauncher
 
         // ---------------- Carga inicial ----------------
 
-        private async void Window_Loaded(object sender, RoutedEventArgs e)
+        private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             LauncherVersionText.Text = Strings.Format("Fmt_LauncherVersion", AppConstants.LauncherVersion);
             InstallPathText.Text = Strings.Format("Fmt_Install", _config.SunAndMoonPath ?? Strings.Get("Common_NotConfigured"));
@@ -84,65 +94,134 @@ namespace L5ArgentinaLauncher
             UpdateOriginalAvailability();
             _initializing = false;
 
-            await RefreshAsync();
+            StartCheck();
         }
 
-        // ---------------- Refresh / manifest ----------------
+        // ---------------- Búsqueda de novedades (segundo plano) ----------------
 
-        private async Task RefreshAsync()
+        /// <summary>
+        /// Busca novedades **sin bloquear la pantalla** ([ADR-064](../docs/DECISIONS.md)). Antes todo
+        /// el chequeo corría bajo <c>SetBusy</c>: con una red lenta, JUGAR, el Buscador y hasta la
+        /// elección de base quedaban apagados hasta que respondieran los dos manifests y bajara el
+        /// catálogo. Ahora la única espera es la que hace falta: JUGAR aguarda a que la base esté.
+        /// </summary>
+        private void StartCheck()
         {
-            if (_busy) return;
-            SetBusy(true, Strings.Get("Status_Checking"), indeterminate: true);
+            if (_busy || _checking) return;
+            _checkCts = new CancellationTokenSource();
+            _checkTask = CheckAsync(_checkCts.Token);
+        }
+
+        private async Task CheckAsync(CancellationToken ct)
+        {
+            _checking = true;
+            RefreshButton.IsEnabled = false;
+            ShowBackgroundProgress();
+            SetBackgroundStatus(Strings.Get("Status_Checking"));
+            UpdatePendingStrip();
+            UpdatePacksSummary();
+
+            // Los dos manifests en paralelo: no dependen uno del otro.
+            var bucket = _engine.LoadManifestAsync(ct);
+            var pool = _engine.LoadPoolManifestAsync(ct: ct);
+            _manifestsTask = IgnoreErrors(Task.WhenAll(bucket, pool));
+            _baseTask = PrepareBaseAsync(bucket, ct);
+
             try
             {
-                await _engine.LoadManifestAsync();
-                PopulateFromManifest();
-                await SyncCatalogQuietAsync();
-                // Recién ahora se sabe de los packs: el pool lo carga el sync del catálogo.
-                UpdatePendingStrip();
-                UpdatePacksSummary();
-                SetStatus(Strings.Get("Status_Ready"));
-            }
-            catch (Exception ex)
-            {
-                PopulateOffline();
-                SetStatus(Strings.Format("Fmt_Offline", Short(ex)));
+                await _baseTask;
+                await IgnoreErrors(pool);
+                if (!ct.IsCancellationRequested)
+                    await SyncCatalogQuietAsync(ct);
             }
             finally
             {
-                SetBusy(false);
+                _checking = false;
+                // Sin manifest del bucket, PrepareBaseAsync ya dejó la pantalla en modo offline.
+                if (!ct.IsCancellationRequested && bucket.Status == TaskStatus.RanToCompletion)
+                {
+                    // Recién ahora se sabe todo: base, pool y packs.
+                    UpdatePendingStrip();
+                    UpdatePacksSummary();
+                    SetBackgroundStatus(Strings.Get("Status_Ready"));
+                }
+                RefreshButton.IsEnabled = !_busy;
+                if (!_busy) Progress.Visibility = Visibility.Collapsed;
             }
         }
 
         /// <summary>
-        /// Sincroniza el catálogo del Buscador. Fuente primaria: el manifest de production del
-        /// pool (cards_db/rules/filters, mismos artefactos que la app). Fallback: la sección
-        /// `catalog` opcional del manifest del launcher. No es crítico para jugar: cualquier
-        /// error se ignora y el Buscador usa lo que haya en caché.
+        /// Manifest del bucket y, apenas está, la base Comunidad a la caché. Nunca tira: un error acá
+        /// deja la pantalla en modo offline o con la base por bajar, y JUGAR la reintenta (y ahí sí
+        /// muestra el diálogo, por ejemplo el de integridad).
         /// </summary>
-        private async Task SyncCatalogQuietAsync()
+        private async Task PrepareBaseAsync(Task bucket, CancellationToken ct)
         {
-            var progress = new Progress<DownloadProgress>(OnProgress);
             try
             {
-                await _engine.LoadPoolManifestAsync();
-                if (_engine.CatalogNeedsSyncFromPool())
-                {
-                    SetStatus(Strings.Get("Status_SyncingCatalog"));
-                    if (await _engine.SyncCatalogFromPoolAsync(progress))
-                        _catalog = null; // invalidar el catálogo cargado; se relee al abrir el Buscador
-                }
+                await bucket;
+            }
+            catch (Exception ex)
+            {
+                if (ct.IsCancellationRequested) return;
+                PopulateOffline();
+                SetBackgroundStatus(Strings.Format("Fmt_Offline", Short(ex)));
                 return;
             }
-            catch
+            PopulateFromManifest();
+            if (!_engine.CommunityNeedsDownload()) return;
+
+            try
             {
-                // pool no disponible → probar la sección catalog del manifest del launcher
+                SetBackgroundStatus(Strings.Get("Status_DownloadingBase"));
+                await _engine.DownloadCommunityAsync(new Progress<DownloadProgress>(OnProgress), ct);
+                PopulateFromManifest();
+            }
+            catch (Exception ex)
+            {
+                if (ct.IsCancellationRequested) return;
+                SetBackgroundStatus(Strings.Format("Fmt_BaseDownloadFailed", Short(ex)));
+            }
+        }
+
+        private static async Task IgnoreErrors(Task task)
+        {
+            try { await task; } catch { /* lo informa quien mira la tarea original */ }
+        }
+
+        /// <summary>
+        /// Sincroniza el catálogo del Buscador. Fuente primaria: el manifest de production del
+        /// pool (cards_db/rules/filters, mismos artefactos que la app), que ya cargó
+        /// <see cref="CheckAsync"/>. Fallback: la sección `catalog` opcional del manifest del
+        /// launcher. No es crítico para jugar: cualquier error se ignora y el Buscador usa lo que
+        /// haya en caché.
+        /// </summary>
+        private async Task SyncCatalogQuietAsync(CancellationToken ct)
+        {
+            // El catálogo no lo espera nadie: su progreso no le gana la barra a lo que pidió el usuario.
+            var progress = new Progress<DownloadProgress>(p => { if (!_busy) OnProgress(p); });
+            if (_engine.PoolManifestLoaded)
+            {
+                try
+                {
+                    if (_engine.CatalogNeedsSyncFromPool())
+                    {
+                        SetBackgroundStatus(Strings.Get("Status_SyncingCatalog"));
+                        if (await _engine.SyncCatalogFromPoolAsync(progress, ct))
+                            _catalog = null; // invalidar el catálogo cargado; se relee al abrir el Buscador
+                    }
+                    return;
+                }
+                catch
+                {
+                    // pool no disponible → probar la sección catalog del manifest del launcher
+                }
             }
             try
             {
                 if (!_engine.CatalogNeedsSync()) return;
-                SetStatus(Strings.Get("Status_SyncingCatalog"));
-                if (await _engine.SyncCatalogAsync(progress))
+                SetBackgroundStatus(Strings.Get("Status_SyncingCatalog"));
+                if (await _engine.SyncCatalogAsync(progress, ct))
                     _catalog = null;
             }
             catch
@@ -193,6 +272,15 @@ namespace L5ArgentinaLauncher
         /// </summary>
         private void UpdatePendingStrip()
         {
+            if (_checking)
+            {
+                // Con la búsqueda a medias, cualquier "todo al día" sería prematuro.
+                PendingText.Text = Strings.Get("Pending_Checking");
+                PendingText.Foreground = (Brush)FindResource("TextDim");
+                PendingDot.Fill = (Brush)FindResource("GoldDim");
+                return;
+            }
+
             var pending = _engine.GetPendingSummary();
             // Sin el manifest del pool no hay lista de packs, y "ningún pack pendiente" no es lo
             // mismo que "no sé": el aviso sirve justamente para poder confiar en el "todo al día".
@@ -229,7 +317,8 @@ namespace L5ArgentinaLauncher
         {
             if (!_engine.PoolManifestLoaded)
             {
-                PacksSummaryText.Text = Strings.Get(offline ? "Packs_SummaryOffline" : "Packs_SummaryUnknown");
+                PacksSummaryText.Text = Strings.Get(offline ? "Packs_SummaryOffline"
+                    : _checking ? "Packs_SummaryChecking" : "Packs_SummaryUnknown");
                 PacksSummaryText.Foreground = (Brush)FindResource("TextFaint");
                 return;
             }
@@ -323,6 +412,14 @@ namespace L5ArgentinaLauncher
             SetBusy(true, Strings.Get("Status_Preparing"), indeterminate: true);
             try
             {
+                // Si la búsqueda de novedades sigue, la base puede estar bajando: se la espera a ella
+                // (no al catálogo). Los manifests tienen tope, así que esto no cuelga.
+                if (!_baseTask.IsCompleted)
+                {
+                    SetStatus(Strings.Get("Status_WaitingBase"));
+                    await _baseTask;
+                }
+
                 if (_engine.NeedsApply(baseId))
                 {
                     if (string.Equals(baseId, LauncherEngine.CommunityId, StringComparison.OrdinalIgnoreCase)
@@ -332,15 +429,14 @@ namespace L5ArgentinaLauncher
                     }
 
                     SetStatus(Strings.Get("Status_ApplyingBase"));
-                    await _engine.ApplyBaseAsync(baseId, progress);
+                    // Con la base ya en caché no hay await real adentro: sin Task.Run, descomprimir
+                    // y copiar el database.xml corría en el hilo de la UI.
+                    await Task.Run(() => _engine.ApplyBaseAsync(baseId, progress));
+                    if (_engine.Manifest != null) PopulateFromManifest();
                 }
 
-                if (_engine.Manifest != null && _engine.ImagesNeedSync())
-                {
-                    SetStatus(Strings.Get("Status_SyncingImages"));
-                    await _engine.SyncImagesAsync(progress);
-                    PopulateFromManifest();
-                }
+                // Los packs de imágenes ya no se aplican acá, ni siquiera el recomendado: se bajan a
+                // mano desde el listado y la pantalla avisa cuando falta alguno (ADR-064).
 
                 SetStatus(Strings.Get("Status_Launching"));
                 _engine.Play();
@@ -367,7 +463,7 @@ namespace L5ArgentinaLauncher
 
         // ---------------- Botones de header ----------------
 
-        private async void RefreshButton_Click(object sender, RoutedEventArgs e) => await RefreshAsync();
+        private void RefreshButton_Click(object sender, RoutedEventArgs e) => StartCheck();
 
         private async void SearchButton_Click(object sender, RoutedEventArgs e)
         {
@@ -429,7 +525,11 @@ namespace L5ArgentinaLauncher
             SetBusy(true, Strings.Get("Status_LoadingPacks"), indeterminate: true);
             try
             {
-                await _engine.LoadPoolManifestAsync();
+                // El pool ya lo trae la búsqueda de novedades: se lo espera si está en camino y se lo
+                // vuelve a pedir solo si no llegó. Antes se pedía de nuevo en cada apertura.
+                await _manifestsTask;
+                if (!_engine.PoolManifestLoaded)
+                    await _engine.LoadPoolManifestAsync();
             }
             catch (Exception ex)
             {
@@ -491,8 +591,9 @@ namespace L5ArgentinaLauncher
                 Text = Strings.Format("Fmt_PackMeta", pack.Version, pack.SizeBytes / 1048576.0),
                 Style = (Style)FindResource("BodySmall"),
             });
-            // El pack incluido se aplica solo al jugar. Se dice acá, en la fila, en vez de esconderlo
-            // del listado: sigue siendo un pack de imágenes como los demás (ADR-055).
+            // El pack que señala el manifest del bucket es el recomendado. Se dice acá, en la fila, en
+            // vez de separarlo: es un pack de imágenes como los demás (ADR-055) y, desde ADR-064,
+            // también se baja a mano.
             if (_engine.IsBundledPack(pack))
                 info.Children.Add(new TextBlock
                 {
@@ -546,8 +647,9 @@ namespace L5ArgentinaLauncher
             }
             else if (_engine.PackIsPending(pack))
             {
-                // Republicado, o un pack que antes no estaba: eso sí es novedad.
-                status.Text = Strings.Get(_engine.PackIsNew(pack) ? "Packs_BrandNew" : "Packs_PendingNew");
+                // Republicado, un pack que antes no estaba, o el recomendado sin bajar.
+                status.Text = Strings.Get(_engine.PackIsNew(pack) ? "Packs_BrandNew"
+                    : _engine.IsBundledPack(pack) ? "Packs_RecommendedMissing" : "Packs_PendingNew");
                 status.Foreground = (Brush)FindResource("Gold");
                 button.Content = Strings.Get("Btn_PackDownload");
             }
@@ -687,7 +789,10 @@ namespace L5ArgentinaLauncher
             _configService.Save(_config);
             SettingsOverlay.Visibility = Visibility.Collapsed;
             InstallPathText.Text = Strings.Format("Fmt_Install", _config.SunAndMoonPath ?? Strings.Get("Common_NotConfigured"));
-            await RefreshAsync();
+            // Lo que estuviera bajando venía del manifest anterior: se corta y se vuelve a buscar.
+            _checkCts?.Cancel();
+            await IgnoreErrors(_checkTask);
+            StartCheck();
         }
 
         private void SettingsCancel_Click(object sender, RoutedEventArgs e)
@@ -763,7 +868,7 @@ namespace L5ArgentinaLauncher
         {
             _busy = busy;
             PlayButton.IsEnabled = !busy;
-            RefreshButton.IsEnabled = !busy;
+            RefreshButton.IsEnabled = !busy && !_checking;
             SettingsButton.IsEnabled = !busy;
             SearchButton.IsEnabled = !busy || _searchWindow != null;
             PacksButton.IsEnabled = !busy;
@@ -778,6 +883,10 @@ namespace L5ArgentinaLauncher
                 Progress.IsIndeterminate = indeterminate;
                 Progress.Value = 0;
             }
+            else if (_checking)
+            {
+                ShowBackgroundProgress(); // la búsqueda de novedades sigue: la barra vuelve a ser suya
+            }
             else
             {
                 Progress.Visibility = Visibility.Collapsed;
@@ -785,7 +894,23 @@ namespace L5ArgentinaLauncher
             }
         }
 
+        private void ShowBackgroundProgress()
+        {
+            if (_busy) return;
+            Progress.Visibility = Visibility.Visible;
+            Progress.IsIndeterminate = true;
+        }
+
         private void SetStatus(string text) => StatusText.Text = text;
+
+        /// <summary>
+        /// Status de la búsqueda en segundo plano: no pisa el de algo que el usuario pidió (JUGAR,
+        /// un pack, abrir el Buscador), que es el que está mirando.
+        /// </summary>
+        private void SetBackgroundStatus(string text)
+        {
+            if (!_busy) SetStatus(text);
+        }
 
         private static string Short(Exception ex)
         {

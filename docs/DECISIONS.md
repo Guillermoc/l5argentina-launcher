@@ -2051,3 +2051,49 @@ round-trip PNG en memoria — así el resto del código (`CardDetailPanel`, `Thu
 en los tres lugares que decodifican desde archivo: el panel de detalle, la miniatura de grilla y la
 previsualización con Alt/portapapeles. El chequeo es barato y no dispara para el resto del catálogo
 (~8850 de 8883 archivos escaneados tienen DPI simétrico), así que no hay costo para el caso normal.
+
+## ADR-064 — Lo necesario para jugar se baja solo y en segundo plano; los packs de imágenes, a mano
+
+**Fecha:** 2026-11-02 · **Estado:** vigente. Corrige en parte [ADR-055](#adr-055): la sección `images`
+del manifest del bucket deja de aplicarse sola al jugar.
+
+**El problema.** La pantalla inicial tenía tres maneras de bajar cosas y no se veía cuál correspondía
+a cada una: el catálogo del Buscador se bajaba solo al abrir, la base Comunidad y el pack Samurai
+Extended se bajaban **al apretar JUGAR**, y los demás packs se bajaban a mano desde un listado en el
+que Samurai Extended también figuraba, con su propio botón. Encima, todo el chequeo inicial corría
+bajo `SetBusy`, que apaga JUGAR, el Buscador, Configuración y la elección de base, y el `HttpClient`
+compartido tiene un timeout de 5 minutos (necesario para los packs de cientos de MB). Con una red
+lenta o colgada, el launcher quedaba trabado al abrir. Así lo reportó un usuario.
+
+**La decisión.** Una regla:
+
+- **Se baja solo, en segundo plano:** la base Comunidad (`DownloadCommunityAsync`, sin aplicarla) y
+  el catálogo del Buscador. JUGAR solo **aplica** la base, que ya está en caché, porque pisar el
+  `database.xml` con el juego abierto no se hace.
+- **Se baja a mano:** **todos** los packs de imágenes, también el recomendado. La pantalla avisa
+  cuándo falta alguno. El recomendado (el que señala `images`) avisa aunque esté en 1.0: sin la
+  aplicación automática, el aviso es lo único que le dice a quien no lo tiene que le falta.
+
+Y el chequeo deja de bloquear: corre sin `SetBusy`, los dos manifests van en paralelo y cada uno
+tiene un tope de 15 s (`ManifestService.FetchTimeout`). Las esperas quedan donde hacen falta: JUGAR
+espera a que la base esté, el listado de packs espera a los manifests (y ya no vuelve a pedir el
+pool en cada apertura) y el catálogo no lo espera nadie.
+
+**Lo que se descartó.**
+- *Bajar también el pack recomendado al abrir.* Gasta cientos de MB aunque el usuario no vaya a
+  jugar, y extraerlo con el juego abierto escribe sobre la carpeta que está leyendo.
+- *Dejarlo en JUGAR, avisando.* JUGAR seguiría haciendo una descarga larga y opcional en el momento
+  en que el usuario quiere entrar al juego, que es justamente la interacción rara de la que se partió.
+- *Un timeout más corto en el `HttpClient` compartido.* Cortaría las descargas grandes. El tope va
+  por pedido, solo para los manifests.
+
+**Consecuencias.**
+- Las descargas de fondo guardan `config.json` desde otro hilo, por eso `ConfigService.Save` pasó a
+  ser con lock. La mutación del `UserConfig` en sí no está serializada: dos escrituras en el mismo
+  instante pueden hacer fallar un `Save` (los de la UI ya eran best-effort), y el siguiente guarda el
+  estado completo.
+- Guardar Configuración cancela la búsqueda en curso, porque lo que estuviera bajando venía del
+  manifest anterior.
+- `SyncImagesAsync` queda en el motor sin uso desde la UI. Su registro
+  (`appliedImagePackVersion/Sha256`) es el que dejaron las versiones anteriores y `PackIsCurrent`
+  lo sigue leyendo, así que quien ya tenía Samurai Extended no lo ve como pendiente.

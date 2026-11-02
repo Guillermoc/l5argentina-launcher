@@ -70,6 +70,24 @@ namespace L5ArgentinaLauncher.Services
                    || !HashUtil.HashesEqual(cached.Sha256, entry.Sha256);
         }
 
+        /// <summary>
+        /// Baja la base Comunidad a la caché si falta o cambió, **sin aplicarla**. La pantalla la llama
+        /// sola apenas carga el manifest, para que JUGAR no tenga que esperar una descarga
+        /// ([ADR-064](../../docs/DECISIONS.md)); pisar el <c>database.xml</c> sigue siendo cosa de
+        /// JUGAR, porque con el juego abierto no se toca.
+        /// </summary>
+        public async Task DownloadCommunityAsync(IProgress<DownloadProgress> progress, CancellationToken ct = default)
+        {
+            var entry = CommunityEntry;
+            if (entry == null || !CommunityNeedsDownload()) return;
+
+            var uri = ManifestService.ResolveFileUri(Config.ManifestUrl, entry.File);
+            await _downloadService.DownloadAndVerifyAsync(uri, entry.Sha256, CachedDatabasePath(entry), progress, ct)
+                .ConfigureAwait(false);
+            Config.CachedDatabases[CommunityId] = new CachedFile { Version = entry.Version, Sha256 = entry.Sha256 };
+            _configService.Save(Config);
+        }
+
         private async Task<string> EnsureCommunityDownloadedAsync(
             IProgress<DownloadProgress> progress, CancellationToken ct)
         {
@@ -77,14 +95,7 @@ namespace L5ArgentinaLauncher.Services
                 ?? throw new InvalidOperationException("El manifest no incluye la base comunidad.");
             var cachedPath = CachedDatabasePath(entry);
 
-            if (CommunityNeedsDownload())
-            {
-                var uri = ManifestService.ResolveFileUri(Config.ManifestUrl, entry.File);
-                await _downloadService.DownloadAndVerifyAsync(uri, entry.Sha256, cachedPath, progress, ct)
-                    .ConfigureAwait(false);
-                Config.CachedDatabases[CommunityId] = new CachedFile { Version = entry.Version, Sha256 = entry.Sha256 };
-                _configService.Save(Config);
-            }
+            await DownloadCommunityAsync(progress, ct).ConfigureAwait(false);
 
             // La base puede venir como .zip (con el database.xml adentro) o como .xml crudo.
             // El SHA-256 se verificó sobre lo descargado; si es zip, extraemos el xml para aplicarlo.
@@ -156,6 +167,12 @@ namespace L5ArgentinaLauncher.Services
             return !HashUtil.HashesEqual(Config.AppliedImagePackSha256, img.Sha256);
         }
 
+        /// <summary>
+        /// Aplica el pack de la sección <c>images</c> del manifest del bucket. **JUGAR ya no lo llama**
+        /// ([ADR-064](../../docs/DECISIONS.md)): los packs se bajan a mano desde el listado, este
+        /// incluido. Queda porque su registro (<c>appliedImagePackSha256</c>) es el que dejaron las
+        /// versiones anteriores, y <see cref="PackIsCurrent"/> lo sigue leyendo.
+        /// </summary>
         public async Task SyncImagesAsync(IProgress<DownloadProgress> progress, CancellationToken ct = default)
         {
             var img = Manifest?.Images;
@@ -274,8 +291,10 @@ namespace L5ArgentinaLauncher.Services
                 .ToList() ?? (IReadOnlyList<PoolPackage>)new List<PoolPackage>();
 
         /// <summary>
-        /// El pack que la sección `images` del manifest del bucket señala: el único que se aplica
-        /// solo al apretar JUGAR. **También está publicado en el pool**, así que se lo reconoce por
+        /// El pack que la sección `images` del manifest del bucket señala: el **recomendado**. Hasta
+        /// [ADR-064](../../docs/DECISIONS.md) se aplicaba solo al apretar JUGAR; ahora se baja a mano
+        /// como los demás, pero avisa aunque esté en su versión inicial (<see cref="PackIsPending"/>).
+        /// **También está publicado en el pool**, así que se lo reconoce por
         /// **hash** y no por id: si algún día los contenidos se separan, los hashes dejan de coincidir
         /// y pasa a ser un pack común.
         ///
@@ -316,11 +335,13 @@ namespace L5ArgentinaLauncher.Services
         /// <summary>
         /// True si el pack merece aparecer como pendiente en la pantalla del launcher: no lo tenemos
         /// aplicado en la versión publicada **y** además es algo que vale la pena avisar — o sea, o
-        /// se republicó (versión distinta de la inicial) o es un pack nuevo que antes no estaba.
+        /// se republicó (versión distinta de la inicial), es un pack nuevo que antes no estaba, o es el
+        /// recomendado: desde que JUGAR dejó de aplicarlo ([ADR-064](../../docs/DECISIONS.md)), el aviso
+        /// es lo único que le dice a quien no lo tiene que le falta.
         /// </summary>
         public bool PackIsPending(PoolPackage pack) =>
             pack != null && !PackIsCurrent(pack) &&
-            (!IsInitialPackVersion(pack.Version) || PackIsNew(pack));
+            (!IsInitialPackVersion(pack.Version) || PackIsNew(pack) || IsBundledPack(pack));
 
         /// <summary>
         /// True si el pack ya está aplicado en esta versión exacta (por hash).

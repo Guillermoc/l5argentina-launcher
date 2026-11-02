@@ -190,6 +190,12 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 - ✅ Un pack **nuevo** avisa aunque salga en 1.0: `knownImagePacks` separa "nunca lo vimos" de "nunca
   lo bajaste", con siembra en la primera vista para no inventar novedades
   ([ADR-056](DECISIONS.md#adr-056)).
+- ✅ **Una sola regla de descargas** y la pantalla no se traba al abrir: la base Comunidad y el
+  catálogo se bajan solos en segundo plano, todos los packs —también Samurai Extended, ahora
+  "recomendado"— son manuales con aviso, y cada manifest tiene un tope de 15 s
+  ([ADR-064](DECISIONS.md#adr-064)).
+- ⬜ El aviso de novedades podría abrir el listado de packs con un click (hoy hay que ir al botón).
+- ⬜ El zip del pack recomendado que dejaba JUGAR en `cache\` ya no se usa: limpiarlo.
 
 **Estado del usuario**
 - ⬜ Aviso al usuario cuando una actualización de la base deja nombres sin resolver (hoy esas

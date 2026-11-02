@@ -56,12 +56,33 @@ namespace L5ArgentinaLauncher.Services
             if (uri.IsFile)
                 return File.ReadAllText(uri.LocalPath);
 
-            using (var resp = await Http.Client.GetAsync(uri, ct).ConfigureAwait(false))
+            using (var cts = CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
-                resp.EnsureSuccessStatusCode();
-                return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                cts.CancelAfter(FetchTimeout);
+                try
+                {
+                    // GetAsync bufferea el cuerpo entero: el tope cubre también la lectura.
+                    using (var resp = await Http.Client.GetAsync(uri, cts.Token).ConfigureAwait(false))
+                    {
+                        resp.EnsureSuccessStatusCode();
+                        return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    }
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    throw new TimeoutException(
+                        "El servidor no respondió en " + FetchTimeout.TotalSeconds + " s (" + uri.Host + ").");
+                }
             }
         }
+
+        /// <summary>
+        /// Tope para bajar un manifest. El <see cref="Http.Client"/> compartido tiene 5 minutos porque
+        /// también baja packs de cientos de MB; un manifest pesa unos KB, y esperarlo 5 minutos con
+        /// una red colgada era lo que dejaba la pantalla "buscando actualizaciones" sin fin
+        /// ([ADR-064](../../docs/DECISIONS.md)).
+        /// </summary>
+        public static readonly TimeSpan FetchTimeout = TimeSpan.FromSeconds(15);
 
         /// <summary>
         /// Resuelve un <c>file</c> relativo del manifest contra el origen del manifest,

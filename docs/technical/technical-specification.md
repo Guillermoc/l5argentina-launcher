@@ -155,8 +155,9 @@ no decida por su cuenta qué se copia sobre la instalación.
 Las imágenes son **una sola familia** y el manifest del pool es quien dice cuáles hay: todo lo que
 tenga `type: "images"` es un pack, venga de un arco oficial o de la comunidad, y uno nuevo aparece solo
 sin tocar el launcher (ADR-055). La sección `images` del manifest del bucket no significa "el pack de
-la comunidad" sino **"este pack se aplica solo al apretar JUGAR"** —una propiedad de un pack, no una
-categoría—; se lo reconoce por hash y en el listado sale marcado. En ambos casos `ImagePackService` extrae **entrada por
+la comunidad" sino **"este es el pack recomendado"** —una propiedad de un pack, no una categoría—; se
+lo reconoce por hash, en el listado sale marcado y avisa aunque esté en 1.0. Como todos los packs, se
+baja a mano: JUGAR solo aplica la base (ADR-064). En ambos casos `ImagePackService` extrae **entrada por
 entrada** sobre `<SunAndMoon>\images\`, resolviendo la ruta destino final y verificando que caiga
 dentro de esa carpeta antes de escribir: es la protección zip-slip, obligatoria desde el día uno. La
 comparación se hace contra la raíz canónica con separador final, así `images-evil` no pasa por

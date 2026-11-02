@@ -49,12 +49,12 @@ src/bin/Debug/net48/L5ArgentinaLauncher.exe --selftest C:\ruta\reporte.txt
 `SelfTest.Run` setea `L5A_DATA_ROOT` a una carpeta temporal y monta un **bucket falso + instalación
 falsa** en `%TEMP%`: ejercita el pipeline real sin tocar nada del usuario, y limpia al terminar.
 
-**382 checks** ([ADR-011](../DECISIONS.md#adr-011)):
+**384 checks** ([ADR-011](../DECISIONS.md#adr-011)):
 
 | Bloque | Cubre |
 |---|---|
-| Pipeline (~86 con los del Buscador no-golden) | `VersionUtil`; parseo del manifest (incl. `latest_version` snake_case); `ResolveFileUri` (relativa OK, otro origen rechazado, `../` rechazado); descarga con hash correcto / hash mal → aborta y **no deja archivo**; base `.zip` con exactamente un `.xml`; zip-slip rechazado; backup Original + backups con timestamp; manifest del pool y `ResolveSameOriginUrl`; catálogo y `FilterPresetStore`. |
-| Packs de imágenes y pendientes (**18**) | La regla de [ADR-054](../DECISIONS.md#adr-054): `IsInitialPackVersion` normaliza `1`/`1.0`/`1.0.0` y rechaza cualquier otra; un pack 1.0 sin descargar **no** es pendiente y no entra en el conteo; uno republicado (1.1) sí; `GetPendingSummary` reporta "todo al día" cuando no hay nada. La de [ADR-055](../DECISIONS.md#adr-055): la lista trae **todos** los `type=images` (el incluido no se esconde), `IsBundledPack` lo reconoce por sha256 y solo a ese, y aplicarlo por JUGAR deja también el registro por id — o el listado lo volvería a ofrecer. Y la de [ADR-056](../DECISIONS.md#adr-056): la primera vista del pool **siembra** los packs conocidos (estrenar la versión no inventa novedades), un pack que aparece después es novedad **aunque esté en 1.0**, y descargarlo lo saca del conteo. |
+| Pipeline (~86 con los del Buscador no-golden) | `VersionUtil`; parseo del manifest (incl. `latest_version` snake_case); `ResolveFileUri` (relativa OK, otro origen rechazado, `../` rechazado); descarga con hash correcto / hash mal → aborta y **no deja archivo**; base `.zip` con exactamente un `.xml`; la predescarga de la base Comunidad no toca el `database.xml` ([ADR-064](../DECISIONS.md#adr-064)); zip-slip rechazado; backup Original + backups con timestamp; manifest del pool y `ResolveSameOriginUrl`; catálogo y `FilterPresetStore`. |
+| Packs de imágenes y pendientes (**19**) | La regla de [ADR-054](../DECISIONS.md#adr-054): `IsInitialPackVersion` normaliza `1`/`1.0`/`1.0.0` y rechaza cualquier otra; un pack 1.0 sin descargar **no** es pendiente y no entra en el conteo; uno republicado (1.1) sí; `GetPendingSummary` reporta "todo al día" cuando no hay nada. La de [ADR-055](../DECISIONS.md#adr-055): la lista trae **todos** los `type=images` (el incluido no se esconde), `IsBundledPack` lo reconoce por sha256 y solo a ese, y aplicarlo por JUGAR deja también el registro por id — o el listado lo volvería a ofrecer. Y la de [ADR-056](../DECISIONS.md#adr-056): la primera vista del pool **siembra** los packs conocidos (estrenar la versión no inventa novedades), un pack que aparece después es novedad **aunque esté en 1.0**, y descargarlo lo saca del conteo. Y la de [ADR-064](../DECISIONS.md#adr-064): el recomendado sin bajar es pendiente aunque esté en 1.0, y un 1.0 común sigue sin serlo. |
 | Golden Buscador | **53 casos** generados con la lógica real de la app Android (criteria serializado + ids esperados; `orderMatters` decide secuencia vs conjunto). |
 | Golden deckbuilder | **25 casos** replicando la secuencia exacta de `DeckRunner.kt` (mismos mazos "Golden N", string exacto del export). |
 | Persistencia de mazos | Round-trip del `.txt` de Sun and Moon, `DeckLibrary` (rename/delete/activo/duplicados), resolución tolerante de nombres. |
@@ -72,7 +72,7 @@ falsa** en `%TEMP%`: ejercita el pipeline real sin tocar nada del usuario, y lim
 Los golden leen sus fixtures de `tests/fixtures/` resolviendo la ruta hacia
 arriba desde el exe (`FindRepoRelative`). Si el exe corre fuera del repo, esos bloques se **omiten**
 sin fallar (aparece `SKIP` en el reporte) — al validar un cambio, verificar que el reporte diga
-**0 FAIL y ningún SKIP**. El total (382 hoy) sube o baja con la batería: no es una constante.
+**0 FAIL y ningún SKIP**. El total (384 hoy) sube o baja con la batería: no es una constante.
 
 ### Costo y cadencia
 
