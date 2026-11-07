@@ -2097,3 +2097,25 @@ pool en cada apertura) y el catálogo no lo espera nadie.
 - `SyncImagesAsync` queda en el motor sin uso desde la UI. Su registro
   (`appliedImagePackVersion/Sha256`) es el que dejaron las versiones anteriores y `PackIsCurrent`
   lo sigue leyendo, así que quien ya tenía Samurai Extended no lo ve como pendiente.
+
+## ADR-065 — "Descargar novedades" baja lo pendiente, no todo lo que falta
+
+**Fecha:** 2026-11-07 · **Estado:** vigente.
+
+**El contexto.** Con [ADR-064](#adr-064) todos los packs de imágenes quedaron manuales. Con varios
+pendientes a la vez (dos arcos republicados, por ejemplo), había que abrir el listado y apretar
+"Descargar" en cada fila, esperando que terminara cada uno.
+
+**La decisión.** Un botón **"Descargar novedades (N)"** al lado del de packs, que aparece solo cuando
+hay algo pendiente y baja exactamente lo que cuenta el aviso de la pantalla: `PackIsPending`, o sea
+los republicados, los nuevos y el recomendado si falta. Un arco viejo en 1.0 que nunca se bajó **no**
+entra, porque es catálogo opcional y sigue en el listado ([ADR-054](#adr-054)). El número del botón
+y el del aviso son el mismo por construcción.
+
+Pide confirmación con el total en MB. Baja de a uno por el mismo camino que el botón de cada fila.
+Si un hash no coincide, corta toda la tanda, con la misma alarma que un pack suelto. Cualquier otro
+error se anota y la tanda sigue, para que un pack caído no deje sin bajar a los demás.
+
+**Lo que se descartó.** *Bajar todo lo que no esté al día*, incluidos los arcos nunca bajados. Para
+un usuario nuevo eso es más de 1 GB detrás de un botón cuyo número no coincidiría con el aviso; quien
+quiera un arco viejo lo elige en el listado.

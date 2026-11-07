@@ -128,7 +128,7 @@ aplica a mano: quedan hasta que se borren.
 
 | Paquete / action | Versión |
 |---|---|
-| `System.Text.Json` | 10.0.10 |
+| `System.Text.Json` | 10.0.11 |
 | `Costura.Fody` | 6.2.0 |
 | `Fody` | 6.9.3 |
 | `Microsoft.NETFramework.ReferenceAssemblies` | 1.0.3 |

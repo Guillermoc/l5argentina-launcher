@@ -5,7 +5,7 @@ Rings* en la app **Sun and Moon**. Resuelve el problema de mantener sincronizada
 nuestra base de cartas curada: en lugar de copiar archivos a mano, el launcher chequea si hay una base
 nueva en nuestro bucket, deja **elegir con qué base jugar**, la aplica de forma segura y lanza el juego.
 
-Versión actual: **0.10.0**.
+Versión actual: **0.11.0**.
 
 > **Documentación:** mapa completo en [docs/README.md](docs/README.md) · estado actual del código en
 > [docs/index/](docs/index/) (empezar por
@@ -52,6 +52,7 @@ Versión actual: **0.10.0**.
 | Proxies y ediciones del `.txt` se leen y se conservan | ✅ | v0.9.0 | [DECISIONS ADR-060](docs/DECISIONS.md#adr-060) |
 | Búsqueda de novedades en segundo plano: la base se baja sola, los packs son manuales | ✅ | v0.10.0 | [DECISIONS ADR-064](docs/DECISIONS.md#adr-064) |
 | El arte con DPI asimétrico ya no se ve en franjas | ✅ | v0.10.0 | [DECISIONS ADR-063](docs/DECISIONS.md#adr-063) |
+| Descargar de una todas las novedades de imágenes | ✅ | v0.11.0 | [DECISIONS ADR-065](docs/DECISIONS.md#adr-065) |
 | Firma del ejecutable (SignPath) | ⏳ esperando aprobación OSS | — | [ROADMAP §1](docs/ROADMAP.md) |
 | Noticias y torneos | ⬜ placeholder en UI, sin implementar | — | [functional/noticias-v2-borrador.md](docs/functional/noticias-v2-borrador.md) |
 | Firma del `manifest.json` | ⏸️ diferido con criterio | — | [DECISIONS ADR-015](docs/DECISIONS.md#adr-015) |

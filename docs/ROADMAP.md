@@ -4,7 +4,9 @@ Qué falta. **Se lee al empezar cualquier sesión**, junto con [index/OVERVIEW.m
 
 Leyenda: ⏳ en curso/esperando · 🔜 próximo · ⬜ pendiente · ⏸️ diferido · 🔁 recurrente · ✅ hecho.
 
-**Estado hoy:** v0.10.0 lista para publicar: la pantalla inicial **busca novedades en segundo
+**Estado hoy:** v0.11.0 lista para publicar: **"Descargar novedades (N)"** baja de una todos los
+packs de imágenes pendientes ([ADR-065](DECISIONS.md#adr-065)), y System.Text.Json pasa a 10.0.11.
+Desde v0.10.0 la pantalla inicial **busca novedades en segundo
 plano** sin trabarse, con una sola regla de descargas —la base Comunidad y el catálogo se bajan solos,
 todos los packs de imágenes son manuales con aviso, Samurai Extended como recomendado— y tope de 15 s
 por manifest ([ADR-064](DECISIONS.md#adr-064)); y el arte con DPI asimétrico ya no se ve en franjas
@@ -195,7 +197,7 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
   "recomendado"— son manuales con aviso, y cada manifest tiene un tope de 15 s
   ([ADR-064](DECISIONS.md#adr-064)).
 - ✅ **"Descargar novedades (N)"** al lado del botón de packs: baja de una todos los pendientes, con
-  confirmación y el total en MB.
+  confirmación y el total en MB ([ADR-065](DECISIONS.md#adr-065)).
 - ⬜ El aviso de novedades podría abrir el listado de packs con un click (hoy hay que ir al botón).
 - ⬜ Cancelar una descarga de packs a mitad de camino (ni el pack suelto ni la tanda tienen cómo).
 - ⬜ El zip del pack recomendado que dejaba JUGAR en `cache\` ya no se usa: limpiarlo.
@@ -227,3 +229,4 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 | v0.8.0 | 2026-08-03 | **Etiquetas de las cartas del mazo**: clasificarlas y verlas agrupadas en pilas, con la carta compartida en todas las suyas, color elegible y filtro por unión o cruce ([ADR-057](DECISIONS.md#adr-057)); **los filtros del Buscador adentro del editor**, con el panel extraído a un control compartido y los prefijos `tx.`/`k.`/`c.`/`t.` en la caja de texto ([ADR-058](DECISIONS.md#adr-058)). |
 | v0.9.0 | 2026-08-28 | **Ajuste de oro por carta**: el orden por coste usa el que se paga según el clan del stronghold, ajustable a mano, con las personalidades agrupadas en escalones de coste efectivo ([ADR-059](DECISIONS.md#adr-059)); **proxies y ediciones del `.txt`** de Sun and Moon se leen y se conservan, con los starter holdings marcados ([ADR-060](DECISIONS.md#adr-060)); **hoja A3 apaisada** en el export a PDF, el doble de cartas por hoja ([ADR-061](DECISIONS.md#adr-061)); el desempate de orden por Set ya no asume `.jpg` ([ADR-062](DECISIONS.md#adr-062)). |
 | v0.10.0 | 2026-11-07 | **Búsqueda de novedades en segundo plano**: la pantalla inicial ya no se traba al abrir; la base Comunidad y el catálogo se bajan solos y JUGAR solo aplica la base; **todos los packs de imágenes son manuales**, con Samurai Extended marcado como recomendado y avisado aunque esté en 1.0; tope de 15 s por manifest, pedidos en paralelo ([ADR-064](DECISIONS.md#adr-064)). El arte con DPI asimétrico se renormaliza al decodificar y deja de verse en franjas ([ADR-063](DECISIONS.md#adr-063)). |
+| v0.11.0 | 2026-11-07 | **"Descargar novedades (N)"** en la pantalla inicial: baja de una todos los packs de imágenes pendientes —lo mismo que cuenta el aviso—, con confirmación y total en MB ([ADR-065](DECISIONS.md#adr-065)). System.Text.Json 10.0.10 → 10.0.11 (Dependabot). |

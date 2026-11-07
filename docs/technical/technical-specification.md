@@ -3,7 +3,7 @@
 Qué hace el launcher hoy y cómo está construido, en prosa y de corrido. Es el documento para leer
 entero: para consulta rápida están los índices ([../index/](../index/)), que son densos a propósito.
 
-**Versión descrita:** v0.10.0 · **Última pasada contra el código:** 2026-11-07.
+**Versión descrita:** v0.11.0 · **Última pasada contra el código:** 2026-11-07.
 Se actualiza en cada **cierre de fase o release**, sección por sección, contra el código real (o
 contra `docs/index/`, que debería estar al día). No en cada commit.
 
@@ -99,7 +99,7 @@ Al abrir, la búsqueda de novedades corre **en segundo plano** y no bloquea nada
 manifests se piden en paralelo, con un tope de 15 segundos cada uno, y la pantalla sigue usable
 mientras tanto. La regla de qué se baja es una sola: la base Comunidad y el catálogo del Buscador se
 bajan solos apenas se sabe que cambiaron; los packs de imágenes, todos, se bajan a mano y la pantalla
-avisa cuando falta alguno. JUGAR solo **aplica** la base que ya está en caché —pisar el
+avisa cuando falta alguno, con un botón que baja de una todos los pendientes (ADR-065). JUGAR solo **aplica** la base que ya está en caché —pisar el
 `database.xml` con el juego abierto no se hace— y, si la búsqueda sigue, espera a que la base esté,
 no al catálogo.
 
@@ -420,7 +420,7 @@ El texto de las cartas viene en un HTML acotado que se renderiza a `Inline`s de 
 `CardTextRenderer`. No hay navegador embebido en ninguna parte, y no lo va a haber: sería convertir
 contenido descargado en superficie de ejecución.
 
-Todos los textos de UI —473 claves— viven en `Strings.resx`, usados con `{loc:Loc Clave}` en XAML y
+Todos los textos de UI —481 claves— viven en `Strings.resx`, usados con `{loc:Loc Clave}` en XAML y
 `Strings.Get/Format` en C#. No hay literales de UI en el código. Con eso, agregar un idioma es crear
 `Strings.<cultura>.resx` y setear `CurrentUICulture`, sin tocar una línea. Hasta los nombres de los
 packs de imágenes salen de claves `Pack_<id>` con fallback al id crudo, así un pack nuevo publicado
