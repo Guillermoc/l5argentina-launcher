@@ -127,6 +127,11 @@ el total). Si el manifest del pool no cargó, los dos lo dicen en vez de afirmar
 (`PoolManifestLoaded`); ahí el único pack del que se sabe algo es el incluido, que viene por el
 manifest del bucket.
 
+**"Descargar novedades (N)"** (pantalla principal, `PacksAllButton_Click`) baja de a uno todos los
+`PackIsPending`, por el mismo camino que el botón de cada fila (`ApplyPackWithProgressAsync`). Un hash
+que no coincide corta la tanda entera; cualquier otro error se anota y sigue con el próximo pack, y
+al final se lista lo que falló. No hay cancelación a mitad de camino, igual que con un pack suelto.
+
 Por pack: `ResolveSameOriginUrl` → descarga verificada a
 `cache/packs/<id>-<version>.zip` → `ImagePackService.ApplyImagePack` sobre `<SunAndMoon>\images\` →
 **se borra el zip** (pesan hasta ~280 MB) → se registra en `config.appliedImagePacks[id]` por hash.

@@ -179,9 +179,14 @@
                                 <TextBlock x:Name="PacksSummaryText" Style="{StaticResource Body}"
                                            Text="{loc:Loc Packs_SummaryChecking}" />
                             </StackPanel>
-                            <Button x:Name="PacksButton" Content="{loc:Loc Btn_Packs}" Style="{StaticResource GhostButton}"
-                                    Height="32" FontSize="15" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                    Click="PacksButton_Click" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <!-- Baja de una lo que cuenta el aviso; solo aparece cuando hay algo. -->
+                                <Button x:Name="PacksAllButton" Style="{StaticResource GhostButton}"
+                                        Height="32" FontSize="15" Margin="0,0,10,0" Visibility="Collapsed"
+                                        Click="PacksAllButton_Click" />
+                                <Button x:Name="PacksButton" Content="{loc:Loc Btn_Packs}" Style="{StaticResource GhostButton}"
+                                        Height="32" FontSize="15" Click="PacksButton_Click" />
+                            </StackPanel>
                         </Grid>
                     </Border>
 

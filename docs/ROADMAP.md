@@ -194,7 +194,10 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
   catálogo se bajan solos en segundo plano, todos los packs —también Samurai Extended, ahora
   "recomendado"— son manuales con aviso, y cada manifest tiene un tope de 15 s
   ([ADR-064](DECISIONS.md#adr-064)).
+- ✅ **"Descargar novedades (N)"** al lado del botón de packs: baja de una todos los pendientes, con
+  confirmación y el total en MB.
 - ⬜ El aviso de novedades podría abrir el listado de packs con un click (hoy hay que ir al botón).
+- ⬜ Cancelar una descarga de packs a mitad de camino (ni el pack suelto ni la tanda tienen cómo).
 - ⬜ El zip del pack recomendado que dejaba JUGAR en `cache\` ya no se usa: limpiarlo.
 
 **Estado del usuario**

@@ -46,7 +46,8 @@ El launcher te va a pedir **dónde está instalado Sun and Moon**:
 **Las imágenes de cartas se bajan a mano**, desde **Packs de imágenes…**. Arriba a la derecha el
 launcher te avisa cuando falta alguno o salió una versión nueva. El pack **Samurai Extended**, que
 trae el arte de nuestras cartas, aparece marcado como *Recomendado*: bajalo una vez y después solo
-cuando avise. Conviene hacerlo con el juego cerrado.
+cuando avise. Conviene hacerlo con el juego cerrado. Si hay varios pendientes, el botón
+**Descargar novedades** baja todos de una.
 
 Si aparece un aviso de que **hay una versión nueva del launcher**, entrá al link de descargas y
 bajá la nueva. El launcher **no se actualiza solo** (es una decisión de seguridad).

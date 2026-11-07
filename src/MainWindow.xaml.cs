@@ -315,6 +315,7 @@ namespace L5ArgentinaLauncher
         /// </summary>
         private void UpdatePacksSummary(bool offline = false)
         {
+            UpdatePacksAllButton();
             if (!_engine.PoolManifestLoaded)
             {
                 PacksSummaryText.Text = Strings.Get(offline ? "Packs_SummaryOffline"
@@ -339,6 +340,18 @@ namespace L5ArgentinaLauncher
                     : Strings.Format("Fmt_PacksSummaryPendingMany", downloaded, packs.Count, pending);
                 PacksSummaryText.Foreground = (Brush)FindResource("Gold");
             }
+        }
+
+        /// <summary>
+        /// "Descargar novedades (N)" baja exactamente lo que cuenta el aviso —<see
+        /// cref="LauncherEngine.PackIsPending"/>—, no todo lo que falta: un arco viejo en 1.0 que
+        /// nunca se bajó es catálogo opcional y sigue en el listado. Sin nada pendiente, no se muestra.
+        /// </summary>
+        private void UpdatePacksAllButton()
+        {
+            var pending = _engine.PoolManifestLoaded ? _engine.ImagePacks.Count(_engine.PackIsPending) : 0;
+            PacksAllButton.Visibility = pending > 0 ? Visibility.Visible : Visibility.Collapsed;
+            PacksAllButton.Content = Strings.Format("Fmt_PacksDownloadAll", pending);
         }
 
         private void PopulateOffline()
@@ -676,17 +689,10 @@ namespace L5ArgentinaLauncher
 
             SetBusy(true, Strings.Format("Fmt_DownloadingPack", PackLabel(pack.Id)), indeterminate: true);
             SetPackButtonsEnabled(false);
-            var progress = new Progress<DownloadProgress>(p =>
-            {
-                OnProgress(p);
-                PacksStatus.Text = p.Fraction.HasValue
-                    ? Strings.Format("Fmt_PackProgress", PackLabel(pack.Id), p.BytesRead / 1048576.0, p.TotalBytes.Value / 1048576.0)
-                    : Strings.Format("Fmt_PackProgressNoTotal", PackLabel(pack.Id), p.BytesRead / 1048576.0);
-            });
 
             try
             {
-                await _engine.ApplyPoolImagePackAsync(pack, progress);
+                await ApplyPackWithProgressAsync(pack, PackLabel(pack.Id));
                 PacksStatus.Text = Strings.Format("Fmt_PackDone", PackLabel(pack.Id));
                 SetStatus(Strings.Format("Fmt_PackDone", PackLabel(pack.Id)));
                 // El pack puede haber traído imágenes que el Buscador resuelva distinto → nada
@@ -712,6 +718,97 @@ namespace L5ArgentinaLauncher
                 SetBusy(false);
                 BuildPacksList();     // re-render de estados + re-habilita botones
                 UpdatePendingStrip(); // el pack que se acaba de aplicar deja de ser pendiente
+                UpdatePacksSummary();
+            }
+        }
+
+        /// <summary>
+        /// Baja y aplica un pack mostrando el avance con <paramref name="label"/> adelante, en el
+        /// listado y en la pantalla principal. Lo comparten el botón de cada fila y el de bajar todas
+        /// las novedades; los errores los decide quien llama.
+        /// </summary>
+        private Task ApplyPackWithProgressAsync(PoolPackage pack, string label)
+        {
+            var progress = new Progress<DownloadProgress>(p =>
+            {
+                OnProgress(p);
+                var text = p.Fraction.HasValue
+                    ? Strings.Format("Fmt_PackProgress", label, p.BytesRead / 1048576.0, p.TotalBytes.Value / 1048576.0)
+                    : Strings.Format("Fmt_PackProgressNoTotal", label, p.BytesRead / 1048576.0);
+                PacksStatus.Text = text;
+                SetStatus(text);
+            });
+            return _engine.ApplyPoolImagePackAsync(pack, progress);
+        }
+
+        /// <summary>
+        /// Baja de una todos los packs pendientes, de a uno. Un hash que no coincide corta todo —es
+        /// la misma alarma que con un pack suelto—; cualquier otro error se anota y se sigue con el
+        /// siguiente, para que un pack caído no deje a los demás sin bajar.
+        /// </summary>
+        private async void PacksAllButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_busy || !_engine.PoolManifestLoaded) return;
+            var pending = _engine.ImagePacks.Where(_engine.PackIsPending).ToList();
+            if (pending.Count == 0) return;
+
+            if (!InstallationService.IsValidInstall(_config.SunAndMoonPath))
+            {
+                await ShowDialogAsync(Strings.Get("Dlg_InstallNotFoundTitle"), Strings.Get("Dlg_InstallNotFoundMsg"),
+                    Strings.Get("Btn_Close"), null, isError: true);
+                return;
+            }
+
+            var totalMb = pending.Sum(p => p.SizeBytes) / 1048576.0;
+            if (!await ShowDialogAsync(Strings.Get("Dlg_PacksAllTitle"),
+                    Strings.Format("Fmt_PacksAllConfirm", pending.Count, totalMb),
+                    Strings.Get("Btn_PacksAllYes"), Strings.Get("Btn_Cancel"), isError: false))
+                return;
+
+            var failed = new List<string>();
+            SetBusy(true, Strings.Get("Status_Preparing"), indeterminate: true);
+            try
+            {
+                for (var i = 0; i < pending.Count; i++)
+                {
+                    var pack = pending[i];
+                    var label = Strings.Format("Fmt_PacksAllStep", i + 1, pending.Count, PackLabel(pack.Id));
+                    SetStatus(label);
+                    try
+                    {
+                        await ApplyPackWithProgressAsync(pack, label);
+                    }
+                    catch (SecurityException ex)
+                    {
+                        await ShowDialogAsync(Strings.Get("Dlg_IntegrityTitle"),
+                            Strings.Get("Dlg_IntegrityMsg") + "\n\n" + ex.Message,
+                            Strings.Get("Btn_Close"), null, isError: true);
+                        SetStatus(Strings.Get("Status_AbortedSecurity"));
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        failed.Add(PackLabel(pack.Id) + ": " + Short(ex));
+                    }
+                }
+
+                var done = pending.Count - failed.Count;
+                if (failed.Count == 0)
+                {
+                    SetStatus(Strings.Format("Fmt_PacksAllDone", done));
+                }
+                else
+                {
+                    SetStatus(Strings.Format("Fmt_PacksAllPartial", done, pending.Count));
+                    await ShowDialogAsync(Strings.Get("Dlg_GenericErrorTitle"),
+                        Strings.Format("Fmt_PacksAllFailed", string.Join("\n", failed)),
+                        Strings.Get("Btn_Close"), null, isError: true);
+                }
+            }
+            finally
+            {
+                SetBusy(false);
+                UpdatePendingStrip();
                 UpdatePacksSummary();
             }
         }
@@ -872,6 +969,7 @@ namespace L5ArgentinaLauncher
             SettingsButton.IsEnabled = !busy;
             SearchButton.IsEnabled = !busy || _searchWindow != null;
             PacksButton.IsEnabled = !busy;
+            PacksAllButton.IsEnabled = !busy;
             CommunityCard.IsEnabled = !busy;
             OriginalCard.IsEnabled = !busy && _engine.HasOriginalBackup();
 

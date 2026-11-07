@@ -267,6 +267,16 @@
   <data name="Fmt_PackProgress" xml:space="preserve"><value>{0}: {1:0.0} MB de {2:0.0} MB</value></data>
   <data name="Fmt_PackProgressNoTotal" xml:space="preserve"><value>{0}: {1:0.0} MB descargados</value></data>
   <data name="Fmt_PackDone" xml:space="preserve"><value>Pack {0} aplicado sobre la instalación.</value></data>
+  <data name="Fmt_PacksDownloadAll" xml:space="preserve"><value>Descargar novedades ({0})</value></data>
+  <data name="Dlg_PacksAllTitle" xml:space="preserve"><value>Descargar novedades de imágenes</value></data>
+  <data name="Fmt_PacksAllConfirm" xml:space="preserve"><value>Se van a descargar {0} packs de imágenes (≈{1:0} MB) y aplicar sobre la carpeta images de Sun and Moon. Conviene hacerlo con el juego cerrado.</value></data>
+  <data name="Btn_PacksAllYes" xml:space="preserve"><value>Descargar</value></data>
+  <data name="Fmt_PacksAllStep" xml:space="preserve"><value>Pack {0} de {1} · {2}</value></data>
+  <data name="Fmt_PacksAllDone" xml:space="preserve"><value>Listo: {0} packs de imágenes aplicados.</value></data>
+  <data name="Fmt_PacksAllPartial" xml:space="preserve"><value>Se aplicaron {0} de {1} packs; algunos fallaron.</value></data>
+  <data name="Fmt_PacksAllFailed" xml:space="preserve"><value>Estos packs no se pudieron descargar. Los demás quedaron aplicados; podés reintentar.
+
+{0}</value></data>
   <data name="Pack_promo" xml:space="preserve"><value>Promo</value></data>
   <data name="Pack_lotus" xml:space="preserve"><value>Lotus</value></data>
   <data name="Pack_samurai" xml:space="preserve"><value>Samurai</value></data>

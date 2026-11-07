@@ -146,7 +146,9 @@ La fila de imágenes resume **todos** los packs (`Imágenes de cartas: N de M pa
 `· K con novedades` en oro cuando corresponde). Antes mostraba un solo pack —el de la comunidad, con
 el nombre fijo en el `.resx`— al lado del botón que abre el listado de los otros: se leía como si
 hablara de todos, y con un segundo pack de la comunidad habría seguido nombrando al primero
-([ADR-055](../DECISIONS.md#adr-055)).
+([ADR-055](../DECISIONS.md#adr-055)). Al lado del botón del listado, **"Descargar novedades (N)"**
+aparece solo cuando hay packs pendientes y baja exactamente esos —lo mismo que cuenta el aviso, no
+los arcos en 1.0 que nunca se bajaron—, previa confirmación con el total en MB.
 
 **No se usan `MessageBox` del sistema** ([ADR-013](../DECISIONS.md#adr-013)). En `MainWindow` los
 errores, confirmaciones, Configuración y Packs de imágenes son *overlays* dentro del lienzo escalado;
