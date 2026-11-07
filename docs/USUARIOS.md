@@ -38,10 +38,15 @@ El launcher te va a pedir **dónde está instalado Sun and Moon**:
 
 ## 4. Uso normal
 
-1. Abrí el launcher. Chequea solo si hay novedades.
+1. Abrí el launcher. Busca novedades solo y, si hay una base Comunidad nueva, la baja en segundo
+   plano. Mientras tanto podés usarlo normalmente.
 2. Elegí la base: **Comunidad** (la nuestra, `s_extended`) u **Original**.
-3. Apretá **JUGAR**. El launcher baja/actualiza lo que haga falta (verificando integridad),
-   reemplaza la base y abre Sun and Moon.
+3. Apretá **JUGAR**. El launcher reemplaza la base (verificando integridad) y abre Sun and Moon.
+
+**Las imágenes de cartas se bajan a mano**, desde **Packs de imágenes…**. Arriba a la derecha el
+launcher te avisa cuando falta alguno o salió una versión nueva. El pack **Samurai Extended**, que
+trae el arte de nuestras cartas, aparece marcado como *Recomendado*: bajalo una vez y después solo
+cuando avise. Conviene hacerlo con el juego cerrado.
 
 Si aparece un aviso de que **hay una versión nueva del launcher**, entrá al link de descargas y
 bajá la nueva. El launcher **no se actualiza solo** (es una decisión de seguridad).

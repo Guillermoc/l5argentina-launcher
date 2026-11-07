@@ -3,7 +3,7 @@
 Qué hace el launcher hoy y cómo está construido, en prosa y de corrido. Es el documento para leer
 entero: para consulta rápida están los índices ([../index/](../index/)), que son densos a propósito.
 
-**Versión descrita:** v0.9.0 · **Última pasada contra el código:** 2026-08-28.
+**Versión descrita:** v0.10.0 · **Última pasada contra el código:** 2026-11-07.
 Se actualiza en cada **cierre de fase o release**, sección por sección, contra el código real (o
 contra `docs/index/`, que debería estar al día). No en cada commit.
 
@@ -95,6 +95,14 @@ estado de sincronización, banner de update, botón JUGAR y los accesos al Busca
 Configuración y a los Packs de imágenes. Toda la lógica de "qué hay que bajar y qué hay que aplicar"
 vive detrás, en `LauncherEngine`; la ventana orquesta y muestra.
 
+Al abrir, la búsqueda de novedades corre **en segundo plano** y no bloquea nada (ADR-064): los dos
+manifests se piden en paralelo, con un tope de 15 segundos cada uno, y la pantalla sigue usable
+mientras tanto. La regla de qué se baja es una sola: la base Comunidad y el catálogo del Buscador se
+bajan solos apenas se sabe que cambiaron; los packs de imágenes, todos, se bajan a mano y la pantalla
+avisa cuando falta alguno. JUGAR solo **aplica** la base que ya está en caché —pisar el
+`database.xml` con el juego abierto no se hace— y, si la búsqueda sigue, espera a que la base esté,
+no al catálogo.
+
 ## 3. Datos externos: los dos manifests
 
 El launcher consume **dos** manifests distintos, con reglas de confianza distintas.
@@ -102,7 +110,7 @@ El launcher consume **dos** manifests distintos, con reglas de confianza distint
 El **manifest del launcher** vive en nuestro bucket R2 y su URL —`AppConstants.DefaultManifestUrl`—
 es editable por el usuario desde Configuración, con el default hardcodeado y restaurable. Trae la
 versión más reciente del launcher (solo el número: el link de descarga jamás sale de acá), la lista
-de bases, el pack de imágenes propio de la comunidad, una sección opcional `catalog` y un `news[]`
+de bases, el pack de imágenes recomendado, una sección opcional `catalog` y un `news[]`
 todavía sin usar. Todas sus rutas son **relativas**: se resuelven contra la URL del manifest
 exigiendo mismo esquema, host y puerto, y que queden dentro de su directorio. Un manifest no puede
 mandar al launcher a descargar de otro dominio ni escapar con `../`.
@@ -113,8 +121,9 @@ ese pipeline específicamente para el launcher; la app Android ignora el campo�
 packs de imágenes oficiales por arco (Lotus, Samurai, Celestial, Emperor, Ivory, Twenty Festivals,
 Promo) y, desde v0.2.0, el catálogo del Buscador. El pool publica **también** el pack Samurai
 Extended, que es el mismo archivo que la sección `images` de nuestro manifest: el launcher lo
-reconoce por hash y no lo ofrece en el overlay de packs, porque estaba haciendo que se descargara dos
-veces y que cada camino llevara su propio registro de "aplicado" ([ADR-048](../DECISIONS.md#adr-048)). Como sus URLs son absolutas se
+reconoce por hash y lo muestra en el listado como uno más, marcado como recomendado, manteniendo en
+sincronía los dos registros de "aplicado" que tuvo históricamente
+([ADR-048](../DECISIONS.md#adr-048), [ADR-055](../DECISIONS.md#adr-055)). Como sus URLs son absolutas se
 validan distinto: se exige **mismo origen** que el manifest, sin exigir mismo directorio, porque el
 pool publica el manifest en `/production/` y los archivos en `/pool/`. La confianza sigue confinada
 al mismo bucket.
@@ -137,7 +146,10 @@ manifest. Vale para la base de comunidad, para el pack de imágenes propio, para
 para cada uno de los tres archivos del catálogo.
 
 El `HttpClient` es único para todo el proceso, con un user-agent propio y timeout de 5 minutos: hay
-packs de imágenes que pesan cientos de megas.
+packs de imágenes que pesan cientos de megas. Los manifests, que pesan unos KB, tienen un tope propio
+de 15 segundos por pedido (`ManifestService.FetchTimeout`): con el de 5 minutos, una red colgada
+dejaba la pantalla buscando actualizaciones sin fin (ADR-064). Como las descargas de fondo guardan la
+config desde otro hilo, `ConfigService.Save` es con lock.
 
 ## 5. Archivos del juego: bases, backups e imágenes
 
@@ -386,7 +398,9 @@ Los controles siguen una taxonomía explícita —una forma por rol— en vez de
 primera versión: rieles verticales para colapsar paneles, pestañas adosadas para cambiar el contenido
 de un panel, segmentados para selección exclusiva, píldoras solo para filtros on/off, y menús
 desplegables para las acciones ocasionales. El arte de carta se dibuja como `ImageBrush` sobre un
-borde redondeado, sin marco: los escaneos son rectangulares y las esquinas blancas asomaban.
+borde redondeado, sin marco: los escaneos son rectangulares y las esquinas blancas asomaban. Algunos
+`.jpg` del pool traen un DPI horizontal absurdo (`XResolution=1`) y WPF los compone en franjas: se
+renormalizan a 96×96 al decodificar, sin tocar el archivo, que es ajeno (ADR-063).
 
 No se usa ningún `MessageBox` del sistema. En `MainWindow` los errores, confirmaciones, Configuración
 y el menú de packs son overlays dentro del lienzo escalado; el Buscador y el editor, que no tienen
@@ -395,7 +409,8 @@ Cerrar `MainWindow` cierra la aplicación entera y por eso confirma primero; las
 cierran solas. La pantalla principal lleva además un **aviso de novedades** que siempre dice algo —lo
 que falta bajar, o "Todo al día"—, con una regla explícita de qué es novedad: un pack de imágenes en su
 versión inicial no lo es, salvo que sea un pack **nuevo**, que aparece después de la primera vez que
-este launcher vio el pool (ADR-054, ADR-056). La estética —pergamino cálido, rojo lacado
+este launcher vio el pool, o que sea el **recomendado** sin bajar (ADR-054, ADR-056, ADR-064). Mientras
+corre la búsqueda dice "Verificando…" en vez de adelantar un "Todo al día". La estética —pergamino cálido, rojo lacado
 para la acción, oro decorativo, tipografía de marca L5RTitles— vive en `Themes/Theme.xaml`, que
 además tematiza hasta las scrollbars; los estilos que comparten el Buscador y el editor están en
 `Views/CardUiStyles.xaml`, y el panel de detalle de carta y el de filtros son controles
@@ -405,7 +420,7 @@ El texto de las cartas viene en un HTML acotado que se renderiza a `Inline`s de 
 `CardTextRenderer`. No hay navegador embebido en ninguna parte, y no lo va a haber: sería convertir
 contenido descargado en superficie de ejecución.
 
-Todos los textos de UI —455 claves— viven en `Strings.resx`, usados con `{loc:Loc Clave}` en XAML y
+Todos los textos de UI —473 claves— viven en `Strings.resx`, usados con `{loc:Loc Clave}` en XAML y
 `Strings.Get/Format` en C#. No hay literales de UI en el código. Con eso, agregar un idioma es crear
 `Strings.<cultura>.resx` y setear `CurrentUICulture`, sin tocar una línea. Hasta los nombres de los
 packs de imágenes salen de claves `Pack_<id>` con fallback al id crudo, así un pack nuevo publicado

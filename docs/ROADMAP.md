@@ -4,11 +4,11 @@ Qué falta. **Se lee al empezar cualquier sesión**, junto con [index/OVERVIEW.m
 
 Leyenda: ⏳ en curso/esperando · 🔜 próximo · ⬜ pendiente · ⏸️ diferido · 🔁 recurrente · ✅ hecho.
 
-**Estado hoy:** v0.9.0 lista para publicar: **ajuste de oro por carta** con escalones de coste
-efectivo ([ADR-059](DECISIONS.md#adr-059)); **proxies y ediciones del `.txt`** se leen y se
-conservan, con los starter holdings marcados ([ADR-060](DECISIONS.md#adr-060)); **A3 apaisado** en
-el export a PDF, el doble de cartas por hoja ([ADR-061](DECISIONS.md#adr-061)); y el desempate de
-orden por Set ya no asume `.jpg` ([ADR-062](DECISIONS.md#adr-062)). Batería en verde (382 checks).
+**Estado hoy:** v0.10.0 lista para publicar: la pantalla inicial **busca novedades en segundo
+plano** sin trabarse, con una sola regla de descargas —la base Comunidad y el catálogo se bajan solos,
+todos los packs de imágenes son manuales con aviso, Samurai Extended como recomendado— y tope de 15 s
+por manifest ([ADR-064](DECISIONS.md#adr-064)); y el arte con DPI asimétrico ya no se ve en franjas
+([ADR-063](DECISIONS.md#adr-063)). Batería en verde (384 checks).
 **Foco actual:** SEC-6 (firma del exe con SignPath, esperando aprobación OSS).
 
 > ⚠️ **Sin revisar desde antes del 2026-08-03** (triage del hub, 2026-08-12): confirmar que "Estado
@@ -223,3 +223,4 @@ Ref: `src/MainWindow.xaml.cs` (Configuración).
 | v0.7.0 | 2026-07-31 | **Exportar el mazo a PDF** para imprimir proxies, 3×3 a tamaño real y escrito a mano sin librería ([ADR-049](DECISIONS.md#adr-049)); Buscador y Mazos abren juntos como un **espacio de trabajo** y las ventanas que abren otra la corren en diagonal ([ADR-052](DECISIONS.md#adr-052)); paneles **agrupados por objeto** y ajustables con el mouse ([ADR-051](DECISIONS.md#adr-051)); pasada sobre las botoneras ([ADR-050](DECISIONS.md#adr-050)); miniaturas con **cola propia de decodificación** en vez de `IsAsync` ([ADR-053](DECISIONS.md#adr-053)); el launcher **avisa si hay novedades** o dice "Todo al día", con los packs de imágenes como una sola familia ([ADR-054](DECISIONS.md#adr-054), [ADR-055](DECISIONS.md#adr-055), [ADR-056](DECISIONS.md#adr-056)). |
 | v0.8.0 | 2026-08-03 | **Etiquetas de las cartas del mazo**: clasificarlas y verlas agrupadas en pilas, con la carta compartida en todas las suyas, color elegible y filtro por unión o cruce ([ADR-057](DECISIONS.md#adr-057)); **los filtros del Buscador adentro del editor**, con el panel extraído a un control compartido y los prefijos `tx.`/`k.`/`c.`/`t.` en la caja de texto ([ADR-058](DECISIONS.md#adr-058)). |
 | v0.9.0 | 2026-08-28 | **Ajuste de oro por carta**: el orden por coste usa el que se paga según el clan del stronghold, ajustable a mano, con las personalidades agrupadas en escalones de coste efectivo ([ADR-059](DECISIONS.md#adr-059)); **proxies y ediciones del `.txt`** de Sun and Moon se leen y se conservan, con los starter holdings marcados ([ADR-060](DECISIONS.md#adr-060)); **hoja A3 apaisada** en el export a PDF, el doble de cartas por hoja ([ADR-061](DECISIONS.md#adr-061)); el desempate de orden por Set ya no asume `.jpg` ([ADR-062](DECISIONS.md#adr-062)). |
+| v0.10.0 | 2026-11-07 | **Búsqueda de novedades en segundo plano**: la pantalla inicial ya no se traba al abrir; la base Comunidad y el catálogo se bajan solos y JUGAR solo aplica la base; **todos los packs de imágenes son manuales**, con Samurai Extended marcado como recomendado y avisado aunque esté en 1.0; tope de 15 s por manifest, pedidos en paralelo ([ADR-064](DECISIONS.md#adr-064)). El arte con DPI asimétrico se renormaliza al decodificar y deja de verse en franjas ([ADR-063](DECISIONS.md#adr-063)). |

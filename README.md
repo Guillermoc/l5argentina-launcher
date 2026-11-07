@@ -5,7 +5,7 @@ Rings* en la app **Sun and Moon**. Resuelve el problema de mantener sincronizada
 nuestra base de cartas curada: en lugar de copiar archivos a mano, el launcher chequea si hay una base
 nueva en nuestro bucket, deja **elegir con qué base jugar**, la aplica de forma segura y lanza el juego.
 
-Versión actual: **0.9.0**.
+Versión actual: **0.10.0**.
 
 > **Documentación:** mapa completo en [docs/README.md](docs/README.md) · estado actual del código en
 > [docs/index/](docs/index/) (empezar por
@@ -22,7 +22,7 @@ Versión actual: **0.9.0**.
 |---|---|---|---|
 | Detección de la instalación + captura de la base Original | ✅ | v0.1.0 | [index/sincronizacion.md](docs/index/sincronizacion.md) |
 | Sincronizar y aplicar la base (Comunidad / Original) | ✅ | v0.1.0 | [index/sincronizacion.md](docs/index/sincronizacion.md) |
-| Pack de imágenes propio de la comunidad | ✅ | v0.1.0 | [index/sincronizacion.md](docs/index/sincronizacion.md) |
+| Pack de imágenes propio de la comunidad (manual y recomendado desde v0.10.0) | ✅ | v0.1.0 | [DECISIONS ADR-064](docs/DECISIONS.md#adr-064) |
 | Aviso de versión nueva del launcher | ✅ | v0.1.0 | [DECISIONS ADR-009](docs/DECISIONS.md#adr-009) |
 | Configuración (carpeta del juego, URL del manifest) + modo offline | ✅ | v0.1.0 | [index/sincronizacion.md](docs/index/sincronizacion.md) |
 | Buscador de cartas (filtros, grilla/tabla, detalle) | ✅ | v0.2.0 | [index/buscador.md](docs/index/buscador.md) |
@@ -50,6 +50,8 @@ Versión actual: **0.9.0**.
 | Los filtros del Buscador, también sobre las cartas del mazo | ✅ | v0.8.0 | [DECISIONS ADR-058](docs/DECISIONS.md#adr-058) |
 | Ajuste de oro por carta (coste que se paga, no el impreso) | ✅ | v0.9.0 | [DECISIONS ADR-059](docs/DECISIONS.md#adr-059) |
 | Proxies y ediciones del `.txt` se leen y se conservan | ✅ | v0.9.0 | [DECISIONS ADR-060](docs/DECISIONS.md#adr-060) |
+| Búsqueda de novedades en segundo plano: la base se baja sola, los packs son manuales | ✅ | v0.10.0 | [DECISIONS ADR-064](docs/DECISIONS.md#adr-064) |
+| El arte con DPI asimétrico ya no se ve en franjas | ✅ | v0.10.0 | [DECISIONS ADR-063](docs/DECISIONS.md#adr-063) |
 | Firma del ejecutable (SignPath) | ⏳ esperando aprobación OSS | — | [ROADMAP §1](docs/ROADMAP.md) |
 | Noticias y torneos | ⬜ placeholder en UI, sin implementar | — | [functional/noticias-v2-borrador.md](docs/functional/noticias-v2-borrador.md) |
 | Firma del `manifest.json` | ⏸️ diferido con criterio | — | [DECISIONS ADR-015](docs/DECISIONS.md#adr-015) |
@@ -64,7 +66,8 @@ Versión actual: **0.9.0**.
   propio, que después se ofrece como la base **Original** (sin nuestras modificaciones). Si detecta que
   la base actual ya parece modificada, avisa.
 - **Chequea actualizaciones.** Al abrir, descarga el `manifest.json` del bucket y compara versiones/hashes
-  contra lo que hay en caché local.
+  contra lo que hay en caché local. Lo hace **en segundo plano**, sin trabar la pantalla, y si hay una
+  base Comunidad nueva la baja sola; JUGAR solo la aplica (desde 0.10.0).
 - **Deja elegir la base:**
   - **Comunidad** (`s_extended`): la base curada por nosotros. Se descarga del bucket (viene comprimida
     en `.zip`; el launcher la verifica, extrae el `database.xml` y lo aplica).
@@ -72,9 +75,10 @@ Versión actual: **0.9.0**.
   - Recuerda la última elección.
 - **Aplica la base de forma segura.** Antes de pisar el `database.xml` vigente, hace un backup con
   timestamp; verifica el **SHA-256** de lo descargado contra el manifest antes de tocar nada.
-- **Sincroniza las imágenes propias.** Descarga (solo si cambió) el pack de imágenes de las cartas que no
-  están en los packs clásicos, verifica su SHA-256 y lo extrae sobre la carpeta de imágenes con
-  **protección zip-slip**.
+- **Avisa de las imágenes propias.** El pack de las cartas que no están en los packs clásicos
+  (Samurai Extended) aparece como *recomendado* en el menú de packs y el launcher avisa cuando falta o
+  cambió; se baja a mano, se verifica su SHA-256 y se extrae con **protección zip-slip**. Hasta 0.9.0
+  se aplicaba solo al apretar JUGAR.
 - **Lanza Sun and Moon** (la instalación del usuario).
 - **Buscador de cartas** (desde 0.2.0): ventana propia con la **misma semántica de filtros que la app
   Android L5Argentina** — el motor es un port 1:1 verificado contra 53 *golden tests* generados con la

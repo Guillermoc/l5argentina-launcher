@@ -3,7 +3,7 @@
 Índice raíz del launcher. **Se lee al empezar cualquier sesión**, junto con
 [../ROADMAP.md](../ROADMAP.md). Regla: leer los índices antes que el código fuente.
 
-Última actualización: **v0.9.0** (2026-08-28).
+Última actualización: **v0.10.0** (2026-11-07).
 
 ---
 
@@ -16,7 +16,7 @@
 | **Empaquetado** | **Costura.Fody** embebe los DLLs → un único `.exe` (~7 MB). Se distribuye solo el exe. |
 | **Arquitectura en una línea** | UI (WPF, 5 ventanas) → `LauncherEngine` coordina → `Services/` (red, hash, archivos) + motores portados 1:1 de la app Android (`Services/Search`, `Services/Deck`). |
 | **Datos** | Bucket Cloudflare R2 (dos manifests: el del launcher y el del pool/CDN de la app). El launcher **solo descarga datos, nunca código**. |
-| **Versión** | `AppConstants.LauncherVersion` = `0.9.0` (y `<Version>` del csproj — se bumpean juntos). |
+| **Versión** | `AppConstants.LauncherVersion` = `0.10.0` (y `<Version>` del csproj — se bumpean juntos). |
 | **Verificación** | `--selftest`: la batería completa en verde (pipeline + 53 golden del Buscador + 25 del deckbuilder). Conteo al día en [build-verificacion.md](build-verificacion.md). |
 | **Idioma de UI** | Español, 100 % en `src/Resources/Strings.resx` (i18n listo, sin segundo idioma hoy). |
 
@@ -68,7 +68,7 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 
 | Archivo | Qué hace |
 |---|---|
-| `MainWindow.xaml(.cs)` | Ventana principal: selección de base, banner de update, sincronización, JUGAR, overlays de Configuración y Packs de imágenes. |
+| `MainWindow.xaml(.cs)` | Ventana principal: selección de base, banner de update, búsqueda de novedades en segundo plano ([ADR-064](../DECISIONS.md#adr-064)), JUGAR, overlays de Configuración y Packs de imágenes. |
 | `Views/FirstRunWindow.xaml(.cs)` | Primer arranque: elegir `Sun and Moon.exe`, validar la instalación, capturar la base **Original**. |
 | `Views/SearchWindow.xaml(.cs)` | Buscador: filtros en vivo, tabla/grilla virtualizada, panel derecho Carta \| Mazo, selector de conjunto activo y presets. Al final del archivo viven `GridCell`, `ThumbnailCache` (LRU de dos niveles) y `ThumbnailLoader` (cola de decodificación), que comparte el editor de Mazos. |
 | `Views/CardFilterPanel.xaml(.cs)` | Panel de filtros compartido por el Buscador y el editor de Mazos ([ADR-058](../DECISIONS.md#adr-058)): llena un `CardSearchCriteria`, no busca. |
@@ -78,6 +78,7 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 | `Views/CardUiStyles.xaml` | Estilos XAML compartidos entre ambas ventanas (chips, checkboxes, celdas). |
 | `Views/CardTextRenderer.cs` | HTML acotado del texto de carta → `Inline`s de WPF. **Nunca** WebView. |
 | `Views/CardImageClipboard.cs` | Arte a tamaño completo al portapapeles (click derecho) y para la previsualización con Alt: re-decodifica el archivo, no copia la miniatura de la grilla. |
+| `Views/CardImageDpiFix.cs` | Renormaliza a 96×96 el arte con DPI horizontal/vertical asimétrico, que WPF dibuja en franjas; se aplica en los tres lugares que decodifican desde archivo ([ADR-063](../DECISIONS.md#adr-063)). |
 | `Views/Dialogs.cs` | `Prompt` / `Confirm` / `Ask` / `Info` con la estética de la app, para Buscador y Mazos (que no tienen overlay propio). Nada de `MessageBox`. |
 | `Views/HoverPreviewPlacer.cs` | Ubica la previsualización con Alt garantizando que **el cursor nunca quede adentro** del popup (el volteo de `Placement=Mouse` lo metía debajo del mouse contra el borde derecho y arrancaba un parpadeo infinito) — [ADR-052](../DECISIONS.md#adr-052). |
 | `Views/WindowSizingFix.cs` | Acota Buscador y Mazos al **área de trabajo** del monitor al abrir y al maximizar (`WM_GETMINMAXINFO`): sin esto quedaban debajo de la barra de tareas. |
@@ -139,7 +140,7 @@ Configuración y Packs de imágenes no son ventanas: son *overlays* dentro de `M
 
 | Origen | Qué trae | Constante |
 |---|---|---|
-| Manifest del launcher (bucket R2) | Base Comunidad (`.zip`/`.xml`), pack de imágenes propio, versión del launcher, sección opcional `catalog`. | `AppConstants.DefaultManifestUrl` (editable por el usuario) |
+| Manifest del launcher (bucket R2) | Base Comunidad (`.zip`/`.xml`), pack de imágenes recomendado, versión del launcher, sección opcional `catalog`. | `AppConstants.DefaultManifestUrl` (editable por el usuario) |
 | Manifest del pool (CDN de la app Android, canal `production`) | Packs de imágenes oficiales por arco + catálogo del Buscador (`cards_db`/`rules`/`filters`). **Fuente primaria del catálogo**; la sección `catalog` del manifest del launcher es solo respaldo ([ADR-021](../DECISIONS.md#adr-021)). | `AppConstants.PoolManifestUrl` (**hardcodeado**) |
 | Página de Releases | Link del aviso "hay versión nueva". | `AppConstants.ReleasesPageUrl` (**hardcodeado**, nunca del manifest) |
 
